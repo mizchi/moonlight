@@ -117,7 +117,7 @@ pub struct Viewport {
 
 ## テスト
 
-E2E テスト (Playwright): 33 件
+E2E テスト (Playwright): 38 件
 
 | カテゴリ | テスト数 |
 |----------|----------|
@@ -129,6 +129,8 @@ E2E テスト (Playwright): 33 件
 | Undo/Redo | 5 |
 | リサイズ | 3 |
 | キーボード | 4 |
+| ズーム | 4 |
+| グリッド | 1 |
 | デバッグ | 2 |
 
 ---
@@ -250,6 +252,6 @@ undo_stack.push(command)
 - [ ] skip: 複数選択
 - [ ] skip: グループ化
 - [x] レイヤー順序変更 (Bring to Front / Send to Back)
-- [ ] ズーム/パン
-- [ ] グリッドスナップ
+- [x] ズーム/パン (ホイール、ボタン)
+- [x] グリッドスナップ
 - [x] SVG エクスポート

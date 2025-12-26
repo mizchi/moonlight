@@ -11,6 +11,8 @@ pub struct EditorState {
   resize_state : @luna.Signal[@model.ResizeState?] // リサイズ状態
   context_menu : @luna.Signal[@model.ContextMenu?] // コンテキストメニュー
   viewport : @luna.Signal[@model.Viewport] // ビューポート
+  grid_enabled : @luna.Signal[Bool] // グリッドスナップ有効
+  grid_size : @luna.Signal[Int] // グリッドサイズ（ピクセル）
 }
 
 ///|
@@ -25,7 +27,27 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     resize_state: @luna.signal(None),
     context_menu: @luna.signal(None),
     viewport: @luna.signal(@model.Viewport::default()),
+    grid_enabled: @luna.signal(false),
+    grid_size: @luna.signal(20),
   }
+}
+
+///|
+/// グリッドスナップを切り替え
+pub fn EditorState::toggle_grid(self : EditorState) -> Unit {
+  self.grid_enabled.update(fn(v) { not(v) })
+}
+
+///|
+/// 座標をグリッドにスナップ
+pub fn EditorState::snap_to_grid(self : EditorState, x : Double, y : Double) -> (Double, Double) {
+  if not(self.grid_enabled.get()) {
+    return (x, y)
+  }
+  let size = self.grid_size.get().to_double()
+  let snapped_x = (x / size).round() * size
+  let snapped_y = (y / size).round() * size
+  (snapped_x, snapped_y)
 }
 
 ///|
@@ -117,7 +139,8 @@ pub fn EditorState::drag_move(
 ) -> Unit {
   guard self.drag_state.get() is Some(state)
   let pos = @model.calc_drag_position(state.offset_x, state.offset_y, mouse_x, mouse_y)
-  self.move_element(state.element_id, pos.x, pos.y)
+  let (snapped_x, snapped_y) = self.snap_to_grid(pos.x, pos.y)
+  self.move_element(state.element_id, snapped_x, snapped_y)
 }
 
 ///|
@@ -300,6 +323,46 @@ pub fn EditorState::send_to_back(self : EditorState, id : String) -> (Int, Int)?
     }
   }
   None
+}
+
+// ============================================================
+// ズーム/パン操作
+// ============================================================
+
+///|
+/// ズームイン
+pub fn EditorState::zoom_in(self : EditorState) -> Unit {
+  self.viewport.update(fn(vp) {
+    let new_zoom = vp.zoom * 1.25
+    // 最大 400%
+    let clamped = if new_zoom > 4.0 { 4.0 } else { new_zoom }
+    { ..vp, zoom: clamped }
+  })
+}
+
+///|
+/// ズームアウト
+pub fn EditorState::zoom_out(self : EditorState) -> Unit {
+  self.viewport.update(fn(vp) {
+    let new_zoom = vp.zoom / 1.25
+    // 最小 25%
+    let clamped = if new_zoom < 0.25 { 0.25 } else { new_zoom }
+    { ..vp, zoom: clamped }
+  })
+}
+
+///|
+/// ビューポートをリセット
+pub fn EditorState::reset_viewport(self : EditorState) -> Unit {
+  self.viewport.set(@model.Viewport::default())
+}
+
+///|
+/// パン（スクロール）
+pub fn EditorState::pan(self : EditorState, dx : Double, dy : Double) -> Unit {
+  self.viewport.update(fn(vp) {
+    { ..vp, scroll_x: vp.scroll_x + dx, scroll_y: vp.scroll_y + dy }
+  })
 }
 
 // ============================================================

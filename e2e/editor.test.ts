@@ -184,6 +184,38 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.getByRole('button', { name: 'Export SVG' })).toBeVisible();
   });
 
+  test('should have zoom controls', async ({ page }) => {
+    await expect(page.getByRole('button', { name: '-' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '+' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reset' })).toBeVisible();
+    await expect(page.getByText('100%')).toBeVisible();
+  });
+
+  test('should zoom in when clicking + button', async ({ page }) => {
+    await page.getByRole('button', { name: '+' }).click();
+    await expect(page.getByText('125%')).toBeVisible();
+  });
+
+  test('should zoom out when clicking - button', async ({ page }) => {
+    await page.getByRole('button', { name: '-' }).click();
+    await expect(page.getByText('80%')).toBeVisible();
+  });
+
+  test('should reset zoom when clicking Reset button', async ({ page }) => {
+    // Zoom in first
+    await page.getByRole('button', { name: '+' }).click();
+    await expect(page.getByText('125%')).toBeVisible();
+
+    // Reset
+    await page.getByRole('button', { name: 'Reset' }).click();
+    await expect(page.getByText('100%')).toBeVisible();
+  });
+
+  test('should have grid snap checkbox', async ({ page }) => {
+    await expect(page.getByText('Grid Snap')).toBeVisible();
+    await expect(page.locator('input[type="checkbox"]')).toBeVisible();
+  });
+
   test('should undo adding a shape', async ({ page }) => {
     const initialRectCount = await page.locator('svg rect').count();
 

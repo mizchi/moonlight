@@ -196,10 +196,41 @@ pub fn render_svg_container(
   on_contextmenu : (@js.Any) -> Unit,
   children : Array[@js.Any],
 ) -> @js.Any {
+  render_svg_container_with_viewport(
+    width,
+    height,
+    @model.Viewport::default(),
+    on_mousedown,
+    on_mousemove,
+    on_mouseup,
+    on_contextmenu,
+    fn(_) {  },
+    children,
+  )
+}
+
+///|
+/// SVG コンテナを作成（ビューポート対応）
+pub fn render_svg_container_with_viewport(
+  width : Int,
+  height : Int,
+  viewport : @model.Viewport,
+  on_mousedown : (@js.Any) -> Unit,
+  on_mousemove : (@js.Any) -> Unit,
+  on_mouseup : (@js.Any) -> Unit,
+  on_contextmenu : (@js.Any) -> Unit,
+  on_wheel : (@js.Any) -> Unit,
+  children : Array[@js.Any],
+) -> @js.Any {
+  // viewBox をビューポートに基づいて計算
+  let vb_width = width.to_double() / viewport.zoom
+  let vb_height = height.to_double() / viewport.zoom
+  let vb_x = viewport.scroll_x
+  let vb_y = viewport.scroll_y
   let attrs : Array[(String, String)] = [
     ("width", width.to_string()),
     ("height", height.to_string()),
-    ("viewBox", "0 0 \{width} \{height}"),
+    ("viewBox", "\{vb_x} \{vb_y} \{vb_width} \{vb_height}"),
     ("style", "border: 1px solid #ccc; background: #fafafa; user-select: none;"),
   ]
   let handlers : Array[(String, (@js.Any) -> Unit)] = [
@@ -207,6 +238,7 @@ pub fn render_svg_container(
     ("mousemove", on_mousemove),
     ("mouseup", on_mouseup),
     ("contextmenu", on_contextmenu),
+    ("wheel", on_wheel),
   ]
   let svg = create_svg_element("svg", attrs, handlers)
   for child in children {

@@ -80,12 +80,23 @@ fn editor_app() -> @element.DomNode {
   // SVG コンテナへの参照
   let svg_ref : Ref[@js.Any?] = { val: None }
 
+  // マウス座標をシーン座標に変換するヘルパー
+  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let svg = e._get("currentTarget")
+    let rect = svg._call("getBoundingClientRect", [])
+    let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+    let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    let vp = state.viewport.get()
+    let scene = vp.screen_to_scene(screen_x, screen_y)
+    (scene.x, scene.y)
+  }
+
   // マウスイベントハンドラ
   let on_mousedown : (@js.Any) -> Unit = fn(e) {
     // コンテキストメニューを閉じる
     state.hide_context_menu()
 
-    let mouse_event : @js_dom.MouseEvent = e.cast()
     let target = e._get("target")
     let dataset = target._get("dataset")
 
@@ -96,17 +107,15 @@ fn editor_app() -> @element.DomNode {
       let element_id_raw = dataset._get("elementId")
       if not(@js.is_nullish(element_id_raw)) {
         let element_id : String = element_id_raw.cast()
-        let svg = e._get("currentTarget")
-        let rect = svg._call("getBoundingClientRect", [])
-        let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
-        let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+        // viewport 考慮した座標を取得
+        let (scene_x, scene_y) = get_scene_coords(e)
         let handle = match handle_str {
           "nw" => @model.NW
           "ne" => @model.NE
           "sw" => @model.SW
           _ => @model.SE
         }
-        state.start_resize(element_id, handle, svg_x, svg_y)
+        state.start_resize(element_id, handle, scene_x, scene_y)
         return
       }
     }
@@ -118,30 +127,23 @@ fn editor_app() -> @element.DomNode {
       Some(data_id_raw.cast())
     }
 
-    // SVG 要素の座標を取得
-    let svg = e._get("currentTarget")
-    let rect = svg._call("getBoundingClientRect", [])
-    let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
-    let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    // SVG 要素の座標を取得（viewport 考慮）
+    let (scene_x, scene_y) = get_scene_coords(e)
     if data_id is Some(id) {
       // 要素をクリック - 選択してドラッグ開始
       state.select(Some(id))
-      state.start_drag(id, svg_x, svg_y)
+      state.start_drag(id, scene_x, scene_y)
     } else {
       // 空白をクリック - 選択解除
       state.select(None)
     }
   }
   let on_mousemove : (@js.Any) -> Unit = fn(e) {
-    let mouse_event : @js_dom.MouseEvent = e.cast()
-    let svg = e._get("currentTarget")
-    let rect = svg._call("getBoundingClientRect", [])
-    let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
-    let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    let (scene_x, scene_y) = get_scene_coords(e)
     if state.is_resizing() {
-      state.resize_move(svg_x, svg_y)
+      state.resize_move(scene_x, scene_y)
     } else if state.is_dragging() {
-      state.drag_move(svg_x, svg_y)
+      state.drag_move(scene_x, scene_y)
     }
   }
   let on_mouseup : (@js.Any) -> Unit = fn(_e) {
@@ -184,6 +186,17 @@ fn editor_app() -> @element.DomNode {
     state.end_drag()
   }
 
+  // ホイールイベントハンドラ（ズーム）
+  let on_wheel : (@js.Any) -> Unit = fn(e) {
+    let _ = e._call("preventDefault", [])
+    let delta_y : Double = e._get("deltaY").cast()
+    if delta_y < 0.0 {
+      state.zoom_in()
+    } else {
+      state.zoom_out()
+    }
+  }
+
   // コンテキストメニューハンドラ
   let on_contextmenu : (@js.Any) -> Unit = fn(e) {
     // デフォルトメニューを無効化
@@ -215,13 +228,15 @@ fn editor_app() -> @element.DomNode {
   for el in elements {
     initial_children.push(render_element(el, Some(el.id) == selected))
   }
-  let svg = render_svg_container(
+  let svg = render_svg_container_with_viewport(
     canvas_width,
     canvas_height,
+    state.viewport.get(),
     on_mousedown,
     on_mousemove,
     on_mouseup,
     on_contextmenu,
+    on_wheel,
     initial_children,
   )
   svg_ref.val = Some(svg)
@@ -267,6 +282,22 @@ fn editor_app() -> @element.DomNode {
       return
     }
     redraw_svg()
+  })
+
+  // Viewport の変更を監視して viewBox を更新
+  let viewport_first_run : Ref[Bool] = { val: true }
+  let _ = @luna.effect(fn() {
+    let vp = state.viewport.get()
+    if viewport_first_run.val {
+      viewport_first_run.val = false
+      return
+    }
+    if svg_ref.val is Some(svg) {
+      let vb_width = canvas_width.to_double() / vp.zoom
+      let vb_height = canvas_height.to_double() / vp.zoom
+      let viewbox = "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
+      update_viewbox_ffi(svg, viewbox)
+    }
   })
 
   // キーボードショートカット
@@ -390,6 +421,38 @@ fn editor_app() -> @element.DomNode {
           }),
           [text("Export SVG")],
         ),
+        // ズームコントロール
+        @element.span(style="margin-left: 16px; display: inline-flex; align-items: center; gap: 4px;", [
+          button(
+            on=events().click(fn(_) { state.zoom_out() }),
+            [text("-")],
+          ),
+          @element.span(style="min-width: 50px; text-align: center;", [
+            text_dyn(fn() {
+              let zoom = state.viewport.get().zoom
+              "\{(zoom * 100.0).to_int()}%"
+            }),
+          ]),
+          button(
+            on=events().click(fn(_) { state.zoom_in() }),
+            [text("+")],
+          ),
+          button(
+            style="margin-left: 4px;",
+            on=events().click(fn(_) { state.reset_viewport() }),
+            [text("Reset")],
+          ),
+        ]),
+        // グリッドスナップ
+        @element.span(style="margin-left: 16px;", [
+          @element.label(style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;", [
+            input(
+              type_="checkbox",
+              on=events().change(fn(_) { state.toggle_grid() }),
+            ),
+            text("Grid Snap"),
+          ]),
+        ]),
       ]),
     ]),
     // メインエリア（Canvas + Sidebar）
@@ -475,6 +538,11 @@ fn setup_keyboard_shortcuts(
 /// window に keydown イベントリスナーを追加
 extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keydown', handler)
+
+///|
+/// SVG の viewBox を更新
+extern "js" fn update_viewbox_ffi(svg : @js.Any, viewbox : String) =
+  #| (svg, viewbox) => svg.setAttribute('viewBox', viewbox)
 
 ///|
 /// ファイルをダウンロード
