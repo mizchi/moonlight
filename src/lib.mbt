@@ -101,10 +101,10 @@ fn editor_app() -> @element.DomNode {
         let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
         let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
         let handle = match handle_str {
-          "nw" => NW
-          "ne" => NE
-          "sw" => SW
-          _ => SE
+          "nw" => @model.NW
+          "ne" => @model.NE
+          "sw" => @model.SW
+          _ => @model.SE
         }
         state.start_resize(element_id, handle, svg_x, svg_y)
         return
@@ -150,10 +150,10 @@ fn editor_app() -> @element.DomNode {
       if state.find_element(resize.element_id) is Some(el) {
         // 実際にリサイズした場合のみ履歴に記録
         if resize.start_shape != el.shape || resize.start_x != el.x || resize.start_y != el.y {
-          let cmd = ResizeElement(resize.element_id, resize.start_shape, el.shape)
+          let cmd = @model.ResizeElement(resize.element_id, resize.start_shape, el.shape)
           // 位置も変わった場合は移動も記録（NW, NE, SW ハンドルの場合）
           if resize.start_x != el.x || resize.start_y != el.y {
-            let move_cmd = MoveElement(
+            let move_cmd = @model.MoveElement(
               resize.element_id,
               resize.start_x,
               resize.start_y,
@@ -174,7 +174,7 @@ fn editor_app() -> @element.DomNode {
       if state.find_element(drag.element_id) is Some(el) {
         // 実際に移動した場合のみ履歴に記録
         if drag.start_x != el.x || drag.start_y != el.y {
-          let cmd = MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y)
+          let cmd = @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y)
           // 履歴に追加（実行はすでにドラッグ中に完了している）
           history.undo_stack.push(cmd)
           history.redo_stack.clear()
@@ -305,7 +305,7 @@ fn editor_app() -> @element.DomNode {
             stroke_width: Some(2.0),
             opacity: None,
           })
-          history.execute(state, AddElement(new_rect))
+          execute_command(history, state, @model.AddElement(new_rect))
         }),
         [text("Add Rectangle")],
       ),
@@ -323,17 +323,17 @@ fn editor_app() -> @element.DomNode {
             stroke_width: Some(2.0),
             opacity: None,
           })
-          history.execute(state, AddElement(new_circle))
+          execute_command(history, state, @model.AddElement(new_circle))
         }),
         [text("Add Circle")],
       ),
       // Undo/Redo ボタン
       button(
-        on=events().click(fn(_) { let _ = history.undo(state) }),
+        on=events().click(fn(_) { let _ = undo_command(history, state) }),
         [text("Undo")],
       ),
       button(
-        on=events().click(fn(_) { let _ = history.redo(state) }),
+        on=events().click(fn(_) { let _ = redo_command(history, state) }),
         [text("Redo")],
       ),
     ]),
@@ -357,7 +357,7 @@ fn render_context_menu(state : EditorState, history : History) -> @element.DomNo
             on=events().click(fn(_) {
               // 削除対象の要素を取得して履歴に記録
               if state.find_element(id) is Some(el) {
-                history.execute(state, RemoveElement(el))
+                execute_command(history, state, @model.RemoveElement(el))
               }
               state.hide_context_menu()
             }),

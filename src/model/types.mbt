@@ -3,20 +3,138 @@
 
 ///|
 /// 2D 座標点
-pub struct Point {
+pub(all) struct Point {
   x : Double
   y : Double
 } derive(Show, Eq)
 
 ///|
-/// Point コンストラクタ
-pub fn point(x : Double, y : Double) -> Point {
-  { x, y }
+/// 共通スタイル属性
+pub(all) struct Style {
+  fill : String? // 塗りつぶし色 (e.g., "#ff0000", "none")
+  stroke : String? // 線の色
+  stroke_width : Double? // 線の太さ
+  opacity : Double? // 不透明度 (0.0 - 1.0)
+} derive(Show, Eq)
+
+///|
+/// デフォルトスタイル
+pub fn Style::default() -> Style {
+  {
+    fill: None,
+    stroke: Some("#000000"),
+    stroke_width: Some(1.0),
+    opacity: None,
+  }
+}
+
+///|
+/// 図形の種類
+pub(all) enum ShapeType {
+  /// 矩形: width, height, rx (角丸X), ry (角丸Y)
+  Rect(Double, Double, Double?, Double?)
+  /// 円: 半径
+  Circle(Double)
+  /// 楕円: rx, ry
+  Ellipse(Double, Double)
+  /// 線分: 終点座標 (始点は Element.x, Element.y)
+  Line(Double, Double)
+  /// 折れ線
+  Polyline(Array[Point])
+  /// パス (SVG path d 属性)
+  Path(String)
+  /// テキスト: 内容, フォントサイズ
+  Text(String, Double?)
+} derive(Show, Eq)
+
+///|
+/// 図形要素
+pub(all) struct Element {
+  id : String // 一意な識別子
+  x : Double // 基準 X 座標
+  y : Double // 基準 Y 座標
+  shape : ShapeType // 図形タイプ
+  style : Style // スタイル属性
+  transform : String? // SVG transform 属性
+} derive(Show, Eq)
+
+///|
+/// 新しい要素を作成
+pub fn Element::new(
+  id : String,
+  x : Double,
+  y : Double,
+  shape : ShapeType,
+) -> Element {
+  { id, x, y, shape, style: Style::default(), transform: None }
+}
+
+///|
+/// スタイルを設定した要素を作成
+pub fn Element::with_style(self : Element, style : Style) -> Element {
+  { ..self, style }
+}
+
+///|
+/// 要素のバウンディングボックスを計算
+pub fn Element::bounding_box(self : Element) -> BoundingBox {
+  match self.shape {
+    Rect(w, h, _, _) => { x: self.x, y: self.y, width: w, height: h }
+    Circle(r) =>
+      { x: self.x - r, y: self.y - r, width: r * 2.0, height: r * 2.0 }
+    Ellipse(rx, ry) =>
+      { x: self.x - rx, y: self.y - ry, width: rx * 2.0, height: ry * 2.0 }
+    Line(x2, y2) => {
+      let min_x = if self.x < x2 { self.x } else { x2 }
+      let min_y = if self.y < y2 { self.y } else { y2 }
+      let max_x = if self.x > x2 { self.x } else { x2 }
+      let max_y = if self.y > y2 { self.y } else { y2 }
+      { x: min_x, y: min_y, width: max_x - min_x, height: max_y - min_y }
+    }
+    Polyline(points) =>
+      if points.length() == 0 {
+        { x: self.x, y: self.y, width: 0.0, height: 0.0 }
+      } else {
+        let mut min_x = self.x
+        let mut min_y = self.y
+        let mut max_x = self.x
+        let mut max_y = self.y
+        for p in points {
+          if p.x < min_x {
+            min_x = p.x
+          }
+          if p.y < min_y {
+            min_y = p.y
+          }
+          if p.x > max_x {
+            max_x = p.x
+          }
+          if p.y > max_y {
+            max_y = p.y
+          }
+        }
+        { x: min_x, y: min_y, width: max_x - min_x, height: max_y - min_y }
+      }
+    Path(_) =>
+      // Path のバウンディングボックスは簡易的に要素位置のみ
+      { x: self.x, y: self.y, width: 0.0, height: 0.0 }
+    Text(_, font_size) => {
+      let size = font_size.unwrap_or(16.0)
+      // テキストのバウンディングボックスは概算
+      { x: self.x, y: self.y - size, width: 100.0, height: size }
+    }
+  }
+}
+
+///|
+/// ポイントが要素上にあるか判定
+pub fn Element::hit_test(self : Element, p : Point) -> Bool {
+  self.bounding_box().contains(p)
 }
 
 ///|
 /// バウンディングボックス
-pub struct BoundingBox {
+pub(all) struct BoundingBox {
   x : Double
   y : Double
   width : Double
@@ -34,7 +152,7 @@ pub fn BoundingBox::contains(self : BoundingBox, p : Point) -> Bool {
 
 ///|
 /// リサイズハンドルの位置
-pub enum HandlePosition {
+pub(all) enum HandlePosition {
   NW // 左上
   NE // 右上
   SW // 左下
@@ -42,21 +160,8 @@ pub enum HandlePosition {
 } derive(Show, Eq)
 
 ///|
-/// HandlePosition コンストラクタ関数（外部パッケージから呼び出し用）
-pub fn handle_nw() -> HandlePosition { NW }
-
-///|
-pub fn handle_ne() -> HandlePosition { NE }
-
-///|
-pub fn handle_sw() -> HandlePosition { SW }
-
-///|
-pub fn handle_se() -> HandlePosition { SE }
-
-///|
 /// 矩形のリサイズ計算結果
-pub struct RectResizeResult {
+pub(all) struct RectResizeResult {
   x : Double
   y : Double
   width : Double
@@ -125,7 +230,7 @@ pub fn calc_circle_resize(
 
 ///|
 /// Viewport (表示領域) 座標変換
-pub struct Viewport {
+pub(all) struct Viewport {
   scroll_x : Double
   scroll_y : Double
   zoom : Double // 1.0 = 100%
@@ -161,4 +266,61 @@ pub fn Viewport::scene_to_screen(
     x: (scene_x - self.scroll_x) * self.zoom,
     y: (scene_y - self.scroll_y) * self.zoom,
   }
+}
+
+// ============================================================
+// UI 状態（純粋なデータ構造）
+// ============================================================
+
+///|
+/// ドラッグ状態
+pub(all) struct DragState {
+  element_id : String // ドラッグ中の要素 ID
+  start_x : Double // ドラッグ開始時の要素 X
+  start_y : Double // ドラッグ開始時の要素 Y
+  offset_x : Double // クリック位置と要素位置の差分 X
+  offset_y : Double // クリック位置と要素位置の差分 Y
+} derive(Show, Eq)
+
+///|
+/// コンテキストメニューの状態
+pub(all) struct ContextMenu {
+  x : Double // メニュー表示位置 X
+  y : Double // メニュー表示位置 Y
+  target_id : String? // 右クリック対象の要素 ID（None = 空白部分）
+} derive(Show, Eq)
+
+///|
+/// リサイズ状態
+pub(all) struct ResizeState {
+  element_id : String // リサイズ中の要素 ID
+  handle : HandlePosition // ドラッグ中のハンドル
+  start_x : Double // リサイズ開始時の要素 X
+  start_y : Double // リサイズ開始時の要素 Y
+  start_shape : ShapeType // リサイズ開始時の形状
+  mouse_start_x : Double // マウス開始位置 X
+  mouse_start_y : Double // マウス開始位置 Y
+} derive(Show, Eq)
+
+///|
+/// ドラッグ位置を計算（純粋関数）
+pub fn calc_drag_position(
+  offset_x : Double,
+  offset_y : Double,
+  mouse_x : Double,
+  mouse_y : Double,
+) -> Point {
+  { x: mouse_x - offset_x, y: mouse_y - offset_y }
+}
+
+///|
+/// 要素配列から座標にヒットする要素を検索（上から順に、純粋関数）
+pub fn find_element_at(elements : Array[Element], point : Point) -> Element? {
+  // 後ろから探す（上にあるものが優先）
+  for i = elements.length() - 1; i >= 0; i = i - 1 {
+    if elements[i].hit_test(point) {
+      return Some(elements[i])
+    }
+  }
+  None
 }

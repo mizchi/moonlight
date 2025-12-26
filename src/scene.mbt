@@ -1,34 +1,10 @@
 // Scene - Signal ベースの要素管理
+// 型定義は @model パッケージに移動済み
 
-///|
-/// ドラッグ状態
-pub struct DragState {
-  element_id : String // ドラッグ中の要素 ID
-  start_x : Double // ドラッグ開始時の要素 X
-  start_y : Double // ドラッグ開始時の要素 Y
-  offset_x : Double // クリック位置と要素位置の差分 X
-  offset_y : Double // クリック位置と要素位置の差分 Y
-} derive(Show, Eq)
-
-///|
-/// コンテキストメニューの状態
-pub struct ContextMenu {
-  x : Double // メニュー表示位置 X
-  y : Double // メニュー表示位置 Y
-  target_id : String? // 右クリック対象の要素 ID（None = 空白部分）
-} derive(Show, Eq)
-
-///|
-/// リサイズ状態
-pub struct ResizeState {
-  element_id : String // リサイズ中の要素 ID
-  handle : HandlePosition // ドラッグ中のハンドル
-  start_x : Double // リサイズ開始時の要素 X
-  start_y : Double // リサイズ開始時の要素 Y
-  start_shape : ShapeType // リサイズ開始時の形状
-  mouse_start_x : Double // マウス開始位置 X
-  mouse_start_y : Double // マウス開始位置 Y
-} derive(Show, Eq)
+// 型エイリアス
+pub type DragState = @model.DragState
+pub type ContextMenu = @model.ContextMenu
+pub type ResizeState = @model.ResizeState
 
 ///|
 /// エディタの状態
@@ -109,15 +85,7 @@ pub fn EditorState::hit_test(
   x : Double,
   y : Double,
 ) -> Element? {
-  let point : Point = { x, y }
-  let els = self.elements.get()
-  // 後ろから探す（上にあるものが優先）
-  for i = els.length() - 1; i >= 0; i = i - 1 {
-    if els[i].hit_test(point) {
-      return Some(els[i])
-    }
-  }
-  None
+  @model.find_element_at(self.elements.get(), { x, y })
 }
 
 ///|
@@ -154,9 +122,8 @@ pub fn EditorState::drag_move(
   mouse_y : Double,
 ) -> Unit {
   guard self.drag_state.get() is Some(state)
-  let new_x = mouse_x - state.offset_x
-  let new_y = mouse_y - state.offset_y
-  self.move_element(state.element_id, new_x, new_y)
+  let pos = @model.calc_drag_position(state.offset_x, state.offset_y, mouse_x, mouse_y)
+  self.move_element(state.element_id, pos.x, pos.y)
 }
 
 ///|
@@ -299,7 +266,7 @@ pub fn EditorState::resize_move(
         state.start_x, state.start_y,
         w, h,
         dx, dy,
-        state.handle.to_lib(),
+        state.handle,
         10.0, // min_size
       )
       self.elements.update(fn(els) {
@@ -313,7 +280,7 @@ pub fn EditorState::resize_move(
       })
     }
     Circle(r) => {
-      let new_r = @model.calc_circle_resize(r, dx, dy, state.handle.to_lib(), 5.0)
+      let new_r = @model.calc_circle_resize(r, dx, dy, state.handle, 5.0)
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {

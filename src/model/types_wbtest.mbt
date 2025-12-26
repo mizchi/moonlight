@@ -216,3 +216,114 @@ test "calc_circle_resize - SW" {
   // SW: (-dx + dy) / 2 = (10 + 20) / 2 = 15
   assert_eq(new_r, 65.0) // 50 + 15
 }
+
+// ============================================================
+// calc_drag_position tests
+// ============================================================
+
+test "calc_drag_position - basic" {
+  let pos = calc_drag_position(10.0, 20.0, 100.0, 150.0)
+  assert_eq(pos.x, 90.0) // 100 - 10
+  assert_eq(pos.y, 130.0) // 150 - 20
+}
+
+test "calc_drag_position - zero offset" {
+  let pos = calc_drag_position(0.0, 0.0, 50.0, 75.0)
+  assert_eq(pos.x, 50.0)
+  assert_eq(pos.y, 75.0)
+}
+
+test "calc_drag_position - negative result" {
+  let pos = calc_drag_position(100.0, 100.0, 50.0, 50.0)
+  assert_eq(pos.x, -50.0) // 50 - 100
+  assert_eq(pos.y, -50.0) // 50 - 100
+}
+
+// ============================================================
+// find_element_at tests
+// ============================================================
+
+test "find_element_at - empty array" {
+  let elements : Array[Element] = []
+  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  assert_eq(result, None)
+}
+
+test "find_element_at - hit single element" {
+  let elements = [
+    Element::new("el-1", 50.0, 50.0, Rect(100.0, 100.0, None, None)),
+  ]
+  let result = find_element_at(elements, { x: 75.0, y: 75.0 })
+  assert_true(result is Some(_))
+  assert_eq(result.unwrap().id, "el-1")
+}
+
+test "find_element_at - miss" {
+  let elements = [
+    Element::new("el-1", 50.0, 50.0, Rect(100.0, 100.0, None, None)),
+  ]
+  let result = find_element_at(elements, { x: 200.0, y: 200.0 })
+  assert_eq(result, None)
+}
+
+test "find_element_at - returns topmost element" {
+  // 後ろの要素が上に表示される
+  let elements = [
+    Element::new("el-1", 50.0, 50.0, Rect(100.0, 100.0, None, None)),
+    Element::new("el-2", 75.0, 75.0, Rect(100.0, 100.0, None, None)),
+  ]
+  // (100, 100) は両方の要素にヒットするが、el-2（後ろ）が返される
+  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  assert_true(result is Some(_))
+  assert_eq(result.unwrap().id, "el-2")
+}
+
+test "find_element_at - circle hit test" {
+  let elements = [
+    Element::new("circle-1", 100.0, 100.0, Circle(50.0)),
+  ]
+  // 円の中心付近
+  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  assert_true(result is Some(_))
+  assert_eq(result.unwrap().id, "circle-1")
+}
+
+// ============================================================
+// DragState, ContextMenu, ResizeState construction tests
+// ============================================================
+
+test "DragState - construction" {
+  let state : DragState = {
+    element_id: "el-1",
+    start_x: 100.0,
+    start_y: 200.0,
+    offset_x: 10.0,
+    offset_y: 20.0,
+  }
+  assert_eq(state.element_id, "el-1")
+  assert_eq(state.start_x, 100.0)
+}
+
+test "ContextMenu - construction" {
+  let menu : ContextMenu = {
+    x: 150.0,
+    y: 250.0,
+    target_id: Some("el-2"),
+  }
+  assert_eq(menu.x, 150.0)
+  assert_eq(menu.target_id, Some("el-2"))
+}
+
+test "ResizeState - construction" {
+  let state : ResizeState = {
+    element_id: "el-1",
+    handle: SE,
+    start_x: 100.0,
+    start_y: 100.0,
+    start_shape: Rect(80.0, 60.0, None, None),
+    mouse_start_x: 180.0,
+    mouse_start_y: 160.0,
+  }
+  assert_eq(state.element_id, "el-1")
+  assert_eq(state.handle, SE)
+}
