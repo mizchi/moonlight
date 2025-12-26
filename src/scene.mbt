@@ -1,16 +1,6 @@
 // Scene - Signal ベースの要素管理
 
 ///|
-/// テキスト編集状態
-pub(all) struct TextEditState {
-  parent_id : String // 親要素のID
-  x : Double // 入力欄のX座標（シーン座標）
-  y : Double // 入力欄のY座標（シーン座標）
-  editing_id : String? // 編集中のテキスト要素ID（None = 新規作成）
-  initial_text : String // 初期テキスト（編集時は既存の内容）
-} derive(Show, Eq)
-
-///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
@@ -27,7 +17,7 @@ pub struct EditorState {
   grid_size : @luna.Signal[Int] // グリッドサイズ（ピクセル）
   is_panning : @luna.Signal[Bool] // パン中かどうか
   pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
-  text_edit : @luna.Signal[TextEditState?] // テキスト編集状態
+  text_edit : @luna.Signal[@model.TextEditState?] // テキスト編集状態
 }
 
 ///|
@@ -93,13 +83,7 @@ pub fn EditorState::toggle_grid(self : EditorState) -> Unit {
 ///|
 /// 座標をグリッドにスナップ
 pub fn EditorState::snap_to_grid(self : EditorState, x : Double, y : Double) -> (Double, Double) {
-  if not(self.grid_enabled.get()) {
-    return (x, y)
-  }
-  let size = self.grid_size.get().to_double()
-  let snapped_x = (x / size).round() * size
-  let snapped_y = (y / size).round() * size
-  (snapped_x, snapped_y)
+  @model.snap_to_grid(x, y, self.grid_size.get(), self.grid_enabled.get())
 }
 
 ///|

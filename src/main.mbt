@@ -212,15 +212,7 @@ fn editor_app() -> @element.DomNode {
         let element_id : String = element_id_raw.cast()
         // viewport 考慮した座標を取得
         let (scene_x, scene_y) = get_scene_coords(e)
-        let handle = match handle_str {
-          "nw" => @model.NW
-          "ne" => @model.NE
-          "sw" => @model.SW
-          "se" => @model.SE
-          "line-start" => @model.LineStart
-          "line-end" => @model.LineEnd
-          _ => @model.SE
-        }
+        let handle = @model.parse_handle_position(handle_str)
         state.start_resize(element_id, handle, scene_x, scene_y)
         return
       }
@@ -935,7 +927,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) => format_shape(el.shape)
+                Some(el) => @model.format_shape(el.shape)
                 None => "-"
               }
             None => "-"
@@ -1074,19 +1066,6 @@ fn parse_double(s : String) -> Double? {
   }
 }
 
-///|
-/// Shape を文字列にフォーマット
-fn format_shape(shape : @model.ShapeType) -> String {
-  match shape {
-    @model.Rect(w, h, _, _) => "Rect(\{w.to_int()}x\{h.to_int()})"
-    @model.Circle(r) => "Circle(r=\{r.to_int()})"
-    @model.Ellipse(rx, ry) => "Ellipse(\{rx.to_int()}x\{ry.to_int()})"
-    @model.Line(x2, y2) => "Line(to \{x2.to_int()},\{y2.to_int()})"
-    @model.Polyline(_) => "Polyline"
-    @model.Path(_) => "Path"
-    @model.Text(content, _) => "Text(\"\{content}\")"
-  }
-}
 
 ///|
 /// メニューボタンのスタイル

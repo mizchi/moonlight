@@ -345,6 +345,16 @@ pub(all) struct MultiDragState {
 } derive(Show, Eq)
 
 ///|
+/// テキスト編集状態
+pub(all) struct TextEditState {
+  parent_id : String // 親要素のID
+  x : Double // 入力欄のX座標（シーン座標）
+  y : Double // 入力欄のY座標（シーン座標）
+  editing_id : String? // 編集中のテキスト要素ID（None = 新規作成）
+  initial_text : String // 初期テキスト（編集時は既存の内容）
+} derive(Show, Eq)
+
+///|
 /// ドラッグ位置を計算（純粋関数）
 pub fn calc_drag_position(
   offset_x : Double,
@@ -393,4 +403,49 @@ pub fn find_elements_in_box(elements : Array[Element], box_bbox : BoundingBox) -
     }
   }
   result
+}
+
+///|
+/// 座標をグリッドにスナップ（純粋関数）
+pub fn snap_to_grid(
+  x : Double,
+  y : Double,
+  grid_size : Int,
+  enabled : Bool,
+) -> (Double, Double) {
+  if not(enabled) {
+    return (x, y)
+  }
+  let size = grid_size.to_double()
+  let snapped_x = (x / size).round() * size
+  let snapped_y = (y / size).round() * size
+  (snapped_x, snapped_y)
+}
+
+///|
+/// ShapeType を文字列にフォーマット
+pub fn format_shape(shape : ShapeType) -> String {
+  match shape {
+    Rect(w, h, _, _) => "Rect(\{w.to_int()}×\{h.to_int()})"
+    Circle(r) => "Circle(r=\{r.to_int()})"
+    Ellipse(rx, ry) => "Ellipse(\{rx.to_int()}×\{ry.to_int()})"
+    Line(x2, y2) => "Line(→\{x2.to_int()},\{y2.to_int()})"
+    Polyline(points) => "Polyline(\{points.length()} pts)"
+    Path(_) => "Path"
+    Text(content, _) => "Text(\"\{content}\")"
+  }
+}
+
+///|
+/// ハンドル文字列を HandlePosition に変換
+pub fn parse_handle_position(handle_str : String) -> HandlePosition {
+  match handle_str {
+    "nw" => NW
+    "ne" => NE
+    "sw" => SW
+    "se" => SE
+    "line-start" => LineStart
+    "line-end" => LineEnd
+    _ => SE // デフォルト
+  }
 }

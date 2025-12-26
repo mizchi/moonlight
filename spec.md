@@ -269,8 +269,8 @@ undo_stack.push(command)
 
 ### Phase 4: 高度な機能
 
-- [ ] skip: 複数選択
-- [ ] skip: グループ化
+- [ ] 複数選択
+- [ ] グループ化
 - [x] レイヤー順序変更 (Bring to Front / Send to Back)
 - [x] ズーム/パン (ホイール、ボタン)
 - [x] グリッドスナップ
