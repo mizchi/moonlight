@@ -119,6 +119,75 @@ fn editor_app() -> @element.DomNode {
     (scene.x, scene.y)
   }
 
+  // ダブルクリック検出用の状態
+  let last_click_time : Ref[Double] = { val: 0.0 }
+  let last_click_element : Ref[String] = { val: "" }
+  let double_click_threshold : Double = 300.0 // ms
+
+  // ダブルクリック時のテキスト編集開始
+  let handle_double_click = fn(element_id : String) {
+    guard state.find_element(element_id) is Some(el)
+    // 要素のバウンディングボックスの中心を計算
+    let bbox = el.bounding_box()
+    let center_x = bbox.x + bbox.width / 2.0
+    let center_y = bbox.y + bbox.height / 2.0
+    // テキスト編集を開始
+    state.start_text_edit(element_id, center_x, center_y)
+  }
+
+  // テキスト要素の編集開始
+  let handle_text_edit = fn(text_id : String) {
+    guard state.find_element(text_id) is Some(el)
+    guard el.shape is @model.Text(content, _)
+    // 親要素IDを取得（必須）
+    guard el.parent_id is Some(parent_id)
+    // テキスト要素の位置で編集開始
+    state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content)
+  }
+
+  // テキスト入力を確定
+  let commit_text_input = fn(text_content : String) {
+    guard state.text_edit.get() is Some(edit_state)
+    match edit_state.editing_id {
+      Some(text_id) => {
+        // 既存テキストの編集
+        if text_content == "" {
+          // 空文字の場合はテキストを削除
+          if state.find_element(text_id) is Some(el) {
+            execute_command(history, state, @model.RemoveElement(el))
+          }
+        } else if text_content != edit_state.initial_text {
+          // 内容が変わった場合のみ更新
+          state.update_element(text_id, fn(el) {
+            match el.shape {
+              @model.Text(_, font_size) =>
+                { ..el, shape: @model.Text(text_content, font_size) }
+              _ => el
+            }
+          })
+        }
+      }
+      None => {
+        // 新規テキストの作成
+        if text_content != "" {
+          let text_el = @model.Element::new(
+            new_id(),
+            edit_state.x,
+            edit_state.y,
+            @model.Text(text_content, Some(16.0)),
+          ).with_style({
+            fill: Some("#333333"),
+            stroke: None,
+            stroke_width: None,
+            opacity: None,
+          }).with_parent(edit_state.parent_id)
+          execute_command(history, state, @model.AddElement(text_el))
+        }
+      }
+    }
+    state.end_text_edit()
+  }
+
   // マウスイベントハンドラ
   let on_mousedown : (@js.Any) -> Unit = fn(e) {
     // コンテキストメニューを閉じる
@@ -147,6 +216,9 @@ fn editor_app() -> @element.DomNode {
           "nw" => @model.NW
           "ne" => @model.NE
           "sw" => @model.SW
+          "se" => @model.SE
+          "line-start" => @model.LineStart
+          "line-end" => @model.LineEnd
           _ => @model.SE
         }
         state.start_resize(element_id, handle, scene_x, scene_y)
@@ -164,12 +236,51 @@ fn editor_app() -> @element.DomNode {
     // SVG 要素の座標を取得（viewport 考慮）
     let (scene_x, scene_y) = get_scene_coords(e)
     if data_id is Some(id) {
-      // 要素をクリック - 選択してドラッグ開始
-      state.select(Some(id))
-      state.start_drag(id, scene_x, scene_y)
+      // 子要素の場合は親を取得
+      let target_id = match state.get_parent_id(id) {
+        Some(parent_id) => parent_id
+        None => id
+      }
+      let now = get_current_time()
+      let is_child = state.is_child_element(id)
+      // テキスト子要素かどうかをチェック
+      let is_text_child = if is_child {
+        match state.find_element(id) {
+          Some(el) => el.shape is @model.Text(_, _)
+          None => false
+        }
+      } else {
+        false
+      }
+      // ダブルクリック判定
+      // - 親要素: target_id が一致
+      // - テキスト子要素: id（テキスト要素自体）が一致
+      let dblclick_target = if is_text_child { id } else { target_id }
+      if last_click_element.val == dblclick_target && now - last_click_time.val < double_click_threshold {
+        // ダブルクリック検出
+        last_click_time.val = 0.0
+        last_click_element.val = ""
+        state.end_drag()
+        if is_text_child {
+          // テキスト子要素の場合は編集モード
+          handle_text_edit(id)
+        } else {
+          // 親要素の場合は新規テキスト追加
+          handle_double_click(target_id)
+        }
+        return
+      }
+      // クリック時間と要素を記録
+      last_click_time.val = now
+      last_click_element.val = dblclick_target
+      // 要素をクリック - 親を選択してドラッグ開始
+      state.select(Some(target_id))
+      state.start_drag(target_id, scene_x, scene_y)
     } else {
       // 空白をクリック - 選択解除
       state.select(None)
+      last_click_time.val = 0.0
+      last_click_element.val = ""
     }
   }
   let on_mousemove : (@js.Any) -> Unit = fn(e) {
@@ -525,6 +636,11 @@ fn editor_app() -> @element.DomNode {
           fn() { state.context_menu.get() is Some(_) },
           fn() { render_context_menu(state, history) },
         ),
+        // テキスト入力オーバーレイ
+        show(
+          fn() { state.text_edit.get() is Some(_) },
+          fn() { render_text_input(state, commit_text_input) },
+        ),
       ]),
       // サイドバー
       render_sidebar(state),
@@ -628,6 +744,16 @@ extern "js" fn download_file(content : String, filename : String, mime_type : St
   #|   document.body.removeChild(a);
   #|   URL.revokeObjectURL(url);
   #| }
+
+///|
+/// 現在時刻を取得（ミリ秒）
+extern "js" fn get_current_time() -> Double =
+  #| () => performance.now()
+
+///|
+/// 指定セレクタの要素にフォーカスを遅延設定（初期値付き）
+extern "js" fn schedule_focus_with_value_ffi(selector : String, value : String) -> Int =
+  #| (selector, value) => setTimeout(() => { const el = document.querySelector(selector); if (el) { el.value = value; el.focus(); el.select(); } }, 0)
 
 ///|
 /// サイドバー幅
@@ -897,6 +1023,46 @@ fn format_shape(shape : @model.ShapeType) -> String {
 ///|
 /// メニューボタンのスタイル
 let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
+
+///|
+/// テキスト入力オーバーレイをレンダリング
+fn render_text_input(
+  state : EditorState,
+  commit : (String) -> Unit,
+) -> @element.DomNode {
+  guard state.text_edit.get() is Some(edit_state)
+  // シーン座標をスクリーン座標に変換
+  let vp = state.viewport.get()
+  let screen_pos = vp.scene_to_screen(edit_state.x, edit_state.y)
+  // 入力フィールドの幅と高さ
+  let input_width = 150
+  let input_height = 28
+  // 中央に配置（入力フィールドの半分をオフセット）
+  let left = screen_pos.x - input_width.to_double() / 2.0
+  let top = screen_pos.y - input_height.to_double() / 2.0
+  let style =
+    "position: absolute; left: \{left}px; top: \{top}px; width: \{input_width}px; height: \{input_height}px; padding: 4px 8px; border: 2px solid #0066ff; border-radius: 4px; font-size: 14px; text-align: center; box-sizing: border-box; outline: none;"
+  // 自動フォーカス（初期値付き）
+  let _ = schedule_focus_with_value_ffi("input[type=text]", edit_state.initial_text)
+  input(
+    type_="text",
+    style~,
+    on=events()
+      .keydown(fn(e) {
+        let key : String = e.as_any()._get("key").cast()
+        if key == "Enter" {
+          let value = get_event_target_value(e.as_any())
+          commit(value)
+        } else if key == "Escape" {
+          state.end_text_edit()
+        }
+      })
+      .blur(fn(e) {
+        let value = get_event_target_value(e.as_any())
+        commit(value)
+      }),
+  )
+}
 
 ///|
 /// コンテキストメニューをレンダリング

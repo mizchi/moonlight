@@ -1,6 +1,16 @@
 // Scene - Signal ベースの要素管理
 
 ///|
+/// テキスト編集状態
+pub(all) struct TextEditState {
+  parent_id : String // 親要素のID
+  x : Double // 入力欄のX座標（シーン座標）
+  y : Double // 入力欄のY座標（シーン座標）
+  editing_id : String? // 編集中のテキスト要素ID（None = 新規作成）
+  initial_text : String // 初期テキスト（編集時は既存の内容）
+} derive(Show, Eq)
+
+///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
@@ -15,6 +25,7 @@ pub struct EditorState {
   grid_size : @luna.Signal[Int] // グリッドサイズ（ピクセル）
   is_panning : @luna.Signal[Bool] // パン中かどうか
   pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
+  text_edit : @luna.Signal[TextEditState?] // テキスト編集状態
 }
 
 ///|
@@ -33,7 +44,40 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     grid_size: @luna.signal(20),
     is_panning: @luna.signal(false),
     pan_start: @luna.signal(None),
+    text_edit: @luna.signal(None),
   }
+}
+
+///|
+/// テキスト編集を開始（新規作成）
+pub fn EditorState::start_text_edit(
+  self : EditorState,
+  parent_id : String,
+  x : Double,
+  y : Double,
+) -> Unit {
+  self.text_edit.set(Some({ parent_id, x, y, editing_id: None, initial_text: "" }))
+}
+
+///|
+/// テキスト編集を開始（既存テキストの編集）
+pub fn EditorState::start_text_edit_existing(
+  self : EditorState,
+  text_id : String,
+  parent_id : String,
+  x : Double,
+  y : Double,
+  initial_text : String,
+) -> Unit {
+  self.text_edit.set(
+    Some({ parent_id, x, y, editing_id: Some(text_id), initial_text }),
+  )
+}
+
+///|
+/// テキスト編集を終了
+pub fn EditorState::end_text_edit(self : EditorState) -> Unit {
+  self.text_edit.set(None)
 }
 
 ///|
@@ -76,6 +120,38 @@ pub fn EditorState::find_element(self : EditorState, id : String) -> @model.Elem
 }
 
 ///|
+/// 指定要素の子要素を取得
+pub fn EditorState::get_children(self : EditorState, parent_id : String) -> Array[@model.Element] {
+  let children : Array[@model.Element] = []
+  for el in self.elements.get() {
+    if el.parent_id == Some(parent_id) {
+      children.push(el)
+    }
+  }
+  children
+}
+
+///|
+/// 要素が子要素かどうか判定
+pub fn EditorState::is_child_element(self : EditorState, id : String) -> Bool {
+  if self.find_element(id) is Some(el) {
+    el.parent_id is Some(_)
+  } else {
+    false
+  }
+}
+
+///|
+/// 子要素の親を取得
+pub fn EditorState::get_parent_id(self : EditorState, id : String) -> String? {
+  if self.find_element(id) is Some(el) {
+    el.parent_id
+  } else {
+    None
+  }
+}
+
+///|
 /// 要素を更新
 pub fn EditorState::update_element(
   self : EditorState,
@@ -88,14 +164,24 @@ pub fn EditorState::update_element(
 }
 
 ///|
-/// 要素を移動
+/// 要素を移動（子要素も一緒に移動）
 pub fn EditorState::move_element(
   self : EditorState,
   id : String,
   new_x : Double,
   new_y : Double,
 ) -> Unit {
-  self.update_element(id, fn(el) { { ..el, x: new_x, y: new_y } })
+  // 移動前の位置を取得
+  guard self.find_element(id) is Some(el)
+  let dx = new_x - el.x
+  let dy = new_y - el.y
+  // 親要素を移動
+  self.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+  // 子要素も移動
+  let children = self.get_children(id)
+  for child in children {
+    self.update_element(child.id, fn(c) { { ..c, x: c.x + dx, y: c.y + dy } })
+  }
 }
 
 ///|
@@ -210,9 +296,12 @@ pub fn EditorState::add_element_raw(self : EditorState, element : @model.Element
 }
 
 ///|
-/// 要素を削除（履歴なし）
+/// 要素を削除（履歴なし、子要素も削除）
 pub fn EditorState::remove_element_raw(self : EditorState, id : String) -> Unit {
-  self.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
+  // 要素とその子要素を削除
+  self.elements.update(fn(els) {
+    els.filter(fn(el) { el.id != id && el.parent_id != Some(id) })
+  })
   if self.selected_id.get() == Some(id) {
     self.selected_id.set(None)
   }
@@ -487,6 +576,40 @@ pub fn EditorState::resize_move(
           }
         })
       })
+    }
+    @model.Line(x2, y2) => {
+      // 線の端点をドラッグ
+      match state.handle {
+        @model.LineStart => {
+          // 始点を移動
+          let new_x = state.start_x + dx
+          let new_y = state.start_y + dy
+          self.elements.update(fn(els) {
+            els.map(fn(el) {
+              if el.id == state.element_id {
+                { ..el, x: new_x, y: new_y }
+              } else {
+                el
+              }
+            })
+          })
+        }
+        @model.LineEnd => {
+          // 終点を移動
+          let new_x2 = x2 + dx
+          let new_y2 = y2 + dy
+          self.elements.update(fn(els) {
+            els.map(fn(el) {
+              if el.id == state.element_id {
+                { ..el, shape: @model.Line(new_x2, new_y2) }
+              } else {
+                el
+              }
+            })
+          })
+        }
+        _ => () // Line に対して NW/NE/SW/SE ハンドルは無効
+      }
     }
     _ => () // 他の形状は未対応
   }

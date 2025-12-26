@@ -56,6 +56,7 @@ pub(all) struct Element {
   shape : ShapeType // 図形タイプ
   style : Style // スタイル属性
   transform : String? // SVG transform 属性
+  parent_id : String? // 親要素の ID（グループ化用）
 } derive(Show, Eq)
 
 ///|
@@ -66,7 +67,13 @@ pub fn Element::new(
   y : Double,
   shape : ShapeType,
 ) -> Element {
-  { id, x, y, shape, style: Style::default(), transform: None }
+  { id, x, y, shape, style: Style::default(), transform: None, parent_id: None }
+}
+
+///|
+/// 親要素を設定
+pub fn Element::with_parent(self : Element, parent_id : String) -> Element {
+  { ..self, parent_id: Some(parent_id) }
 }
 
 ///|
@@ -157,6 +164,8 @@ pub(all) enum HandlePosition {
   NE // 右上
   SW // 左下
   SE // 右下
+  LineStart // 線の始点
+  LineEnd // 線の終点
 } derive(Show, Eq)
 
 ///|
@@ -184,7 +193,7 @@ pub fn calc_rect_resize(
     NW => (start_x + dx, start_y + dy, start_w - dx, start_h - dy)
     NE => (start_x, start_y + dy, start_w + dx, start_h - dy)
     SW => (start_x + dx, start_y, start_w - dx, start_h + dy)
-    SE => (start_x, start_y, start_w + dx, start_h + dy)
+    SE | LineStart | LineEnd => (start_x, start_y, start_w + dx, start_h + dy)
   }
   // 最小サイズを保証
   let final_w = if new_w < min_size { min_size } else { new_w }
@@ -219,7 +228,7 @@ pub fn calc_circle_resize(
 ) -> Double {
   // 円の場合は対角距離から半径を計算
   let dist = match handle {
-    SE => (dx + dy) / 2.0
+    SE | LineStart | LineEnd => (dx + dy) / 2.0
     NW => -(dx + dy) / 2.0
     NE => (dx - dy) / 2.0
     SW => (-dx + dy) / 2.0

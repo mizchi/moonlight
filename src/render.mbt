@@ -168,6 +168,9 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
       if font_size is Some(size) {
         attrs.push(("font-size", num_str(size)))
       }
+      // テキストを中央寄せ
+      attrs.push(("text-anchor", "middle"))
+      attrs.push(("dominant-baseline", "middle"))
       add_style_attrs(attrs, style)
       if el.transform is Some(t) {
         attrs.push(("transform", t))
@@ -380,31 +383,58 @@ let handle_size : Double = 8.0
 ///|
 /// リサイズハンドルを描画
 pub fn render_resize_handles(el : @model.Element) -> Array[@js.Any] {
-  let bbox = el.bounding_box()
   let half = handle_size / 2.0
   let handles : Array[@js.Any] = []
-  // 四隅のハンドル位置
-  let positions = [
-    ("nw", bbox.x - half, bbox.y - half, "nwse-resize"),
-    ("ne", bbox.x + bbox.width - half, bbox.y - half, "nesw-resize"),
-    ("sw", bbox.x - half, bbox.y + bbox.height - half, "nesw-resize"),
-    ("se", bbox.x + bbox.width - half, bbox.y + bbox.height - half, "nwse-resize"),
-  ]
-  for pos in positions {
-    let (handle_id, hx, hy, cursor) = pos
-    let attrs : Array[(String, String)] = [
-      ("data-handle", handle_id),
-      ("data-element-id", el.id),
-      ("x", num_str(hx)),
-      ("y", num_str(hy)),
-      ("width", num_str(handle_size)),
-      ("height", num_str(handle_size)),
-      ("fill", "#0066ff"),
-      ("stroke", "#ffffff"),
-      ("stroke-width", "1"),
-      ("cursor", cursor),
-    ]
-    handles.push(create_svg_element("rect", attrs, []))
+  // Line の場合は始点と終点にハンドルを表示
+  match el.shape {
+    @model.Line(x2, y2) => {
+      let positions = [
+        ("line-start", el.x - half, el.y - half, "move"),
+        ("line-end", x2 - half, y2 - half, "move"),
+      ]
+      for pos in positions {
+        let (handle_id, hx, hy, cursor) = pos
+        // 円形のハンドルを使用
+        let attrs : Array[(String, String)] = [
+          ("data-handle", handle_id),
+          ("data-element-id", el.id),
+          ("cx", num_str(hx + half)),
+          ("cy", num_str(hy + half)),
+          ("r", num_str(half)),
+          ("fill", "#0066ff"),
+          ("stroke", "#ffffff"),
+          ("stroke-width", "1"),
+          ("cursor", cursor),
+        ]
+        handles.push(create_svg_element("circle", attrs, []))
+      }
+    }
+    _ => {
+      // その他の形状は四隅のハンドル
+      let bbox = el.bounding_box()
+      let positions = [
+        ("nw", bbox.x - half, bbox.y - half, "nwse-resize"),
+        ("ne", bbox.x + bbox.width - half, bbox.y - half, "nesw-resize"),
+        ("sw", bbox.x - half, bbox.y + bbox.height - half, "nesw-resize"),
+        ("se", bbox.x + bbox.width - half, bbox.y + bbox.height - half, "nwse-resize"),
+      ]
+      for pos in positions {
+        let (handle_id, hx, hy, cursor) = pos
+        let attrs : Array[(String, String)] = [
+          ("data-handle", handle_id),
+          ("data-element-id", el.id),
+          ("x", num_str(hx)),
+          ("y", num_str(hy)),
+          ("width", num_str(handle_size)),
+          ("height", num_str(handle_size)),
+          ("fill", "#0066ff"),
+          ("stroke", "#ffffff"),
+          ("stroke-width", "1"),
+          ("cursor", cursor),
+        ]
+        handles.push(create_svg_element("rect", attrs, []))
+      }
+    }
   }
   handles
 }
