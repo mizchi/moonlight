@@ -76,46 +76,6 @@ pub fn Element::with_style(self : Element, style : Style) -> Element {
 }
 
 ///|
-/// ビューポート（表示領域）
-pub struct Viewport {
-  scroll_x : Double
-  scroll_y : Double
-  zoom : Double // 1.0 = 100%
-} derive(Show, Eq)
-
-///|
-/// デフォルトビューポート
-pub fn Viewport::default() -> Viewport {
-  { scroll_x: 0.0, scroll_y: 0.0, zoom: 1.0 }
-}
-
-///|
-/// 画面座標からシーン座標への変換
-pub fn Viewport::screen_to_scene(
-  self : Viewport,
-  screen_x : Double,
-  screen_y : Double,
-) -> Point {
-  {
-    x: screen_x / self.zoom + self.scroll_x,
-    y: screen_y / self.zoom + self.scroll_y,
-  }
-}
-
-///|
-/// シーン座標から画面座標への変換
-pub fn Viewport::scene_to_screen(
-  self : Viewport,
-  scene_x : Double,
-  scene_y : Double,
-) -> Point {
-  {
-    x: (scene_x - self.scroll_x) * self.zoom,
-    y: (scene_y - self.scroll_y) * self.zoom,
-  }
-}
-
-///|
 /// 要素のバウンディングボックス
 pub struct BoundingBox {
   x : Double
@@ -188,4 +148,24 @@ pub fn BoundingBox::contains(self : BoundingBox, p : Point) -> Bool {
 /// ポイントが要素上にあるか判定
 pub fn Element::hit_test(self : Element, p : Point) -> Bool {
   self.bounding_box().contains(p)
+}
+
+///|
+/// リサイズハンドルの位置
+pub enum HandlePosition {
+  NW // 左上
+  NE // 右上
+  SW // 左下
+  SE // 右下
+} derive(Show, Eq)
+
+///|
+/// HandlePosition を lib 形式に変換
+pub fn HandlePosition::to_lib(self : HandlePosition) -> @lib.HandlePosition {
+  match self {
+    NW => @lib.handle_nw()
+    NE => @lib.handle_ne()
+    SW => @lib.handle_sw()
+    SE => @lib.handle_se()
+  }
 }

@@ -4,6 +4,7 @@
     "js"
   ],
   "import": [
+    "internal/app/lib",
     "mizchi/luna",
     {
       "path": "mizchi/luna/luna/dom/element",

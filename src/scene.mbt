@@ -19,15 +19,6 @@ pub struct ContextMenu {
 } derive(Show, Eq)
 
 ///|
-/// リサイズハンドルの位置
-pub enum HandlePosition {
-  NW // 左上
-  NE // 右上
-  SW // 左下
-  SE // 右下
-} derive(Show, Eq)
-
-///|
 /// リサイズ状態
 pub struct ResizeState {
   element_id : String // リサイズ中の要素 ID
@@ -49,7 +40,7 @@ pub struct EditorState {
   drag_state : @luna.Signal[DragState?] // ドラッグ状態
   resize_state : @luna.Signal[ResizeState?] // リサイズ状態
   context_menu : @luna.Signal[ContextMenu?] // コンテキストメニュー
-  viewport : @luna.Signal[Viewport] // ビューポート
+  viewport : @luna.Signal[@lib.Viewport] // ビューポート
 }
 
 ///|
@@ -63,7 +54,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     drag_state: @luna.signal(None),
     resize_state: @luna.signal(None),
     context_menu: @luna.signal(None),
-    viewport: @luna.signal(Viewport::default()),
+    viewport: @luna.signal(@lib.Viewport::default()),
   }
 }
 
@@ -304,35 +295,17 @@ pub fn EditorState::resize_move(
   // ハンドル位置に応じて新しい位置と形状を計算
   match state.start_shape {
     Rect(w, h, rx, ry) => {
-      let (new_x, new_y, new_w, new_h) = match state.handle {
-        NW => (state.start_x + dx, state.start_y + dy, w - dx, h - dy)
-        NE => (state.start_x, state.start_y + dy, w + dx, h - dy)
-        SW => (state.start_x + dx, state.start_y, w - dx, h + dy)
-        SE => (state.start_x, state.start_y, w + dx, h + dy)
-      }
-      // 最小サイズを保証
-      let final_w = if new_w < 10.0 { 10.0 } else { new_w }
-      let final_h = if new_h < 10.0 { 10.0 } else { new_h }
-      let final_x = if new_w < 10.0 {
-        match state.handle {
-          NW | SW => state.start_x + w - 10.0
-          _ => new_x
-        }
-      } else {
-        new_x
-      }
-      let final_y = if new_h < 10.0 {
-        match state.handle {
-          NW | NE => state.start_y + h - 10.0
-          _ => new_y
-        }
-      } else {
-        new_y
-      }
+      let result = @lib.calc_rect_resize(
+        state.start_x, state.start_y,
+        w, h,
+        dx, dy,
+        state.handle.to_lib(),
+        10.0, // min_size
+      )
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
-            { ..el, x: final_x, y: final_y, shape: Rect(final_w, final_h, rx, ry) }
+            { ..el, x: result.x, y: result.y, shape: Rect(result.width, result.height, rx, ry) }
           } else {
             el
           }
@@ -340,14 +313,7 @@ pub fn EditorState::resize_move(
       })
     }
     Circle(r) => {
-      // 円の場合は対角距離から半径を計算
-      let dist = match state.handle {
-        SE => (dx + dy) / 2.0
-        NW => -(dx + dy) / 2.0
-        NE => (dx - dy) / 2.0
-        SW => (-dx + dy) / 2.0
-      }
-      let new_r = if r + dist < 5.0 { 5.0 } else { r + dist }
+      let new_r = @lib.calc_circle_resize(r, dx, dy, state.handle.to_lib(), 5.0)
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
