@@ -40,7 +40,7 @@ pub struct EditorState {
   drag_state : @luna.Signal[DragState?] // ドラッグ状態
   resize_state : @luna.Signal[ResizeState?] // リサイズ状態
   context_menu : @luna.Signal[ContextMenu?] // コンテキストメニュー
-  viewport : @luna.Signal[@lib.Viewport] // ビューポート
+  viewport : @luna.Signal[@model.Viewport] // ビューポート
 }
 
 ///|
@@ -54,7 +54,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     drag_state: @luna.signal(None),
     resize_state: @luna.signal(None),
     context_menu: @luna.signal(None),
-    viewport: @luna.signal(@lib.Viewport::default()),
+    viewport: @luna.signal(@model.Viewport::default()),
   }
 }
 
@@ -295,7 +295,7 @@ pub fn EditorState::resize_move(
   // ハンドル位置に応じて新しい位置と形状を計算
   match state.start_shape {
     Rect(w, h, rx, ry) => {
-      let result = @lib.calc_rect_resize(
+      let result = @model.calc_rect_resize(
         state.start_x, state.start_y,
         w, h,
         dx, dy,
@@ -313,7 +313,7 @@ pub fn EditorState::resize_move(
       })
     }
     Circle(r) => {
-      let new_r = @lib.calc_circle_resize(r, dx, dy, state.handle.to_lib(), 5.0)
+      let new_r = @model.calc_circle_resize(r, dx, dy, state.handle.to_lib(), 5.0)
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {

@@ -5,7 +5,7 @@
     "build": "vite build",
     "test": "playwright test",
     "test:e2e": "playwright test",
-    "test:unit": "node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));delete p.type;fs.writeFileSync('package.json',JSON.stringify(p,null,2))\" && moon test -p internal/app/lib; node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.type='module';fs.writeFileSync('package.json',JSON.stringify(p,null,2))\""
+    "test:unit": "node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));delete p.type;fs.writeFileSync('package.json',JSON.stringify(p,null,2))\" && moon test -p internal/app/model; node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.type='module';fs.writeFileSync('package.json',JSON.stringify(p,null,2))\""
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

@@ -161,11 +161,11 @@ pub enum HandlePosition {
 
 ///|
 /// HandlePosition を lib 形式に変換
-pub fn HandlePosition::to_lib(self : HandlePosition) -> @lib.HandlePosition {
+pub fn HandlePosition::to_lib(self : HandlePosition) -> @model.HandlePosition {
   match self {
-    NW => @lib.handle_nw()
-    NE => @lib.handle_ne()
-    SW => @lib.handle_sw()
-    SE => @lib.handle_se()
+    NW => @model.handle_nw()
+    NE => @model.handle_ne()
+    SW => @model.handle_sw()
+    SE => @model.handle_se()
   }
 }
