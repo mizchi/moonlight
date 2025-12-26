@@ -22,8 +22,8 @@ test.describe('Moonlight SVG Editor', () => {
   test('should have an SVG element', async ({ page }) => {
     const svg = page.locator('svg');
     await expect(svg).toBeVisible();
-    await expect(svg).toHaveAttribute('width', '800');
-    await expect(svg).toHaveAttribute('height', '600');
+    await expect(svg).toHaveAttribute('width', '400');
+    await expect(svg).toHaveAttribute('height', '300');
   });
 
   test('should have initial shapes (2 rects, 1 circle)', async ({ page }) => {
@@ -113,8 +113,8 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should show "No element selected" when right-clicking empty area', async ({ page }) => {
-    // Right-click on empty area of SVG
-    await page.locator('svg').click({ button: 'right', position: { x: 700, y: 500 } });
+    // Right-click on empty area of SVG (bottom-right corner, away from shapes)
+    await page.locator('svg').click({ button: 'right', position: { x: 380, y: 280 } });
 
     // Check message is shown
     await expect(page.locator('text=No element selected')).toBeVisible();
@@ -241,5 +241,62 @@ test.describe('Moonlight SVG Editor', () => {
     // Verify size restored
     const restoredWidth = await rect.getAttribute('width');
     expect(restoredWidth).toBe(initialWidth);
+  });
+
+  test('should delete shape with Delete key', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Select a shape
+    await page.locator('svg rect').first().click();
+    await expect(page.getByText('el-1')).toBeVisible();
+
+    // Press Delete key
+    await page.keyboard.press('Delete');
+
+    // Verify shape was deleted
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+  });
+
+  test('should deselect shape with Escape key', async ({ page }) => {
+    // Select a shape
+    await page.locator('svg rect').first().click();
+    await expect(page.getByText('el-1')).toBeVisible();
+
+    // Press Escape key
+    await page.keyboard.press('Escape');
+
+    // Verify shape was deselected (sidebar shows "Select an element")
+    await expect(page.getByText('Select an element to view details')).toBeVisible();
+  });
+
+  test('should duplicate shape with Ctrl+D', async ({ page }) => {
+    // Use data-id to only count shape rects, not resize handles
+    const shapeRects = page.locator('svg rect[data-id]');
+    const initialRectCount = await shapeRects.count();
+
+    // Select a shape
+    await shapeRects.first().click();
+    await page.waitForTimeout(100);
+
+    // Press Ctrl+D (use Meta for macOS)
+    const isMac = process.platform === 'darwin';
+    await page.keyboard.press(isMac ? 'Meta+d' : 'Control+d');
+
+    // Verify shape was duplicated
+    await expect(shapeRects).toHaveCount(initialRectCount + 1);
+  });
+
+  test('should undo with Ctrl+Z', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Add a shape
+    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+
+    // Press Ctrl+Z
+    await page.keyboard.press('Control+z');
+
+    // Verify shape was removed
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
   });
 });

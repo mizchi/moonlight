@@ -12,7 +12,7 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 
 | 項目 | 仕様 |
 |------|------|
-| サイズ | 800 x 600 px（固定） |
+| サイズ | 400 x 300 px（固定） |
 | 背景 | #fafafa |
 | 枠線 | 1px solid #ccc |
 
@@ -117,7 +117,7 @@ pub struct Viewport {
 
 ## テスト
 
-E2E テスト (Playwright): 22 件
+E2E テスト (Playwright): 27 件
 
 | カテゴリ | テスト数 |
 |----------|----------|
@@ -128,7 +128,8 @@ E2E テスト (Playwright): 22 件
 | コンテキストメニュー | 4 |
 | Undo/Redo | 5 |
 | リサイズ | 3 |
-| デバッグ | 1 |
+| キーボード | 4 |
+| デバッグ | 2 |
 
 ---
 
@@ -229,12 +230,12 @@ undo_stack.push(command)
 
 ### Phase 2: 編集機能
 
-- [ ] キーボードショートカット (Delete, Escape)
-- [ ] 複製 (Ctrl+D)
+- [x] キーボードショートカット (Delete, Escape, Ctrl+Z/Y)
+- [x] 複製 (Ctrl+D)
 - [x] Undo/Redo
 - [x] 図形のリサイズ
 - [ ] skip: 図形の回転 (Excalidrawのような簡単な図形編集するだけなら不要)
-- [ ] 要素の詳細のサイドバーを表示
+- [x] 要素の詳細のサイドバーを表示
 
 ### Phase 3: 拡張図形
 

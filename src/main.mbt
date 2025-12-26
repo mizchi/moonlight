@@ -1,14 +1,14 @@
 // Moonlight - 軽量 SVG エディタ
 
 ///|
-using @element {div, h1, button, text, text_dyn, events, show}
+using @element {div, h1, button, text, text_dyn, events, show, input}
 
 ///|
 /// キャンバスサイズ
-let canvas_width : Int = 800
+let canvas_width : Int = 400
 
 ///|
-let canvas_height : Int = 600
+let canvas_height : Int = 300
 
 ///|
 /// ID カウンター（Signal で管理）
@@ -46,9 +46,9 @@ fn editor_app() -> @element.DomNode {
   // サンプルの図形を追加
   let rect1 = @model.Element::new(
     new_id(),
-    100.0,
-    100.0,
-    @model.Rect(120.0, 80.0, None, None),
+    50.0,
+    50.0,
+    @model.Rect(80.0, 60.0, None, None),
   ).with_style({
     fill: Some("#4a90d9"),
     stroke: Some("#2c5282"),
@@ -57,16 +57,16 @@ fn editor_app() -> @element.DomNode {
   })
   let rect2 = @model.Element::new(
     new_id(),
-    300.0,
-    200.0,
-    @model.Rect(100.0, 100.0, Some(10.0), Some(10.0)),
+    180.0,
+    120.0,
+    @model.Rect(70.0, 70.0, Some(8.0), Some(8.0)),
   ).with_style({
     fill: Some("#48bb78"),
     stroke: Some("#276749"),
     stroke_width: Some(2.0),
     opacity: None,
   })
-  let circle1 = @model.Element::new(new_id(), 500.0, 150.0, @model.Circle(50.0)).with_style({
+  let circle1 = @model.Element::new(new_id(), 320.0, 80.0, @model.Circle(35.0)).with_style({
     fill: Some("#ed8936"),
     stroke: Some("#c05621"),
     stroke_width: Some(2.0),
@@ -269,6 +269,9 @@ fn editor_app() -> @element.DomNode {
     redraw_svg()
   })
 
+  // キーボードショートカット
+  setup_keyboard_shortcuts(state, history, new_id)
+
   // UI
   div([
     // ヘッダー
@@ -340,6 +343,73 @@ fn editor_app() -> @element.DomNode {
 }
 
 ///|
+/// キーボードショートカットを設定
+fn setup_keyboard_shortcuts(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+) -> Unit {
+  let handler : (@js.Any) -> Unit = fn(e) {
+    let key : String = e._get("key").cast()
+    let ctrl_key : Bool = e._get("ctrlKey").cast()
+    let meta_key : Bool = e._get("metaKey").cast()
+    let is_cmd = ctrl_key || meta_key
+
+    match key {
+      // Delete or Backspace: 選択中の要素を削除
+      "Delete" | "Backspace" => {
+        if state.selected_id.get() is Some(id) {
+          if state.find_element(id) is Some(el) {
+            execute_command(history, state, @model.RemoveElement(el))
+          }
+        }
+      }
+      // Escape: 選択解除
+      "Escape" => state.select(None)
+      // Ctrl+D or Cmd+D: 複製
+      "d" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          if state.selected_id.get() is Some(id) {
+            if state.find_element(id) is Some(el) {
+              // 新しいIDで複製し、少しオフセット
+              let new_el = {
+                ..el,
+                id: new_id(),
+                x: el.x + 20.0,
+                y: el.y + 20.0,
+              }
+              execute_command(history, state, @model.AddElement(new_el))
+              state.select(Some(new_el.id))
+            }
+          }
+        }
+      // Ctrl+Z or Cmd+Z: Undo
+      "z" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          let _ = undo_command(history, state)
+
+        }
+      // Ctrl+Y or Cmd+Shift+Z: Redo
+      "y" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          let _ = redo_command(history, state)
+
+        }
+      _ => ()
+    }
+  }
+  add_keyboard_listener(handler)
+}
+
+///|
+/// window に keydown イベントリスナーを追加
+extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
+  #| (handler) => window.addEventListener('keydown', handler)
+
+///|
 /// サイドバー幅
 let sidebar_width : Int = 220
 
@@ -373,40 +443,79 @@ fn render_sidebar(state : EditorState) -> @element.DomNode {
 }
 
 ///|
-/// 要素の詳細を表示
+/// 入力フィールドのスタイル
+let input_style : String = "width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
+
+///|
+/// カラー入力のスタイル
+let color_input_style : String = "width: 60px; height: 24px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;"
+
+///|
+/// 要素の詳細を表示・編集
 fn render_element_details(state : EditorState) -> @element.DomNode {
   div([
-    // ID
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("ID")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
-          match state.selected_id.get() {
-            Some(id) => id
-            None => "-"
-          }
-        }),
+    // ID (読み取り専用)
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("ID")]),
+      div(style="font-family: monospace; font-size: 14px; color: #333;", [
+        text_dyn(fn() { state.selected_id.get().unwrap_or("-") }),
       ]),
     ]),
-    // Position (x, y)
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Position")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
+    // Position X
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("X")]),
+      input(
+        type_="number",
+        style=input_style,
+        dyn_value=fn() {
           match state.selected_id.get() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) => "x: \{el.x.to_int()}, y: \{el.y.to_int()}"
-                None => "-"
+                Some(el) => el.x.to_int().to_string()
+                None => "0"
               }
-            None => "-"
+            None => "0"
+          }
+        },
+        on=events().change(fn(e) {
+          if state.selected_id.get() is Some(id) {
+            let value = get_event_target_value(e.as_any())
+            if parse_double(value) is Some(x) {
+              state.update_element(id, fn(el) { { ..el, x } })
+            }
           }
         }),
-      ]),
+      ),
     ]),
-    // Shape
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Shape")]),
+    // Position Y
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Y")]),
+      input(
+        type_="number",
+        style=input_style,
+        dyn_value=fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.y.to_int().to_string()
+                None => "0"
+              }
+            None => "0"
+          }
+        },
+        on=events().change(fn(e) {
+          if state.selected_id.get() is Some(id) {
+            let value = get_event_target_value(e.as_any())
+            if parse_double(value) is Some(y) {
+              state.update_element(id, fn(el) { { ..el, y } })
+            }
+          }
+        }),
+      ),
+    ]),
+    // Shape (読み取り専用)
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Shape")]),
       div(style="font-family: monospace; font-size: 14px;", [
         text_dyn(fn() {
           match state.selected_id.get() {
@@ -420,59 +529,135 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         }),
       ]),
     ]),
-    // Fill
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Fill")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
-          match state.selected_id.get() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.fill.unwrap_or("none")
-                None => "-"
-              }
-            None => "-"
-          }
-        }),
+    // Fill (カラーピッカー)
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Fill")]),
+      div(style="display: flex; gap: 8px; align-items: center;", [
+        input(
+          type_="color",
+          style=color_input_style,
+          dyn_value=fn() {
+            match state.selected_id.get() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.fill.unwrap_or("#000000")
+                  None => "#000000"
+                }
+              None => "#000000"
+            }
+          },
+          on=events().input(fn(e) {
+            if state.selected_id.get() is Some(id) {
+              let value = get_event_target_value(e.as_any())
+              state.update_element(id, fn(el) {
+                { ..el, style: { ..el.style, fill: Some(value) } }
+              })
+            }
+          }),
+        ),
+        @element.span(style="font-family: monospace; font-size: 12px;", [
+          text_dyn(fn() {
+            match state.selected_id.get() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.fill.unwrap_or("none")
+                  None => "-"
+                }
+              None => "-"
+            }
+          }),
+        ]),
       ]),
     ]),
-    // Stroke
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Stroke")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
-          match state.selected_id.get() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.stroke.unwrap_or("none")
-                None => "-"
-              }
-            None => "-"
-          }
-        }),
+    // Stroke (カラーピッカー)
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke")]),
+      div(style="display: flex; gap: 8px; align-items: center;", [
+        input(
+          type_="color",
+          style=color_input_style,
+          dyn_value=fn() {
+            match state.selected_id.get() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.stroke.unwrap_or("#000000")
+                  None => "#000000"
+                }
+              None => "#000000"
+            }
+          },
+          on=events().input(fn(e) {
+            if state.selected_id.get() is Some(id) {
+              let value = get_event_target_value(e.as_any())
+              state.update_element(id, fn(el) {
+                { ..el, style: { ..el.style, stroke: Some(value) } }
+              })
+            }
+          }),
+        ),
+        @element.span(style="font-family: monospace; font-size: 12px;", [
+          text_dyn(fn() {
+            match state.selected_id.get() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.stroke.unwrap_or("none")
+                  None => "-"
+                }
+              None => "-"
+            }
+          }),
+        ]),
       ]),
     ]),
     // Stroke Width
-    div(style="margin-bottom: 8px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Stroke Width")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
+    div(style="margin-bottom: 10px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke Width")]),
+      input(
+        type_="number",
+        style=input_style,
+        dyn_value=fn() {
           match state.selected_id.get() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) =>
-                  match el.style.stroke_width {
-                    Some(w) => w.to_string()
-                    None => "1"
-                  }
-                None => "-"
+                Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
+                None => "1"
               }
-            None => "-"
+            None => "1"
+          }
+        },
+        on=events().change(fn(e) {
+          if state.selected_id.get() is Some(id) {
+            let value = get_event_target_value(e.as_any())
+            if parse_double(value) is Some(w) {
+              state.update_element(id, fn(el) {
+                { ..el, style: { ..el.style, stroke_width: Some(w) } }
+              })
+            }
           }
         }),
-      ]),
+      ),
     ]),
   ])
+}
+
+///|
+/// イベントから target.value を取得（FFI）
+extern "js" fn get_event_target_value(e : @js.Any) -> String =
+  #| (e) => e.target.value
+
+///|
+/// 文字列を Double にパース（FFI）
+extern "js" fn parse_double_ffi(s : String) -> @js.Any =
+  #| (s) => { const n = parseFloat(s); return isNaN(n) ? null : n; }
+
+///|
+fn parse_double(s : String) -> Double? {
+  let result = parse_double_ffi(s)
+  if @js.is_nullish(result) {
+    None
+  } else {
+    Some(result.cast())
+  }
 }
 
 ///|
