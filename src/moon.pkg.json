@@ -11,7 +11,11 @@
     },
     {
       "path": "mizchi/js/browser/dom",
-      "alias": "dom"
+      "alias": "js_dom"
+    },
+    {
+      "path": "mizchi/js/core",
+      "alias": "js"
     }
   ]
 }
