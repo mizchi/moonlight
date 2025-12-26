@@ -13,6 +13,8 @@ pub struct EditorState {
   viewport : @luna.Signal[@model.Viewport] // ビューポート
   grid_enabled : @luna.Signal[Bool] // グリッドスナップ有効
   grid_size : @luna.Signal[Int] // グリッドサイズ（ピクセル）
+  is_panning : @luna.Signal[Bool] // パン中かどうか
+  pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
 }
 
 ///|
@@ -29,6 +31,8 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     viewport: @luna.signal(@model.Viewport::default()),
     grid_enabled: @luna.signal(false),
     grid_size: @luna.signal(20),
+    is_panning: @luna.signal(false),
+    pan_start: @luna.signal(None),
   }
 }
 
@@ -363,6 +367,33 @@ pub fn EditorState::pan(self : EditorState, dx : Double, dy : Double) -> Unit {
   self.viewport.update(fn(vp) {
     { ..vp, scroll_x: vp.scroll_x + dx, scroll_y: vp.scroll_y + dy }
   })
+}
+
+///|
+/// パン開始
+pub fn EditorState::start_pan(self : EditorState, screen_x : Double, screen_y : Double) -> Unit {
+  self.is_panning.set(true)
+  self.pan_start.set(Some((screen_x, screen_y)))
+}
+
+///|
+/// パン移動
+pub fn EditorState::pan_move(self : EditorState, screen_x : Double, screen_y : Double) -> Unit {
+  if self.pan_start.get() is Some((start_x, start_y)) {
+    let vp = self.viewport.get()
+    // スクリーン座標での移動量をシーン座標に変換
+    let dx = (start_x - screen_x) / vp.zoom
+    let dy = (start_y - screen_y) / vp.zoom
+    self.viewport.update(fn(v) { { ..v, scroll_x: v.scroll_x + dx, scroll_y: v.scroll_y + dy } })
+    self.pan_start.set(Some((screen_x, screen_y)))
+  }
+}
+
+///|
+/// パン終了
+pub fn EditorState::end_pan(self : EditorState) -> Unit {
+  self.is_panning.set(false)
+  self.pan_start.set(None)
 }
 
 // ============================================================

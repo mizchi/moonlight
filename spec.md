@@ -18,22 +18,15 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 
 ## 図形タイプ
 
-### 実装済み
-
-| タイプ | パラメータ | 説明 |
-|--------|------------|------|
-| `Rect` | width, height, rx?, ry? | 矩形（角丸オプション） |
-| `Circle` | radius | 円 |
-
-### 未実装（データモデルのみ）
-
-| タイプ | パラメータ | 説明 |
-|--------|------------|------|
-| `Ellipse` | rx, ry | 楕円 |
-| `Line` | x2, y2 | 線分 |
-| `Polyline` | points | 折れ線 |
-| `Path` | d | SVG パス |
-| `Text` | content, fontSize? | テキスト |
+| タイプ | パラメータ | 説明 | 状態 |
+|--------|------------|------|------|
+| `Rect` | width, height, rx?, ry? | 矩形（角丸オプション） | ✅ |
+| `Circle` | radius | 円 | ✅ |
+| `Ellipse` | rx, ry | 楕円 | ✅ |
+| `Line` | x2, y2 | 線分 | ✅ |
+| `Text` | content, fontSize? | テキスト | ✅ |
+| `Polyline` | points | 折れ線 | skip |
+| `Path` | d | SVG パス | skip |
 
 ## スタイル属性
 
@@ -65,17 +58,39 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 
 | 操作 | 動作 |
 |------|------|
-| 図形を右クリック | メニュー表示（Delete アクション） |
-| 空白を右クリック | メニュー表示（"No element selected"） |
-| Delete クリック | 対象図形を削除 |
+| 図形を右クリック | メニュー表示 |
+| 空白を右クリック | "No element selected" 表示 |
+| Bring to Front | 図形を最前面に移動 |
+| Send to Back | 図形を最背面に移動 |
+| Delete | 対象図形を削除 |
 | 左クリック | メニューを閉じる |
 
-## ボタン
+## ツールバー
 
 | ボタン | 動作 |
 |--------|------|
-| Add Rectangle | 紫の矩形を追加（位置はオフセット） |
-| Add Circle | 赤い円を追加（位置はオフセット） |
+| Add Rectangle | 紫の矩形を追加 |
+| Add Circle | 赤い円を追加 |
+| Add Ellipse | ティール色の楕円を追加 |
+| Add Line | 紫の線分を追加 |
+| Add Text | "Hello" テキストを追加 |
+| Undo | 操作を取り消し |
+| Redo | 操作をやり直し |
+| Export SVG | SVG ファイルをダウンロード |
+| -/+/Reset | ズーム操作 |
+| Grid Snap | グリッドスナップの切り替え |
+
+## キーボードショートカット
+
+| キー | 動作 |
+|------|------|
+| Delete / Backspace | 選択中の図形を削除 |
+| Escape | 選択解除 |
+| Ctrl+D / Cmd+D | 図形を複製 |
+| Ctrl+Z / Cmd+Z | Undo |
+| Ctrl+Y / Cmd+Y | Redo |
+| マウスホイール | ズーム |
+| Space + ドラッグ | パン（キャンバス移動） |
 
 ## 状態管理
 
@@ -86,8 +101,13 @@ EditorState
 ├── elements: Signal[Array[Element]]   # 要素リスト
 ├── selected_id: Signal[String?]       # 選択中の要素 ID
 ├── drag_state: Signal[DragState?]     # ドラッグ状態
+├── resize_state: Signal[ResizeState?] # リサイズ状態
 ├── context_menu: Signal[ContextMenu?] # コンテキストメニュー
-└── viewport: Signal[Viewport]         # ビューポート（未使用）
+├── viewport: Signal[Viewport]         # ビューポート (ズーム/パン)
+├── grid_enabled: Signal[Bool]         # グリッドスナップ有効
+├── grid_size: Signal[Int]             # グリッドサイズ (20px)
+├── is_panning: Signal[Bool]           # パン中かどうか
+└── pan_start: Signal[(Double,Double)?] # パン開始位置
 ```
 
 ## データモデル
@@ -105,13 +125,13 @@ pub struct Element {
 }
 ```
 
-### Viewport（将来用）
+### Viewport
 
 ```moonbit
 pub struct Viewport {
   scroll_x : Double  // スクロール X
   scroll_y : Double  // スクロール Y
-  zoom : Double      // ズーム倍率 (1.0 = 100%)
+  zoom : Double      // ズーム倍率 (1.0 = 100%, 範囲: 25% - 400%)
 }
 ```
 

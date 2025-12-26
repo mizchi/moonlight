@@ -323,6 +323,57 @@ pub fn elements_to_svg(
 }
 
 ///|
+/// グリッド線を描画
+pub fn render_grid(
+  width : Int,
+  height : Int,
+  grid_size : Int,
+  viewport : @model.Viewport,
+) -> Array[@js.Any] {
+  let lines : Array[@js.Any] = []
+  let size = grid_size.to_double()
+  // viewBox の範囲を計算
+  let vb_width = width.to_double() / viewport.zoom
+  let vb_height = height.to_double() / viewport.zoom
+  let start_x = viewport.scroll_x
+  let start_y = viewport.scroll_y
+  let end_x = start_x + vb_width
+  let end_y = start_y + vb_height
+  // グリッドの開始位置を計算（グリッドにスナップ）
+  let grid_start_x = (start_x / size).floor() * size
+  let grid_start_y = (start_y / size).floor() * size
+  // 縦線
+  let mut x = grid_start_x
+  while x <= end_x {
+    let attrs : Array[(String, String)] = [
+      ("x1", x.to_string()),
+      ("y1", start_y.to_string()),
+      ("x2", x.to_string()),
+      ("y2", end_y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ]
+    lines.push(create_svg_element("line", attrs, []))
+    x = x + size
+  }
+  // 横線
+  let mut y = grid_start_y
+  while y <= end_y {
+    let attrs : Array[(String, String)] = [
+      ("x1", start_x.to_string()),
+      ("y1", y.to_string()),
+      ("x2", end_x.to_string()),
+      ("y2", y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ]
+    lines.push(create_svg_element("line", attrs, []))
+    y = y + size
+  }
+  lines
+}
+
+///|
 /// リサイズハンドルのサイズ
 let handle_size : Double = 8.0
 

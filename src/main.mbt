@@ -80,13 +80,40 @@ fn editor_app() -> @element.DomNode {
   // SVG コンテナへの参照
   let svg_ref : Ref[@js.Any?] = { val: None }
 
-  // マウス座標をシーン座標に変換するヘルパー
-  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+  // Space キーが押されているか
+  let space_pressed : Ref[Bool] = { val: false }
+
+  // Space キーの監視を設定
+  let _ = add_keydown_listener(fn(e) {
+    let key : String = e._get("key").cast()
+    if key == " " {
+      space_pressed.val = true
+    }
+  })
+  let _ = add_keyup_listener(fn(e) {
+    let key : String = e._get("key").cast()
+    if key == " " {
+      space_pressed.val = false
+      // Space を離したらパン終了
+      if state.is_panning.get() {
+        state.end_pan()
+      }
+    }
+  })
+
+  // マウス座標をスクリーン座標で取得
+  let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
     let mouse_event : @js_dom.MouseEvent = e.cast()
     let svg = e._get("currentTarget")
     let rect = svg._call("getBoundingClientRect", [])
     let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
     let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    (screen_x, screen_y)
+  }
+
+  // マウス座標をシーン座標に変換するヘルパー
+  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+    let (screen_x, screen_y) = get_screen_coords(e)
     let vp = state.viewport.get()
     let scene = vp.screen_to_scene(screen_x, screen_y)
     (scene.x, scene.y)
@@ -96,6 +123,13 @@ fn editor_app() -> @element.DomNode {
   let on_mousedown : (@js.Any) -> Unit = fn(e) {
     // コンテキストメニューを閉じる
     state.hide_context_menu()
+
+    // Space キーが押されていればパンを開始
+    if space_pressed.val {
+      let (screen_x, screen_y) = get_screen_coords(e)
+      state.start_pan(screen_x, screen_y)
+      return
+    }
 
     let target = e._get("target")
     let dataset = target._get("dataset")
@@ -139,6 +173,12 @@ fn editor_app() -> @element.DomNode {
     }
   }
   let on_mousemove : (@js.Any) -> Unit = fn(e) {
+    // パン中の場合
+    if state.is_panning.get() {
+      let (screen_x, screen_y) = get_screen_coords(e)
+      state.pan_move(screen_x, screen_y)
+      return
+    }
     let (scene_x, scene_y) = get_scene_coords(e)
     if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
@@ -147,6 +187,11 @@ fn editor_app() -> @element.DomNode {
     }
   }
   let on_mouseup : (@js.Any) -> Unit = fn(_e) {
+    // パン終了
+    if state.is_panning.get() {
+      state.end_pan()
+      return
+    }
     // リサイズ終了時にリサイズコマンドを履歴に記録
     if state.resize_state.get() is Some(resize) {
       if state.find_element(resize.element_id) is Some(el) {
@@ -248,6 +293,18 @@ fn editor_app() -> @element.DomNode {
       None => ()
       Some(svg) => {
         clear_children_ffi(svg)
+        // グリッド線を描画（有効な場合）
+        if state.grid_enabled.get() {
+          let grid_lines = render_grid(
+            canvas_width,
+            canvas_height,
+            state.grid_size.get(),
+            state.viewport.get(),
+          )
+          for line in grid_lines {
+            append_child_ffi(svg, line)
+          }
+        }
         let elements = state.elements.get()
         let selected = state.selected_id.get()
         for el in elements {
@@ -276,6 +333,7 @@ fn editor_app() -> @element.DomNode {
     // Signal を読み取って依存関係を登録
     let _ = state.elements.get()
     let _ = state.selected_id.get()
+    let _ = state.grid_enabled.get()
     // 初回はスキップ（既に初期レンダリング済み）
     if is_first_run.val {
       is_first_run.val = false
@@ -297,6 +355,8 @@ fn editor_app() -> @element.DomNode {
       let vb_height = canvas_height.to_double() / vp.zoom
       let viewbox = "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
       update_viewbox_ffi(svg, viewbox)
+      // グリッドも再描画
+      redraw_svg()
     }
   })
 
@@ -538,6 +598,16 @@ fn setup_keyboard_shortcuts(
 /// window に keydown イベントリスナーを追加
 extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keydown', handler)
+
+///|
+/// keydown リスナー（別名）
+extern "js" fn add_keydown_listener(handler : (@js.Any) -> Unit) =
+  #| (handler) => window.addEventListener('keydown', handler)
+
+///|
+/// keyup リスナー
+extern "js" fn add_keyup_listener(handler : (@js.Any) -> Unit) =
+  #| (handler) => window.addEventListener('keyup', handler)
 
 ///|
 /// SVG の viewBox を更新
