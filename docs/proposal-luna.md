@@ -269,14 +269,133 @@ pub enum DomNode {
 
 ---
 
-## 5. 提案の優先度
+## 5. Dataset 属性アクセスの簡略化
+
+### 問題
+
+`data-*` 属性へのアクセスが冗長で、nullish チェックが必要：
+
+```moonbit
+let target = e._get("target")
+let dataset = target._get("dataset")
+let data_id_raw = dataset._get("id")
+let data_id : String? = if @js.is_nullish(data_id_raw) {
+  None
+} else {
+  Some(data_id_raw.cast())
+}
+```
+
+### 提案
+
+ヘルパー関数の追加：
+
+```moonbit
+///|
+/// Get dataset attribute from element, returns None if not present
+pub fn get_data_attr(el : @js.Any, name : String) -> String? {
+  let raw = el._get("dataset")._get(name)
+  if @js.is_nullish(raw) { None } else { Some(raw.cast()) }
+}
+
+// 使用例
+let data_id = get_data_attr(target, "id")
+let data_handle = get_data_attr(target, "handle")
+```
+
+---
+
+## 6. Signal のバッチ更新
+
+### 問題
+
+複数の Signal を更新する際、各更新で再描画が発生する可能性がある：
+
+```moonbit
+// 各行で effect が発火する可能性
+state.elements.update(...)
+state.selected_id.set(None)
+state.resize_state.set(None)
+```
+
+### 現状
+
+Luna には `@luna.batch` があるが、使い方が明確でない。
+
+### 提案
+
+ドキュメントでユースケースを明確化：
+
+```moonbit
+///|
+/// Batch multiple signal updates to prevent intermediate re-renders
+/// Effects are deferred until the batch completes
+///
+/// Example:
+/// ```moonbit
+/// @luna.batch(fn() {
+///   state.elements.update(...)
+///   state.selected_id.set(None)
+///   state.context_menu.set(None)
+/// })
+/// // Effects run once here
+/// ```
+pub fn batch(f : () -> Unit) -> Unit { ... }
+```
+
+---
+
+## 7. 複雑な状態の Signal 管理
+
+### 問題
+
+エディタのような複雑なアプリでは、多数の Signal を個別に管理することになる：
+
+```moonbit
+pub struct EditorState {
+  elements : @luna.Signal[Array[Element]]
+  selected_id : @luna.Signal[String?]
+  drag_state : @luna.Signal[DragState?]
+  resize_state : @luna.Signal[ResizeState?]
+  context_menu : @luna.Signal[ContextMenu?]
+  viewport : @luna.Signal[Viewport]
+}
+```
+
+### 考察
+
+- 各 Signal を個別に `get()` すると依存関係が登録される
+- 一部だけ更新したい場合でも全体を意識する必要がある
+- Zustand/Jotai のような selector パターンが欲しくなる
+
+### 提案（将来）
+
+Store パターンの強化：
+
+```moonbit
+// 現状の store を活用したセレクタ
+let selected_element = @luna.memo(fn() {
+  let id = state.selected_id.get()
+  match id {
+    Some(id) => state.elements.get().find(fn(el) { el.id == id })
+    None => None
+  }
+})
+```
+
+---
+
+## 8. 提案の優先度（更新）
 
 | 優先度 | 提案 | 理由 |
 |--------|------|------|
 | 高 | 1A: `create_element_ns` | SVG/MathML の基本サポートに必須 |
 | 高 | 2: `dom_node` ドキュメント | 既存機能の活用を促進 |
 | 中 | 3B: `watch` 関数 | よくあるパターンの簡略化 |
+| 中 | 5: `get_data_attr` ヘルパー | dataset アクセスの簡略化、よく使うパターン |
+| 中 | 6: `batch` ドキュメント | 既存機能の活用を促進 |
 | 低 | 4: DomNode ドキュメント | 高度なユースケース向け |
+| 低 | 7: Store パターン | 将来的な改善、現状 memo で対応可能 |
 | 低 | 1B: SVG ヘルパー | 別パッケージとして実装可能 |
 
 ---
