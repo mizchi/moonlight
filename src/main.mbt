@@ -1,7 +1,7 @@
 // Moonlight - 軽量 SVG エディタ
 
 ///|
-using @element {div, h1, p, button, text, text_dyn, events, show}
+using @element {div, h1, button, text, text_dyn, events, show}
 
 ///|
 /// キャンバスサイズ
@@ -271,73 +271,222 @@ fn editor_app() -> @element.DomNode {
 
   // UI
   div([
-    h1([text("Moonlight SVG Editor")]),
-    p([
-      text_dyn(fn() {
-        match state.selected_id.get() {
-          Some(id) => "Selected: \{id}"
-          None => "Click a shape to select"
-        }
-      }),
+    // ヘッダー
+    div(style="margin-bottom: 10px;", [
+      h1(style="margin: 0 0 8px 0;", [text("Moonlight SVG Editor")]),
+      // ツールバー
+      div([
+        button(
+          on=events().click(fn(_) {
+            let current = id_counter.get()
+            let new_rect = @model.Element::new(
+              new_id(),
+              150.0 + current.to_double() * 20.0,
+              150.0 + current.to_double() * 20.0,
+              @model.Rect(80.0, 60.0, None, None),
+            ).with_style({
+              fill: Some("#9f7aea"),
+              stroke: Some("#6b46c1"),
+              stroke_width: Some(2.0),
+              opacity: None,
+            })
+            execute_command(history, state, @model.AddElement(new_rect))
+          }),
+          [text("Add Rectangle")],
+        ),
+        button(
+          on=events().click(fn(_) {
+            let current = id_counter.get()
+            let new_circle = @model.Element::new(
+              new_id(),
+              200.0 + current.to_double() * 20.0,
+              200.0 + current.to_double() * 20.0,
+              @model.Circle(40.0),
+            ).with_style({
+              fill: Some("#f56565"),
+              stroke: Some("#c53030"),
+              stroke_width: Some(2.0),
+              opacity: None,
+            })
+            execute_command(history, state, @model.AddElement(new_circle))
+          }),
+          [text("Add Circle")],
+        ),
+        button(
+          on=events().click(fn(_) { let _ = undo_command(history, state) }),
+          [text("Undo")],
+        ),
+        button(
+          on=events().click(fn(_) { let _ = redo_command(history, state) }),
+          [text("Redo")],
+        ),
+      ]),
     ]),
-    // SVG キャンバス（position: relative でコンテキストメニューの基準に）
-    div(style="position: relative; display: inline-block;", [
-      svg_to_dom_node(svg),
-      // コンテキストメニュー
-      show(
-        fn() { state.context_menu.get() is Some(_) },
-        fn() { render_context_menu(state, history) },
-      ),
-    ]),
-    // ボタン
-    div(style="margin-top: 10px;", [
-      button(
-        on=events().click(fn(_) {
-          let current = id_counter.get()
-          let new_rect = @model.Element::new(
-            new_id(),
-            150.0 + current.to_double() * 20.0,
-            150.0 + current.to_double() * 20.0,
-            @model.Rect(80.0, 60.0, None, None),
-          ).with_style({
-            fill: Some("#9f7aea"),
-            stroke: Some("#6b46c1"),
-            stroke_width: Some(2.0),
-            opacity: None,
-          })
-          execute_command(history, state, @model.AddElement(new_rect))
-        }),
-        [text("Add Rectangle")],
-      ),
-      button(
-        on=events().click(fn(_) {
-          let current = id_counter.get()
-          let new_circle = @model.Element::new(
-            new_id(),
-            200.0 + current.to_double() * 20.0,
-            200.0 + current.to_double() * 20.0,
-            @model.Circle(40.0),
-          ).with_style({
-            fill: Some("#f56565"),
-            stroke: Some("#c53030"),
-            stroke_width: Some(2.0),
-            opacity: None,
-          })
-          execute_command(history, state, @model.AddElement(new_circle))
-        }),
-        [text("Add Circle")],
-      ),
-      // Undo/Redo ボタン
-      button(
-        on=events().click(fn(_) { let _ = undo_command(history, state) }),
-        [text("Undo")],
-      ),
-      button(
-        on=events().click(fn(_) { let _ = redo_command(history, state) }),
-        [text("Redo")],
-      ),
+    // メインエリア（Canvas + Sidebar）
+    div(style="display: flex; gap: 16px;", [
+      // SVG キャンバス（position: relative でコンテキストメニューの基準に）
+      div(style="position: relative;", [
+        svg_to_dom_node(svg),
+        // コンテキストメニュー
+        show(
+          fn() { state.context_menu.get() is Some(_) },
+          fn() { render_context_menu(state, history) },
+        ),
+      ]),
+      // サイドバー
+      render_sidebar(state),
     ]),
   ])
+}
+
+///|
+/// サイドバー幅
+let sidebar_width : Int = 220
+
+///|
+/// サイドバーをレンダリング
+fn render_sidebar(state : EditorState) -> @element.DomNode {
+  let sidebar_style =
+    "width: \{sidebar_width}px; min-height: \{canvas_height}px; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box;"
+  div(
+    style=sidebar_style,
+    [
+      div(style="font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px;", [
+        text("Element"),
+      ]),
+      // 選択中の要素の詳細を表示
+      show(
+        fn() { state.selected_id.get() is Some(_) },
+        fn() { render_element_details(state) },
+      ),
+      // 選択なしの場合
+      show(
+        fn() { state.selected_id.get() is None },
+        fn() {
+          div(style="color: #888; font-size: 14px;", [
+            text("Select an element to view details"),
+          ])
+        },
+      ),
+    ],
+  )
+}
+
+///|
+/// 要素の詳細を表示
+fn render_element_details(state : EditorState) -> @element.DomNode {
+  div([
+    // ID
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("ID")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) => id
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+    // Position (x, y)
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Position")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => "x: \{el.x.to_int()}, y: \{el.y.to_int()}"
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+    // Shape
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Shape")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => format_shape(el.shape)
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+    // Fill
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Fill")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.fill.unwrap_or("none")
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+    // Stroke
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Stroke")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.stroke.unwrap_or("none")
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+    // Stroke Width
+    div(style="margin-bottom: 8px;", [
+      div(style="font-size: 12px; color: #666; margin-bottom: 2px;", [text("Stroke Width")]),
+      div(style="font-family: monospace; font-size: 14px;", [
+        text_dyn(fn() {
+          match state.selected_id.get() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) =>
+                  match el.style.stroke_width {
+                    Some(w) => w.to_string()
+                    None => "1"
+                  }
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+    ]),
+  ])
+}
+
+///|
+/// Shape を文字列にフォーマット
+fn format_shape(shape : @model.ShapeType) -> String {
+  match shape {
+    @model.Rect(w, h, _, _) => "Rect(\{w.to_int()}x\{h.to_int()})"
+    @model.Circle(r) => "Circle(r=\{r.to_int()})"
+    @model.Ellipse(rx, ry) => "Ellipse(\{rx.to_int()}x\{ry.to_int()})"
+    @model.Line(x2, y2) => "Line(to \{x2.to_int()},\{y2.to_int()})"
+    @model.Polyline(_) => "Polyline"
+    @model.Path(_) => "Path"
+    @model.Text(content, _) => "Text(\"\{content}\")"
+  }
 }
 
 ///|

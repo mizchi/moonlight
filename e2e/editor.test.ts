@@ -9,8 +9,9 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('h1')).toHaveText('Moonlight SVG Editor');
   });
 
-  test('should display status text', async ({ page }) => {
-    await expect(page.locator('p').first()).toHaveText('Click a shape to select');
+  test('should display status text in sidebar', async ({ page }) => {
+    // Sidebar should show "Select an element to view details" when nothing is selected
+    await expect(page.getByText('Select an element to view details')).toBeVisible();
   });
 
   test('should have Add Rectangle and Add Circle buttons', async ({ page }) => {
@@ -37,8 +38,8 @@ test.describe('Moonlight SVG Editor', () => {
     const rect = page.locator('svg rect').first();
     await rect.click();
 
-    // Check that status shows selected
-    await expect(page.locator('p').first()).toContainText('Selected:');
+    // Check that sidebar shows the element ID
+    await expect(page.getByText('el-1')).toBeVisible();
   });
 
   test('should add a rectangle when clicking Add Rectangle', async ({ page }) => {

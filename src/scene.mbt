@@ -323,23 +323,31 @@ pub fn execute_command(
 ///|
 /// Undo（取り消し）
 pub fn undo_command(history : @model.History, state : EditorState) -> Bool {
-  guard history.undo_stack.pop() is Some(command)
-  // 逆操作を実行
-  unapply_command(command, state)
-  // Redo スタックに追加
-  history.redo_stack.push(command)
-  true
+  match history.undo_stack.pop() {
+    None => false
+    Some(command) => {
+      // 逆操作を実行
+      unapply_command(command, state)
+      // Redo スタックに追加
+      history.redo_stack.push(command)
+      true
+    }
+  }
 }
 
 ///|
 /// Redo（やり直し）
 pub fn redo_command(history : @model.History, state : EditorState) -> Bool {
-  guard history.redo_stack.pop() is Some(command)
-  // 操作を再実行
-  apply_command(command, state)
-  // Undo スタックに追加
-  history.undo_stack.push(command)
-  true
+  match history.redo_stack.pop() {
+    None => false
+    Some(command) => {
+      // 操作を再実行
+      apply_command(command, state)
+      // Undo スタックに追加
+      history.undo_stack.push(command)
+      true
+    }
+  }
 }
 
 ///|
