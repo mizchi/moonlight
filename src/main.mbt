@@ -359,6 +359,9 @@ fn editor_app() -> @element.DomNode {
     let _ = e._call("preventDefault", [])
     let mouse_event : @js_dom.MouseEvent = e.cast()
 
+    // シーン座標を取得（図形挿入用）
+    let (scene_x, scene_y) = get_scene_coords(e)
+
     // クリック対象を取得
     let target = e._get("target")
     let data_id_raw = target._get("dataset")._get("id")
@@ -373,8 +376,14 @@ fn editor_app() -> @element.DomNode {
       state.select(Some(id))
     }
 
-    // メニュー表示
-    state.show_context_menu(mouse_event.clientX, mouse_event.clientY, target_id)
+    // メニュー表示（スクリーン座標とシーン座標の両方を渡す）
+    state.show_context_menu(
+      mouse_event.clientX,
+      mouse_event.clientY,
+      scene_x,
+      scene_y,
+      target_id,
+    )
   }
 
   // 初期 SVG を作成（effect より先に作成）
@@ -634,7 +643,7 @@ fn editor_app() -> @element.DomNode {
         // コンテキストメニュー
         show(
           fn() { state.context_menu.get() is Some(_) },
-          fn() { render_context_menu(state, history) },
+          fn() { render_context_menu(state, history, new_id) },
         ),
         // テキスト入力オーバーレイ
         show(
@@ -1066,7 +1075,11 @@ fn render_text_input(
 
 ///|
 /// コンテキストメニューをレンダリング
-fn render_context_menu(state : EditorState, history : @model.History) -> @element.DomNode {
+fn render_context_menu(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+) -> @element.DomNode {
   guard state.context_menu.get() is Some(menu)
   let style =
     "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 140px; z-index: 1000;"
@@ -1121,8 +1134,124 @@ fn render_context_menu(state : EditorState, history : @model.History) -> @elemen
           ]),
         ])
       } else {
-        // 空白部分を右クリックした場合
-        div(style="padding: 8px 12px; color: #999;", [text("No element selected")])
+        // 空白部分を右クリックした場合 - 挿入メニュー
+        let insert_x = menu.scene_x
+        let insert_y = menu.scene_y
+        @element.fragment([
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 12px;", [
+            text("Insert"),
+          ]),
+          // Rectangle
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                let el = @model.Element::new(
+                  new_id(),
+                  insert_x,
+                  insert_y,
+                  @model.Rect(80.0, 60.0, None, None),
+                ).with_style({
+                  fill: Some("#9f7aea"),
+                  stroke: Some("#6b46c1"),
+                  stroke_width: Some(2.0),
+                  opacity: None,
+                })
+                execute_command(history, state, @model.AddElement(el))
+                state.hide_context_menu()
+              }),
+              [text("Rectangle")],
+            ),
+          ]),
+          // Circle
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                let el = @model.Element::new(
+                  new_id(),
+                  insert_x,
+                  insert_y,
+                  @model.Circle(40.0),
+                ).with_style({
+                  fill: Some("#f56565"),
+                  stroke: Some("#c53030"),
+                  stroke_width: Some(2.0),
+                  opacity: None,
+                })
+                execute_command(history, state, @model.AddElement(el))
+                state.hide_context_menu()
+              }),
+              [text("Circle")],
+            ),
+          ]),
+          // Ellipse
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                let el = @model.Element::new(
+                  new_id(),
+                  insert_x,
+                  insert_y,
+                  @model.Ellipse(60.0, 35.0),
+                ).with_style({
+                  fill: Some("#38b2ac"),
+                  stroke: Some("#234e52"),
+                  stroke_width: Some(2.0),
+                  opacity: None,
+                })
+                execute_command(history, state, @model.AddElement(el))
+                state.hide_context_menu()
+              }),
+              [text("Ellipse")],
+            ),
+          ]),
+          // Line
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                let el = @model.Element::new(
+                  new_id(),
+                  insert_x,
+                  insert_y,
+                  @model.Line(insert_x + 100.0, insert_y + 50.0),
+                ).with_style({
+                  fill: None,
+                  stroke: Some("#805ad5"),
+                  stroke_width: Some(3.0),
+                  opacity: None,
+                })
+                execute_command(history, state, @model.AddElement(el))
+                state.hide_context_menu()
+              }),
+              [text("Line")],
+            ),
+          ]),
+          // Text
+          div(style="padding: 4px 12px;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                let el = @model.Element::new(
+                  new_id(),
+                  insert_x,
+                  insert_y,
+                  @model.Text("Text", Some(24.0)),
+                ).with_style({
+                  fill: Some("#2d3748"),
+                  stroke: None,
+                  stroke_width: None,
+                  opacity: None,
+                })
+                execute_command(history, state, @model.AddElement(el))
+                state.hide_context_menu()
+              }),
+              [text("Text")],
+            ),
+          ]),
+        ])
       },
     ],
   )

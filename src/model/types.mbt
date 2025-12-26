@@ -125,10 +125,13 @@ pub fn Element::bounding_box(self : Element) -> BoundingBox {
     Path(_) =>
       // Path のバウンディングボックスは簡易的に要素位置のみ
       { x: self.x, y: self.y, width: 0.0, height: 0.0 }
-    Text(_, font_size) => {
+    Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
-      // テキストのバウンディングボックスは概算
-      { x: self.x, y: self.y - size, width: 100.0, height: size }
+      // テキストのバウンディングボックスは概算（中央基準）
+      // text-anchor="middle", dominant-baseline="middle" に対応
+      let estimated_width = content.iter().count().to_double() * size * 0.6
+      let width = if estimated_width < 20.0 { 20.0 } else { estimated_width }
+      { x: self.x - width / 2.0, y: self.y - size / 2.0, width, height: size }
     }
   }
 }
@@ -294,8 +297,10 @@ pub(all) struct DragState {
 ///|
 /// コンテキストメニューの状態
 pub(all) struct ContextMenu {
-  x : Double // メニュー表示位置 X
-  y : Double // メニュー表示位置 Y
+  x : Double // メニュー表示位置 X（スクリーン座標）
+  y : Double // メニュー表示位置 Y（スクリーン座標）
+  scene_x : Double // シーン座標 X（図形挿入用）
+  scene_y : Double // シーン座標 Y（図形挿入用）
   target_id : String? // 右クリック対象の要素 ID（None = 空白部分）
 } derive(Show, Eq)
 

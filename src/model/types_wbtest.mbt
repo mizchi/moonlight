@@ -308,9 +308,12 @@ test "ContextMenu - construction" {
   let menu : ContextMenu = {
     x: 150.0,
     y: 250.0,
+    scene_x: 100.0,
+    scene_y: 200.0,
     target_id: Some("el-2"),
   }
   assert_eq(menu.x, 150.0)
+  assert_eq(menu.scene_x, 100.0)
   assert_eq(menu.target_id, Some("el-2"))
 }
 

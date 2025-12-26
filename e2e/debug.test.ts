@@ -110,6 +110,28 @@ test('debug: edit line endpoints', async ({ page }) => {
   await expect(page.locator('svg circle[data-handle="line-end"]')).toBeVisible();
 });
 
+test('debug: insert shape from context menu', async ({ page }) => {
+  await page.goto('/');
+
+  // Initial rect count
+  const initialRectCount = await page.locator('svg rect[data-id]').count();
+
+  // Right-click on empty area
+  await page.locator('svg').click({ button: 'right', position: { x: 350, y: 250 } });
+  await page.waitForTimeout(100);
+
+  // Click Rectangle in insert menu (use exact match to avoid "Add Rectangle")
+  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  await page.waitForTimeout(100);
+
+  // Check shape was added
+  const afterRectCount = await page.locator('svg rect[data-id]').count();
+  expect(afterRectCount).toBe(initialRectCount + 1);
+
+  // Context menu should be closed
+  await expect(page.locator('text=Insert')).not.toBeVisible();
+});
+
 test('debug: Ctrl+D duplicate', async ({ page }) => {
   await page.goto('/');
 

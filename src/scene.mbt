@@ -251,9 +251,11 @@ pub fn EditorState::show_context_menu(
   self : EditorState,
   x : Double,
   y : Double,
+  scene_x : Double,
+  scene_y : Double,
   target_id : String?,
 ) -> Unit {
-  self.context_menu.set(Some({ x, y, target_id }))
+  self.context_menu.set(Some({ x, y, scene_x, scene_y, target_id }))
 }
 
 ///|

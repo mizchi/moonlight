@@ -138,12 +138,17 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
   });
 
-  test('should show "No element selected" when right-clicking empty area', async ({ page }) => {
+  test('should show insert menu when right-clicking empty area', async ({ page }) => {
     // Right-click on empty area of SVG (bottom-right corner, away from shapes)
     await page.locator('svg').click({ button: 'right', position: { x: 380, y: 280 } });
 
-    // Check message is shown
-    await expect(page.locator('text=No element selected')).toBeVisible();
+    // Check insert menu is shown (use exact match to avoid toolbar buttons)
+    await expect(page.locator('text=Insert')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Rectangle', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ellipse', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Text', exact: true })).toBeVisible();
   });
 
   test('should bring element to front via context menu', async ({ page }) => {
