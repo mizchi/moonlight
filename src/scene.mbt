@@ -1,21 +1,15 @@
 // Scene - Signal ベースの要素管理
-// 型定義は @model パッケージに移動済み
-
-// 型エイリアス
-pub type DragState = @model.DragState
-pub type ContextMenu = @model.ContextMenu
-pub type ResizeState = @model.ResizeState
 
 ///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
   height : Int // キャンバス高さ
-  elements : @luna.Signal[Array[Element]] // 要素リスト
+  elements : @luna.Signal[Array[@model.Element]] // 要素リスト
   selected_id : @luna.Signal[String?] // 選択中の要素 ID
-  drag_state : @luna.Signal[DragState?] // ドラッグ状態
-  resize_state : @luna.Signal[ResizeState?] // リサイズ状態
-  context_menu : @luna.Signal[ContextMenu?] // コンテキストメニュー
+  drag_state : @luna.Signal[@model.DragState?] // ドラッグ状態
+  resize_state : @luna.Signal[@model.ResizeState?] // リサイズ状態
+  context_menu : @luna.Signal[@model.ContextMenu?] // コンテキストメニュー
   viewport : @luna.Signal[@model.Viewport] // ビューポート
 }
 
@@ -36,7 +30,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
 
 ///|
 /// 要素を追加
-pub fn EditorState::add_element(self : EditorState, element : Element) -> Unit {
+pub fn EditorState::add_element(self : EditorState, element : @model.Element) -> Unit {
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
@@ -46,7 +40,7 @@ pub fn EditorState::add_element(self : EditorState, element : Element) -> Unit {
 
 ///|
 /// 要素を ID で検索
-pub fn EditorState::find_element(self : EditorState, id : String) -> Element? {
+pub fn EditorState::find_element(self : EditorState, id : String) -> @model.Element? {
   for el in self.elements.get() {
     if el.id == id {
       return Some(el)
@@ -60,7 +54,7 @@ pub fn EditorState::find_element(self : EditorState, id : String) -> Element? {
 pub fn EditorState::update_element(
   self : EditorState,
   id : String,
-  updater : (Element) -> Element,
+  updater : (@model.Element) -> @model.Element,
 ) -> Unit {
   self.elements.update(fn(els) {
     els.map(fn(el) { if el.id == id { updater(el) } else { el } })
@@ -84,7 +78,7 @@ pub fn EditorState::hit_test(
   self : EditorState,
   x : Double,
   y : Double,
-) -> Element? {
+) -> @model.Element? {
   @model.find_element_at(self.elements.get(), { x, y })
 }
 
@@ -180,7 +174,7 @@ pub fn EditorState::delete_selected(self : EditorState) -> Unit {
 
 ///|
 /// 要素を追加（履歴なし）
-pub fn EditorState::add_element_raw(self : EditorState, element : Element) -> Unit {
+pub fn EditorState::add_element_raw(self : EditorState, element : @model.Element) -> Unit {
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
@@ -215,7 +209,7 @@ pub fn EditorState::move_element_raw(
 pub fn EditorState::update_shape_raw(
   self : EditorState,
   id : String,
-  new_shape : ShapeType,
+  new_shape : @model.ShapeType,
 ) -> Unit {
   self.elements.update(fn(els) {
     els.map(fn(el) { if el.id == id { { ..el, shape: new_shape } } else { el } })
@@ -231,7 +225,7 @@ pub fn EditorState::update_shape_raw(
 pub fn EditorState::start_resize(
   self : EditorState,
   element_id : String,
-  handle : HandlePosition,
+  handle : @model.HandlePosition,
   mouse_x : Double,
   mouse_y : Double,
 ) -> Unit {
@@ -261,7 +255,7 @@ pub fn EditorState::resize_move(
   let dy = mouse_y - state.mouse_start_y
   // ハンドル位置に応じて新しい位置と形状を計算
   match state.start_shape {
-    Rect(w, h, rx, ry) => {
+    @model.Rect(w, h, rx, ry) => {
       let result = @model.calc_rect_resize(
         state.start_x, state.start_y,
         w, h,
@@ -272,19 +266,19 @@ pub fn EditorState::resize_move(
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
-            { ..el, x: result.x, y: result.y, shape: Rect(result.width, result.height, rx, ry) }
+            { ..el, x: result.x, y: result.y, shape: @model.Rect(result.width, result.height, rx, ry) }
           } else {
             el
           }
         })
       })
     }
-    Circle(r) => {
+    @model.Circle(r) => {
       let new_r = @model.calc_circle_resize(r, dx, dy, state.handle, 5.0)
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
-            { ..el, shape: Circle(new_r) }
+            { ..el, shape: @model.Circle(new_r) }
           } else {
             el
           }

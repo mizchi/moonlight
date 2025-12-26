@@ -44,29 +44,29 @@ fn editor_app() -> @element.DomNode {
   let history = @model.History::new()
 
   // サンプルの図形を追加
-  let rect1 = Element::new(
+  let rect1 = @model.Element::new(
     new_id(),
     100.0,
     100.0,
-    Rect(120.0, 80.0, None, None),
+    @model.Rect(120.0, 80.0, None, None),
   ).with_style({
     fill: Some("#4a90d9"),
     stroke: Some("#2c5282"),
     stroke_width: Some(2.0),
     opacity: None,
   })
-  let rect2 = Element::new(
+  let rect2 = @model.Element::new(
     new_id(),
     300.0,
     200.0,
-    Rect(100.0, 100.0, Some(10.0), Some(10.0)),
+    @model.Rect(100.0, 100.0, Some(10.0), Some(10.0)),
   ).with_style({
     fill: Some("#48bb78"),
     stroke: Some("#276749"),
     stroke_width: Some(2.0),
     opacity: None,
   })
-  let circle1 = Element::new(new_id(), 500.0, 150.0, Circle(50.0)).with_style({
+  let circle1 = @model.Element::new(new_id(), 500.0, 150.0, @model.Circle(50.0)).with_style({
     fill: Some("#ed8936"),
     stroke: Some("#c05621"),
     stroke_width: Some(2.0),
@@ -294,11 +294,11 @@ fn editor_app() -> @element.DomNode {
       button(
         on=events().click(fn(_) {
           let current = id_counter.get()
-          let new_rect = Element::new(
+          let new_rect = @model.Element::new(
             new_id(),
             150.0 + current.to_double() * 20.0,
             150.0 + current.to_double() * 20.0,
-            Rect(80.0, 60.0, None, None),
+            @model.Rect(80.0, 60.0, None, None),
           ).with_style({
             fill: Some("#9f7aea"),
             stroke: Some("#6b46c1"),
@@ -312,11 +312,11 @@ fn editor_app() -> @element.DomNode {
       button(
         on=events().click(fn(_) {
           let current = id_counter.get()
-          let new_circle = Element::new(
+          let new_circle = @model.Element::new(
             new_id(),
             200.0 + current.to_double() * 20.0,
             200.0 + current.to_double() * 20.0,
-            Circle(40.0),
+            @model.Circle(40.0),
           ).with_style({
             fill: Some("#f56565"),
             stroke: Some("#c53030"),

@@ -1,4 +1,4 @@
-// SVG Rendering - Element → DomNode への変換
+// SVG Rendering - @model.Element → DomNode への変換
 
 ///|
 /// SVG namespace URI
@@ -56,7 +56,7 @@ fn num_str(value : Double) -> String {
 
 ///|
 /// スタイル属性を配列に追加
-fn add_style_attrs(attrs : Array[(String, String)], style : Style) -> Unit {
+fn add_style_attrs(attrs : Array[(String, String)], style : @model.Style) -> Unit {
   if style.fill is Some(v) {
     attrs.push(("fill", v))
   } else {
@@ -75,7 +75,7 @@ fn add_style_attrs(attrs : Array[(String, String)], style : Style) -> Unit {
 
 ///|
 /// 要素を SVG ノードに変換
-pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
+pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
   let attrs : Array[(String, String)] = []
   // data-id 属性（イベント処理用）
   attrs.push(("data-id", el.id))
@@ -90,7 +90,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
     el.style
   }
   match el.shape {
-    Rect(w, h, rx, ry) => {
+    @model.Rect(w, h, rx, ry) => {
       attrs.push(("x", num_str(el.x)))
       attrs.push(("y", num_str(el.y)))
       attrs.push(("width", num_str(w)))
@@ -108,7 +108,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("rect", attrs, [])
     }
-    Circle(r) => {
+    @model.Circle(r) => {
       attrs.push(("cx", num_str(el.x)))
       attrs.push(("cy", num_str(el.y)))
       attrs.push(("r", num_str(r)))
@@ -119,7 +119,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("circle", attrs, [])
     }
-    Ellipse(rx, ry) => {
+    @model.Ellipse(rx, ry) => {
       attrs.push(("cx", num_str(el.x)))
       attrs.push(("cy", num_str(el.y)))
       attrs.push(("rx", num_str(rx)))
@@ -131,7 +131,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("ellipse", attrs, [])
     }
-    Line(x2, y2) => {
+    @model.Line(x2, y2) => {
       attrs.push(("x1", num_str(el.x)))
       attrs.push(("y1", num_str(el.y)))
       attrs.push(("x2", num_str(x2)))
@@ -143,7 +143,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("line", attrs, [])
     }
-    Polyline(points) => {
+    @model.Polyline(points) => {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
       attrs.push(("points", points_str))
       add_style_attrs(attrs, style)
@@ -153,7 +153,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("polyline", attrs, [])
     }
-    Path(d) => {
+    @model.Path(d) => {
       attrs.push(("d", d))
       add_style_attrs(attrs, style)
       if el.transform is Some(t) {
@@ -162,7 +162,7 @@ pub fn render_element(el : Element, is_selected : Bool) -> @js.Any {
       attrs.push(("cursor", "move"))
       create_svg_element("path", attrs, [])
     }
-    Text(content, font_size) => {
+    @model.Text(content, font_size) => {
       attrs.push(("x", num_str(el.x)))
       attrs.push(("y", num_str(el.y)))
       if font_size is Some(size) {
@@ -228,7 +228,7 @@ let handle_size : Double = 8.0
 
 ///|
 /// リサイズハンドルを描画
-pub fn render_resize_handles(el : Element) -> Array[@js.Any] {
+pub fn render_resize_handles(el : @model.Element) -> Array[@js.Any] {
   let bbox = el.bounding_box()
   let half = handle_size / 2.0
   let handles : Array[@js.Any] = []
