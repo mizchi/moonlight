@@ -216,6 +216,92 @@ pub fn EditorState::update_shape_raw(
   })
 }
 
+///|
+/// 要素の現在のインデックスを取得
+pub fn EditorState::get_element_index(self : EditorState, id : String) -> Int? {
+  let els = self.elements.get()
+  for i = 0; i < els.length(); i = i + 1 {
+    if els[i].id == id {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+/// 要素を指定位置に移動（履歴なし）
+pub fn EditorState::reorder_element_raw(
+  self : EditorState,
+  id : String,
+  to_index : Int,
+) -> Unit {
+  self.elements.update(fn(els) {
+    let mut from_idx = -1
+    for i = 0; i < els.length(); i = i + 1 {
+      if els[i].id == id {
+        from_idx = i
+        break
+      }
+    }
+    if from_idx < 0 {
+      return els
+    }
+    let el = els[from_idx]
+    let new_els : Array[@model.Element] = []
+    // 要素を除いた配列を作成
+    for i = 0; i < els.length(); i = i + 1 {
+      if i != from_idx {
+        new_els.push(els[i])
+      }
+    }
+    // 正しい位置に挿入
+    let insert_idx = if to_index > new_els.length() {
+      new_els.length()
+    } else if to_index < 0 {
+      0
+    } else {
+      to_index
+    }
+    let result : Array[@model.Element] = []
+    for i = 0; i < new_els.length(); i = i + 1 {
+      if i == insert_idx {
+        result.push(el)
+      }
+      result.push(new_els[i])
+    }
+    if insert_idx >= new_els.length() {
+      result.push(el)
+    }
+    result
+  })
+}
+
+///|
+/// 要素を最前面に移動
+pub fn EditorState::bring_to_front(self : EditorState, id : String) -> (Int, Int)? {
+  let els = self.elements.get()
+  if self.get_element_index(id) is Some(from_idx) {
+    let to_idx = els.length() - 1
+    if from_idx != to_idx {
+      self.reorder_element_raw(id, to_idx)
+      return Some((from_idx, to_idx))
+    }
+  }
+  None
+}
+
+///|
+/// 要素を最背面に移動
+pub fn EditorState::send_to_back(self : EditorState, id : String) -> (Int, Int)? {
+  if self.get_element_index(id) is Some(from_idx) {
+    if from_idx != 0 {
+      self.reorder_element_raw(id, 0)
+      return Some((from_idx, 0))
+    }
+  }
+  None
+}
+
 // ============================================================
 // リサイズ操作
 // ============================================================
@@ -381,6 +467,7 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.RemoveElement(element) => state.remove_element_raw(element.id)
     @model.MoveElement(id, _, _, to_x, to_y) => state.move_element_raw(id, to_x, to_y)
     @model.ResizeElement(id, _, new_shape) => state.update_shape_raw(id, new_shape)
+    @model.ReorderElement(id, _, to_idx) => state.reorder_element_raw(id, to_idx)
   }
 }
 
@@ -393,5 +480,6 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.MoveElement(id, from_x, from_y, _, _) =>
       state.move_element_raw(id, from_x, from_y)
     @model.ResizeElement(id, old_shape, _) => state.update_shape_raw(id, old_shape)
+    @model.ReorderElement(id, from_idx, _) => state.reorder_element_raw(id, from_idx)
   }
 }

@@ -12,6 +12,8 @@ pub(all) enum Command {
   MoveElement(String, Double, Double, Double, Double)
   /// 要素をリサイズ (id, old_shape, new_shape)
   ResizeElement(String, ShapeType, ShapeType)
+  /// 要素の順序を変更 (id, from_index, to_index)
+  ReorderElement(String, Int, Int)
 } derive(Show, Eq)
 
 ///|

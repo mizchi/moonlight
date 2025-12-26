@@ -223,6 +223,74 @@ pub fn svg_to_dom_node(svg : @js.Any) -> @element.DomNode {
 }
 
 ///|
+/// 要素を SVG 文字列に変換（エクスポート用）
+pub fn element_to_svg_string(el : @model.Element) -> String {
+  let style = el.style
+  let style_attrs = StringBuilder::new()
+  if style.fill is Some(v) {
+    style_attrs.write_string(" fill=\"\{v}\"")
+  } else {
+    style_attrs.write_string(" fill=\"none\"")
+  }
+  if style.stroke is Some(v) {
+    style_attrs.write_string(" stroke=\"\{v}\"")
+  }
+  if style.stroke_width is Some(v) {
+    style_attrs.write_string(" stroke-width=\"\{v}\"")
+  }
+  if style.opacity is Some(v) {
+    style_attrs.write_string(" opacity=\"\{v}\"")
+  }
+  let style_str = style_attrs.to_string()
+  match el.shape {
+    @model.Rect(w, h, rx, ry) => {
+      let rx_attr = if rx is Some(v) { " rx=\"\{v}\"" } else { "" }
+      let ry_attr = if ry is Some(v) { " ry=\"\{v}\"" } else { "" }
+      "<rect x=\"\{el.x}\" y=\"\{el.y}\" width=\"\{w}\" height=\"\{h}\"\{rx_attr}\{ry_attr}\{style_str}/>"
+    }
+    @model.Circle(r) =>
+      "<circle cx=\"\{el.x}\" cy=\"\{el.y}\" r=\"\{r}\"\{style_str}/>"
+    @model.Ellipse(rx, ry) =>
+      "<ellipse cx=\"\{el.x}\" cy=\"\{el.y}\" rx=\"\{rx}\" ry=\"\{ry}\"\{style_str}/>"
+    @model.Line(x2, y2) =>
+      "<line x1=\"\{el.x}\" y1=\"\{el.y}\" x2=\"\{x2}\" y2=\"\{y2}\"\{style_str}/>"
+    @model.Polyline(points) => {
+      let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
+      "<polyline points=\"\{points_str}\"\{style_str}/>"
+    }
+    @model.Path(d) => "<path d=\"\{d}\"\{style_str}/>"
+    @model.Text(content, font_size) => {
+      let fs_attr = if font_size is Some(size) {
+        " font-size=\"\{size}\""
+      } else {
+        ""
+      }
+      "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{style_str}>\{content}</text>"
+    }
+  }
+}
+
+///|
+/// 全要素を SVG 文字列に変換
+pub fn elements_to_svg(
+  elements : Array[@model.Element],
+  width : Int,
+  height : Int,
+) -> String {
+  let sb = StringBuilder::new()
+  sb.write_string(
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\{width}\" height=\"\{height}\" viewBox=\"0 0 \{width} \{height}\">\n",
+  )
+  for el in elements {
+    sb.write_string("  ")
+    sb.write_string(element_to_svg_string(el))
+    sb.write_string("\n")
+  }
+  sb.write_string("</svg>")
+  sb.to_string()
+}
+
+///|
 /// リサイズハンドルのサイズ
 let handle_size : Double = 8.0
 

@@ -146,9 +146,42 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('text=No element selected')).toBeVisible();
   });
 
+  test('should bring element to front via context menu', async ({ page }) => {
+    // Right-click on first rect (which is behind others)
+    await page.locator('svg rect[data-id]').first().click({ button: 'right' });
+
+    // Click "Bring to Front"
+    await page.locator('button:has-text("Bring to Front")').click();
+
+    // The first rect should now be the last one in DOM order (on top)
+    const rects = page.locator('svg rect[data-id]');
+    const firstId = await rects.first().getAttribute('data-id');
+    const lastId = await rects.last().getAttribute('data-id');
+
+    // After bringing first to front, it should be last
+    expect(lastId).toBe('el-1');
+  });
+
+  test('should send element to back via context menu', async ({ page }) => {
+    // Right-click on last rect (which is on top)
+    const rects = page.locator('svg rect[data-id]');
+    await rects.last().click({ button: 'right' });
+
+    // Click "Send to Back"
+    await page.locator('button:has-text("Send to Back")').click();
+
+    // The last rect should now be the first one in DOM order (at back)
+    const firstId = await rects.first().getAttribute('data-id');
+    expect(firstId).toBe('el-2');
+  });
+
   test('should have Undo and Redo buttons', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Redo' })).toBeVisible();
+  });
+
+  test('should have Export SVG button', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Export SVG' })).toBeVisible();
   });
 
   test('should undo adding a shape', async ({ page }) => {

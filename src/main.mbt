@@ -378,6 +378,18 @@ fn editor_app() -> @element.DomNode {
           on=events().click(fn(_) { let _ = redo_command(history, state) }),
           [text("Redo")],
         ),
+        button(
+          style="margin-left: 16px;",
+          on=events().click(fn(_) {
+            let svg_str = elements_to_svg(
+              state.elements.get(),
+              canvas_width,
+              canvas_height,
+            )
+            download_file(svg_str, "drawing.svg", "image/svg+xml")
+          }),
+          [text("Export SVG")],
+        ),
       ]),
     ]),
     // メインエリア（Canvas + Sidebar）
@@ -463,6 +475,21 @@ fn setup_keyboard_shortcuts(
 /// window に keydown イベントリスナーを追加
 extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keydown', handler)
+
+///|
+/// ファイルをダウンロード
+extern "js" fn download_file(content : String, filename : String, mime_type : String) =
+  #| (content, filename, mimeType) => {
+  #|   const blob = new Blob([content], { type: mimeType });
+  #|   const url = URL.createObjectURL(blob);
+  #|   const a = document.createElement('a');
+  #|   a.href = url;
+  #|   a.download = filename;
+  #|   document.body.appendChild(a);
+  #|   a.click();
+  #|   document.body.removeChild(a);
+  #|   URL.revokeObjectURL(url);
+  #| }
 
 ///|
 /// サイドバー幅
@@ -730,28 +757,64 @@ fn format_shape(shape : @model.ShapeType) -> String {
 }
 
 ///|
+/// メニューボタンのスタイル
+let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
+
+///|
 /// コンテキストメニューをレンダリング
 fn render_context_menu(state : EditorState, history : @model.History) -> @element.DomNode {
   guard state.context_menu.get() is Some(menu)
   let style =
-    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000;"
+    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 140px; z-index: 1000;"
   div(
     style~,
     [
-      // 要素上でクリックした場合のみ「削除」を表示
+      // 要素上でクリックした場合のみメニューを表示
       if menu.target_id is Some(id) {
-        div(style="padding: 8px 12px; cursor: pointer; hover: #f0f0f0;", [
-          button(
-            style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;",
-            on=events().click(fn(_) {
-              // 削除対象の要素を取得して履歴に記録
-              if state.find_element(id) is Some(el) {
-                execute_command(history, state, @model.RemoveElement(el))
-              }
-              state.hide_context_menu()
-            }),
-            [text("Delete")],
-          ),
+        @element.fragment([
+          // Bring to Front
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                if state.bring_to_front(id) is Some((from_idx, to_idx)) {
+                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
+                  history.undo_stack.push(cmd)
+                  history.redo_stack.clear()
+                }
+                state.hide_context_menu()
+              }),
+              [text("Bring to Front")],
+            ),
+          ]),
+          // Send to Back
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                if state.send_to_back(id) is Some((from_idx, to_idx)) {
+                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
+                  history.undo_stack.push(cmd)
+                  history.redo_stack.clear()
+                }
+                state.hide_context_menu()
+              }),
+              [text("Send to Back")],
+            ),
+          ]),
+          // Delete
+          div(style="padding: 4px 12px;", [
+            button(
+              style=menu_button_style + " color: #c53030;",
+              on=events().click(fn(_) {
+                if state.find_element(id) is Some(el) {
+                  execute_command(history, state, @model.RemoveElement(el))
+                }
+                state.hide_context_menu()
+              }),
+              [text("Delete")],
+            ),
+          ]),
         ])
       } else {
         // 空白部分を右クリックした場合
