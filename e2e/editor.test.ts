@@ -58,6 +58,32 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('svg circle')).toHaveCount(initialCount + 1);
   });
 
+  test('should add an ellipse when clicking Add Ellipse', async ({ page }) => {
+    const initialCount = await page.locator('svg ellipse').count();
+
+    await page.getByRole('button', { name: 'Add Ellipse' }).click();
+
+    await expect(page.locator('svg ellipse')).toHaveCount(initialCount + 1);
+  });
+
+  test('should add a line when clicking Add Line', async ({ page }) => {
+    const initialCount = await page.locator('svg line').count();
+
+    await page.getByRole('button', { name: 'Add Line' }).click();
+
+    await expect(page.locator('svg line')).toHaveCount(initialCount + 1);
+  });
+
+  test('should add text when clicking Add Text', async ({ page }) => {
+    const initialCount = await page.locator('svg text').count();
+
+    await page.getByRole('button', { name: 'Add Text' }).click();
+
+    await expect(page.locator('svg text')).toHaveCount(initialCount + 1);
+    // Check that the text content is correct
+    await expect(page.locator('svg text').last()).toHaveText('Hello');
+  });
+
   test('should drag a shape to move it', async ({ page }) => {
     const rect = page.locator('svg rect').first();
 

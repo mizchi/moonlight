@@ -316,6 +316,61 @@ fn editor_app() -> @element.DomNode {
           [text("Add Circle")],
         ),
         button(
+          on=events().click(fn(_) {
+            let current = id_counter.get()
+            let new_ellipse = @model.Element::new(
+              new_id(),
+              180.0 + current.to_double() * 20.0,
+              120.0 + current.to_double() * 20.0,
+              @model.Ellipse(60.0, 35.0),
+            ).with_style({
+              fill: Some("#38b2ac"),
+              stroke: Some("#234e52"),
+              stroke_width: Some(2.0),
+              opacity: None,
+            })
+            execute_command(history, state, @model.AddElement(new_ellipse))
+          }),
+          [text("Add Ellipse")],
+        ),
+        button(
+          on=events().click(fn(_) {
+            let current = id_counter.get()
+            let offset = current.to_double() * 20.0
+            let new_line = @model.Element::new(
+              new_id(),
+              50.0 + offset,
+              50.0 + offset,
+              @model.Line(150.0 + offset, 100.0 + offset),
+            ).with_style({
+              fill: None,
+              stroke: Some("#805ad5"),
+              stroke_width: Some(3.0),
+              opacity: None,
+            })
+            execute_command(history, state, @model.AddElement(new_line))
+          }),
+          [text("Add Line")],
+        ),
+        button(
+          on=events().click(fn(_) {
+            let current = id_counter.get()
+            let new_text = @model.Element::new(
+              new_id(),
+              100.0 + current.to_double() * 20.0,
+              200.0 + current.to_double() * 15.0,
+              @model.Text("Hello", Some(24.0)),
+            ).with_style({
+              fill: Some("#2d3748"),
+              stroke: None,
+              stroke_width: None,
+              opacity: None,
+            })
+            execute_command(history, state, @model.AddElement(new_text))
+          }),
+          [text("Add Text")],
+        ),
+        button(
           on=events().click(fn(_) { let _ = undo_command(history, state) }),
           [text("Undo")],
         ),

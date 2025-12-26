@@ -285,6 +285,29 @@ pub fn EditorState::resize_move(
         })
       })
     }
+    @model.Ellipse(rx, ry) => {
+      // 楕円は矩形と同様にリサイズ
+      let result = @model.calc_rect_resize(
+        state.start_x - rx, state.start_y - ry,
+        rx * 2.0, ry * 2.0,
+        dx, dy,
+        state.handle,
+        10.0, // min_size
+      )
+      let new_rx = result.width / 2.0
+      let new_ry = result.height / 2.0
+      let new_cx = result.x + new_rx
+      let new_cy = result.y + new_ry
+      self.elements.update(fn(els) {
+        els.map(fn(el) {
+          if el.id == state.element_id {
+            { ..el, x: new_cx, y: new_cy, shape: @model.Ellipse(new_rx, new_ry) }
+          } else {
+            el
+          }
+        })
+      })
+    }
     _ => () // 他の形状は未対応
   }
 }
