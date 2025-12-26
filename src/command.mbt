@@ -1,16 +1,12 @@
-// Command - Undo/Redo のためのコマンドパターン実装
-// 型定義は @model に移動済み、ここでは EditorState に依存する操作を定義
-
-// 型エイリアス
-pub type Command = @model.Command
-pub type History = @model.History
+// Command - EditorState に依存する操作
+// 型定義は @model.Command, @model.History を使用
 
 ///|
 /// コマンドを実行して履歴に追加
 pub fn execute_command(
-  history : History,
+  history : @model.History,
   state : EditorState,
-  command : Command,
+  command : @model.Command,
 ) -> Unit {
   // コマンドを実行
   apply_command(command, state)
@@ -22,7 +18,7 @@ pub fn execute_command(
 
 ///|
 /// Undo（取り消し）
-pub fn undo_command(history : History, state : EditorState) -> Bool {
+pub fn undo_command(history : @model.History, state : EditorState) -> Bool {
   guard history.undo_stack.pop() is Some(command)
   // 逆操作を実行
   unapply_command(command, state)
@@ -33,7 +29,7 @@ pub fn undo_command(history : History, state : EditorState) -> Bool {
 
 ///|
 /// Redo（やり直し）
-pub fn redo_command(history : History, state : EditorState) -> Bool {
+pub fn redo_command(history : @model.History, state : EditorState) -> Bool {
   guard history.redo_stack.pop() is Some(command)
   // 操作を再実行
   apply_command(command, state)
@@ -44,7 +40,7 @@ pub fn redo_command(history : History, state : EditorState) -> Bool {
 
 ///|
 /// コマンドを適用（実行）
-fn apply_command(command : Command, state : EditorState) -> Unit {
+fn apply_command(command : @model.Command, state : EditorState) -> Unit {
   match command {
     @model.AddElement(element) => state.add_element_raw(element)
     @model.RemoveElement(element) => state.remove_element_raw(element.id)
@@ -55,7 +51,7 @@ fn apply_command(command : Command, state : EditorState) -> Unit {
 
 ///|
 /// コマンドを取り消し（逆操作）
-fn unapply_command(command : Command, state : EditorState) -> Unit {
+fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
   match command {
     @model.AddElement(element) => state.remove_element_raw(element.id)
     @model.RemoveElement(element) => state.add_element_raw(element)

@@ -41,7 +41,7 @@ fn editor_app() -> @element.DomNode {
   let state = EditorState::new(canvas_width, canvas_height)
 
   // 履歴管理
-  let history = History::new()
+  let history = @model.History::new()
 
   // サンプルの図形を追加
   let rect1 = Element::new(
@@ -342,7 +342,7 @@ fn editor_app() -> @element.DomNode {
 
 ///|
 /// コンテキストメニューをレンダリング
-fn render_context_menu(state : EditorState, history : History) -> @element.DomNode {
+fn render_context_menu(state : EditorState, history : @model.History) -> @element.DomNode {
   guard state.context_menu.get() is Some(menu)
   let style =
     "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000;"
