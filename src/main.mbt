@@ -704,6 +704,11 @@ fn setup_keyboard_shortcuts(
   new_id : () -> String,
 ) -> Unit {
   let handler : (@js.Any) -> Unit = fn(e) {
+    // テキスト編集中はショートカットを無効化
+    if state.text_edit.get() is Some(_) {
+      return
+    }
+
     let key : String = e._get("key").cast()
     let ctrl_key : Bool = e._get("ctrlKey").cast()
     let meta_key : Bool = e._get("metaKey").cast()
