@@ -40,6 +40,9 @@ fn editor_app() -> @element.DomNode {
   // エディタ状態を初期化
   let state = EditorState::new(canvas_width, canvas_height)
 
+  // 履歴管理
+  let history = History::new()
+
   // サンプルの図形を追加
   let rect1 = Element::new(
     new_id(),
@@ -69,9 +72,10 @@ fn editor_app() -> @element.DomNode {
     stroke_width: Some(2.0),
     opacity: None,
   })
-  state.add_element(rect1)
-  state.add_element(rect2)
-  state.add_element(circle1)
+  // 初期要素は履歴に記録しない
+  state.add_element_raw(rect1)
+  state.add_element_raw(rect2)
+  state.add_element_raw(circle1)
 
   // SVG コンテナへの参照
   let svg_ref : Ref[@js.Any?] = { val: None }
@@ -83,7 +87,31 @@ fn editor_app() -> @element.DomNode {
 
     let mouse_event : @js_dom.MouseEvent = e.cast()
     let target = e._get("target")
-    let data_id_raw = target._get("dataset")._get("id")
+    let dataset = target._get("dataset")
+
+    // リサイズハンドルのクリックをチェック
+    let data_handle_raw = dataset._get("handle")
+    if not(@js.is_nullish(data_handle_raw)) {
+      let handle_str : String = data_handle_raw.cast()
+      let element_id_raw = dataset._get("elementId")
+      if not(@js.is_nullish(element_id_raw)) {
+        let element_id : String = element_id_raw.cast()
+        let svg = e._get("currentTarget")
+        let rect = svg._call("getBoundingClientRect", [])
+        let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+        let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+        let handle = match handle_str {
+          "nw" => NW
+          "ne" => NE
+          "sw" => SW
+          _ => SE
+        }
+        state.start_resize(element_id, handle, svg_x, svg_y)
+        return
+      }
+    }
+
+    let data_id_raw = dataset._get("id")
     let data_id : String? = if @js.is_nullish(data_id_raw) {
       None
     } else {
@@ -105,16 +133,56 @@ fn editor_app() -> @element.DomNode {
     }
   }
   let on_mousemove : (@js.Any) -> Unit = fn(e) {
-    if state.is_dragging() {
-      let mouse_event : @js_dom.MouseEvent = e.cast()
-      let svg = e._get("currentTarget")
-      let rect = svg._call("getBoundingClientRect", [])
-      let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
-      let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let svg = e._get("currentTarget")
+    let rect = svg._call("getBoundingClientRect", [])
+    let svg_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+    let svg_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    if state.is_resizing() {
+      state.resize_move(svg_x, svg_y)
+    } else if state.is_dragging() {
       state.drag_move(svg_x, svg_y)
     }
   }
-  let on_mouseup : (@js.Any) -> Unit = fn(_e) { state.end_drag() }
+  let on_mouseup : (@js.Any) -> Unit = fn(_e) {
+    // リサイズ終了時にリサイズコマンドを履歴に記録
+    if state.resize_state.get() is Some(resize) {
+      if state.find_element(resize.element_id) is Some(el) {
+        // 実際にリサイズした場合のみ履歴に記録
+        if resize.start_shape != el.shape || resize.start_x != el.x || resize.start_y != el.y {
+          let cmd = ResizeElement(resize.element_id, resize.start_shape, el.shape)
+          // 位置も変わった場合は移動も記録（NW, NE, SW ハンドルの場合）
+          if resize.start_x != el.x || resize.start_y != el.y {
+            let move_cmd = MoveElement(
+              resize.element_id,
+              resize.start_x,
+              resize.start_y,
+              el.x,
+              el.y,
+            )
+            history.undo_stack.push(move_cmd)
+          }
+          history.undo_stack.push(cmd)
+          history.redo_stack.clear()
+        }
+      }
+      state.end_resize()
+      return
+    }
+    // ドラッグ終了時に移動コマンドを履歴に記録
+    if state.drag_state.get() is Some(drag) {
+      if state.find_element(drag.element_id) is Some(el) {
+        // 実際に移動した場合のみ履歴に記録
+        if drag.start_x != el.x || drag.start_y != el.y {
+          let cmd = MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y)
+          // 履歴に追加（実行はすでにドラッグ中に完了している）
+          history.undo_stack.push(cmd)
+          history.redo_stack.clear()
+        }
+      }
+    }
+    state.end_drag()
+  }
 
   // コンテキストメニューハンドラ
   let on_contextmenu : (@js.Any) -> Unit = fn(e) {
@@ -168,8 +236,18 @@ fn editor_app() -> @element.DomNode {
         let elements = state.elements.get()
         let selected = state.selected_id.get()
         for el in elements {
-          let child = render_element(el, Some(el.id) == selected)
+          let is_selected = Some(el.id) == selected
+          let child = render_element(el, is_selected)
           append_child_ffi(svg, child)
+        }
+        // 選択中の要素のリサイズハンドルを描画
+        if selected is Some(id) {
+          if state.find_element(id) is Some(el) {
+            let handles = render_resize_handles(el)
+            for handle in handles {
+              append_child_ffi(svg, handle)
+            }
+          }
         }
       }
     }
@@ -208,7 +286,7 @@ fn editor_app() -> @element.DomNode {
       // コンテキストメニュー
       show(
         fn() { state.context_menu.get() is Some(_) },
-        fn() { render_context_menu(state) },
+        fn() { render_context_menu(state, history) },
       ),
     ]),
     // ボタン
@@ -227,7 +305,7 @@ fn editor_app() -> @element.DomNode {
             stroke_width: Some(2.0),
             opacity: None,
           })
-          state.add_element(new_rect)
+          history.execute(state, AddElement(new_rect))
         }),
         [text("Add Rectangle")],
       ),
@@ -245,9 +323,18 @@ fn editor_app() -> @element.DomNode {
             stroke_width: Some(2.0),
             opacity: None,
           })
-          state.add_element(new_circle)
+          history.execute(state, AddElement(new_circle))
         }),
         [text("Add Circle")],
+      ),
+      // Undo/Redo ボタン
+      button(
+        on=events().click(fn(_) { let _ = history.undo(state) }),
+        [text("Undo")],
+      ),
+      button(
+        on=events().click(fn(_) { let _ = history.redo(state) }),
+        [text("Redo")],
       ),
     ]),
   ])
@@ -255,7 +342,7 @@ fn editor_app() -> @element.DomNode {
 
 ///|
 /// コンテキストメニューをレンダリング
-fn render_context_menu(state : EditorState) -> @element.DomNode {
+fn render_context_menu(state : EditorState, history : History) -> @element.DomNode {
   guard state.context_menu.get() is Some(menu)
   let style =
     "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000;"
@@ -268,7 +355,10 @@ fn render_context_menu(state : EditorState) -> @element.DomNode {
           button(
             style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;",
             on=events().click(fn(_) {
-              state.remove_element(id)
+              // 削除対象の要素を取得して履歴に記録
+              if state.find_element(id) is Some(el) {
+                history.execute(state, RemoveElement(el))
+              }
               state.hide_context_menu()
             }),
             [text("Delete")],

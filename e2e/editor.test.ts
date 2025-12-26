@@ -118,4 +118,127 @@ test.describe('Moonlight SVG Editor', () => {
     // Check message is shown
     await expect(page.locator('text=No element selected')).toBeVisible();
   });
+
+  test('should have Undo and Redo buttons', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Redo' })).toBeVisible();
+  });
+
+  test('should undo adding a shape', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Add a rectangle
+    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+
+    // Undo
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+  });
+
+  test('should redo after undo', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Add a rectangle
+    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+
+    // Undo
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+
+    // Redo
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+  });
+
+  test('should undo deleting a shape', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Delete first rect via context menu
+    await page.locator('svg rect').first().click({ button: 'right' });
+    await page.locator('button:has-text("Delete")').click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+
+    // Undo
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+  });
+
+  test('should undo moving a shape', async ({ page }) => {
+    const rect = page.locator('svg rect').first();
+    const initialX = await rect.getAttribute('x');
+
+    // Drag the shape
+    await rect.dragTo(page.locator('svg'), {
+      targetPosition: { x: 400, y: 300 }
+    });
+
+    // Verify position changed
+    const movedX = await rect.getAttribute('x');
+    expect(movedX).not.toBe(initialX);
+
+    // Undo
+    await page.getByRole('button', { name: 'Undo' }).click();
+
+    // Verify position restored
+    const restoredX = await rect.getAttribute('x');
+    expect(restoredX).toBe(initialX);
+  });
+
+  test('should show resize handles when shape is selected', async ({ page }) => {
+    // Click on a rect to select it
+    await page.locator('svg rect').first().click();
+
+    // Check that 4 resize handles are visible (small rects with data-handle attribute)
+    const handles = page.locator('svg rect[data-handle]');
+    await expect(handles).toHaveCount(4);
+  });
+
+  test('should resize shape by dragging SE handle', async ({ page }) => {
+    const rect = page.locator('svg rect[data-id]').first();
+
+    // Get initial size
+    const initialWidth = await rect.getAttribute('width');
+
+    // Click to select and show handles
+    await rect.click();
+
+    // Get SE handle and drag it
+    const seHandle = page.locator('svg rect[data-handle="se"]');
+    await seHandle.dragTo(page.locator('svg'), {
+      targetPosition: { x: 300, y: 250 }
+    });
+
+    // Check that width changed
+    const newWidth = await rect.getAttribute('width');
+    expect(newWidth).not.toBe(initialWidth);
+  });
+
+  test('should undo resize operation', async ({ page }) => {
+    const rect = page.locator('svg rect[data-id]').first();
+
+    // Get initial size
+    const initialWidth = await rect.getAttribute('width');
+
+    // Click to select and show handles
+    await rect.click();
+
+    // Get SE handle and drag it
+    const seHandle = page.locator('svg rect[data-handle="se"]');
+    await seHandle.dragTo(page.locator('svg'), {
+      targetPosition: { x: 300, y: 250 }
+    });
+
+    // Verify size changed
+    const resizedWidth = await rect.getAttribute('width');
+    expect(resizedWidth).not.toBe(initialWidth);
+
+    // Undo
+    await page.getByRole('button', { name: 'Undo' }).click();
+
+    // Verify size restored
+    const restoredWidth = await rect.getAttribute('width');
+    expect(restoredWidth).toBe(initialWidth);
+  });
 });

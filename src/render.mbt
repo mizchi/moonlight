@@ -221,3 +221,39 @@ pub fn svg_to_dom_node(svg : @js.Any) -> @element.DomNode {
   let node : @js_dom.Node = svg.cast()
   @element.dom_node(node)
 }
+
+///|
+/// リサイズハンドルのサイズ
+let handle_size : Double = 8.0
+
+///|
+/// リサイズハンドルを描画
+pub fn render_resize_handles(el : Element) -> Array[@js.Any] {
+  let bbox = el.bounding_box()
+  let half = handle_size / 2.0
+  let handles : Array[@js.Any] = []
+  // 四隅のハンドル位置
+  let positions = [
+    ("nw", bbox.x - half, bbox.y - half, "nwse-resize"),
+    ("ne", bbox.x + bbox.width - half, bbox.y - half, "nesw-resize"),
+    ("sw", bbox.x - half, bbox.y + bbox.height - half, "nesw-resize"),
+    ("se", bbox.x + bbox.width - half, bbox.y + bbox.height - half, "nwse-resize"),
+  ]
+  for pos in positions {
+    let (handle_id, hx, hy, cursor) = pos
+    let attrs : Array[(String, String)] = [
+      ("data-handle", handle_id),
+      ("data-element-id", el.id),
+      ("x", num_str(hx)),
+      ("y", num_str(hy)),
+      ("width", num_str(handle_size)),
+      ("height", num_str(handle_size)),
+      ("fill", "#0066ff"),
+      ("stroke", "#ffffff"),
+      ("stroke-width", "1"),
+      ("cursor", cursor),
+    ]
+    handles.push(create_svg_element("rect", attrs, []))
+  }
+  handles
+}

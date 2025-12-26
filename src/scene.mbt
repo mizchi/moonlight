@@ -19,6 +19,27 @@ pub struct ContextMenu {
 } derive(Show, Eq)
 
 ///|
+/// リサイズハンドルの位置
+pub enum HandlePosition {
+  NW // 左上
+  NE // 右上
+  SW // 左下
+  SE // 右下
+} derive(Show, Eq)
+
+///|
+/// リサイズ状態
+pub struct ResizeState {
+  element_id : String // リサイズ中の要素 ID
+  handle : HandlePosition // ドラッグ中のハンドル
+  start_x : Double // リサイズ開始時の要素 X
+  start_y : Double // リサイズ開始時の要素 Y
+  start_shape : ShapeType // リサイズ開始時の形状
+  mouse_start_x : Double // マウス開始位置 X
+  mouse_start_y : Double // マウス開始位置 Y
+} derive(Show, Eq)
+
+///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
@@ -26,6 +47,7 @@ pub struct EditorState {
   elements : @luna.Signal[Array[Element]] // 要素リスト
   selected_id : @luna.Signal[String?] // 選択中の要素 ID
   drag_state : @luna.Signal[DragState?] // ドラッグ状態
+  resize_state : @luna.Signal[ResizeState?] // リサイズ状態
   context_menu : @luna.Signal[ContextMenu?] // コンテキストメニュー
   viewport : @luna.Signal[Viewport] // ビューポート
 }
@@ -39,6 +61,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     elements: @luna.signal([]),
     selected_id: @luna.signal(None),
     drag_state: @luna.signal(None),
+    resize_state: @luna.signal(None),
     context_menu: @luna.signal(None),
     viewport: @luna.signal(Viewport::default()),
   }
@@ -190,4 +213,163 @@ pub fn EditorState::delete_selected(self : EditorState) -> Unit {
   if self.selected_id.get() is Some(id) {
     self.remove_element(id)
   }
+}
+
+// ============================================================
+// 履歴管理用の低レベル操作（_raw サフィックス）
+// これらは直接履歴に記録せず、Command から呼び出される
+// ============================================================
+
+///|
+/// 要素を追加（履歴なし）
+pub fn EditorState::add_element_raw(self : EditorState, element : Element) -> Unit {
+  self.elements.update(fn(els) {
+    let new_els = els.copy()
+    new_els.push(element)
+    new_els
+  })
+}
+
+///|
+/// 要素を削除（履歴なし）
+pub fn EditorState::remove_element_raw(self : EditorState, id : String) -> Unit {
+  self.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
+  if self.selected_id.get() == Some(id) {
+    self.selected_id.set(None)
+  }
+}
+
+///|
+/// 要素を移動（履歴なし）
+pub fn EditorState::move_element_raw(
+  self : EditorState,
+  id : String,
+  new_x : Double,
+  new_y : Double,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) { if el.id == id { { ..el, x: new_x, y: new_y } } else { el } })
+  })
+}
+
+///|
+/// 要素の形状を更新（履歴なし）
+pub fn EditorState::update_shape_raw(
+  self : EditorState,
+  id : String,
+  new_shape : ShapeType,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) { if el.id == id { { ..el, shape: new_shape } } else { el } })
+  })
+}
+
+// ============================================================
+// リサイズ操作
+// ============================================================
+
+///|
+/// リサイズ開始
+pub fn EditorState::start_resize(
+  self : EditorState,
+  element_id : String,
+  handle : HandlePosition,
+  mouse_x : Double,
+  mouse_y : Double,
+) -> Unit {
+  guard self.find_element(element_id) is Some(el)
+  self.resize_state.set(
+    Some({
+      element_id,
+      handle,
+      start_x: el.x,
+      start_y: el.y,
+      start_shape: el.shape,
+      mouse_start_x: mouse_x,
+      mouse_start_y: mouse_y,
+    }),
+  )
+}
+
+///|
+/// リサイズ中の移動
+pub fn EditorState::resize_move(
+  self : EditorState,
+  mouse_x : Double,
+  mouse_y : Double,
+) -> Unit {
+  guard self.resize_state.get() is Some(state)
+  let dx = mouse_x - state.mouse_start_x
+  let dy = mouse_y - state.mouse_start_y
+  // ハンドル位置に応じて新しい位置と形状を計算
+  match state.start_shape {
+    Rect(w, h, rx, ry) => {
+      let (new_x, new_y, new_w, new_h) = match state.handle {
+        NW => (state.start_x + dx, state.start_y + dy, w - dx, h - dy)
+        NE => (state.start_x, state.start_y + dy, w + dx, h - dy)
+        SW => (state.start_x + dx, state.start_y, w - dx, h + dy)
+        SE => (state.start_x, state.start_y, w + dx, h + dy)
+      }
+      // 最小サイズを保証
+      let final_w = if new_w < 10.0 { 10.0 } else { new_w }
+      let final_h = if new_h < 10.0 { 10.0 } else { new_h }
+      let final_x = if new_w < 10.0 {
+        match state.handle {
+          NW | SW => state.start_x + w - 10.0
+          _ => new_x
+        }
+      } else {
+        new_x
+      }
+      let final_y = if new_h < 10.0 {
+        match state.handle {
+          NW | NE => state.start_y + h - 10.0
+          _ => new_y
+        }
+      } else {
+        new_y
+      }
+      self.elements.update(fn(els) {
+        els.map(fn(el) {
+          if el.id == state.element_id {
+            { ..el, x: final_x, y: final_y, shape: Rect(final_w, final_h, rx, ry) }
+          } else {
+            el
+          }
+        })
+      })
+    }
+    Circle(r) => {
+      // 円の場合は対角距離から半径を計算
+      let dist = match state.handle {
+        SE => (dx + dy) / 2.0
+        NW => -(dx + dy) / 2.0
+        NE => (dx - dy) / 2.0
+        SW => (-dx + dy) / 2.0
+      }
+      let new_r = if r + dist < 5.0 { 5.0 } else { r + dist }
+      self.elements.update(fn(els) {
+        els.map(fn(el) {
+          if el.id == state.element_id {
+            { ..el, shape: Circle(new_r) }
+          } else {
+            el
+          }
+        })
+      })
+    }
+    _ => () // 他の形状は未対応
+  }
+}
+
+///|
+/// リサイズ終了
+pub fn EditorState::end_resize(self : EditorState) -> Unit {
+  self.resize_state.set(None)
+}
+
+///|
+/// リサイズ中かどうか
+pub fn EditorState::is_resizing(self : EditorState) -> Bool {
+  self.resize_state.get() is Some(_)
 }
