@@ -16,9 +16,11 @@ pub struct EditorState {
   width : Int // キャンバス幅
   height : Int // キャンバス高さ
   elements : @luna.Signal[Array[@model.Element]] // 要素リスト
-  selected_id : @luna.Signal[String?] // 選択中の要素 ID
+  selected_ids : @luna.Signal[Array[String]] // 選択中の要素 ID リスト（複数選択対応）
   drag_state : @luna.Signal[@model.DragState?] // ドラッグ状態
+  multi_drag_state : @luna.Signal[@model.MultiDragState?] // 複数要素ドラッグ状態
   resize_state : @luna.Signal[@model.ResizeState?] // リサイズ状態
+  box_select : @luna.Signal[@model.BoxSelectState?] // 矩形選択状態
   context_menu : @luna.Signal[@model.ContextMenu?] // コンテキストメニュー
   viewport : @luna.Signal[@model.Viewport] // ビューポート
   grid_enabled : @luna.Signal[Bool] // グリッドスナップ有効
@@ -35,9 +37,11 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     width,
     height,
     elements: @luna.signal([]),
-    selected_id: @luna.signal(None),
+    selected_ids: @luna.signal([]),
     drag_state: @luna.signal(None),
+    multi_drag_state: @luna.signal(None),
     resize_state: @luna.signal(None),
+    box_select: @luna.signal(None),
     context_menu: @luna.signal(None),
     viewport: @luna.signal(@model.Viewport::default()),
     grid_enabled: @luna.signal(false),
@@ -195,9 +199,48 @@ pub fn EditorState::hit_test(
 }
 
 ///|
-/// 要素を選択
+/// 要素を選択（単一）
 pub fn EditorState::select(self : EditorState, id : String?) -> Unit {
-  self.selected_id.set(id)
+  match id {
+    Some(id) => self.selected_ids.set([id])
+    None => self.selected_ids.set([])
+  }
+}
+
+///|
+/// 複数要素を選択
+pub fn EditorState::select_multiple(self : EditorState, ids : Array[String]) -> Unit {
+  self.selected_ids.set(ids)
+}
+
+///|
+/// 選択に追加
+pub fn EditorState::add_to_selection(self : EditorState, id : String) -> Unit {
+  let current = self.selected_ids.get()
+  if not(current.contains(id)) {
+    let new_ids = current.copy()
+    new_ids.push(id)
+    self.selected_ids.set(new_ids)
+  }
+}
+
+///|
+/// 選択から除外
+pub fn EditorState::remove_from_selection(self : EditorState, id : String) -> Unit {
+  self.selected_ids.update(fn(ids) { ids.filter(fn(i) { i != id }) })
+}
+
+///|
+/// 選択されているか判定
+pub fn EditorState::is_selected(self : EditorState, id : String) -> Bool {
+  self.selected_ids.get().contains(id)
+}
+
+///|
+/// 最初の選択要素を取得（後方互換性用）
+pub fn EditorState::get_selected_id(self : EditorState) -> String? {
+  let ids = self.selected_ids.get()
+  if ids.length() > 0 { Some(ids[0]) } else { None }
 }
 
 ///|
@@ -269,15 +312,14 @@ pub fn EditorState::hide_context_menu(self : EditorState) -> Unit {
 pub fn EditorState::remove_element(self : EditorState, id : String) -> Unit {
   self.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
   // 選択中の要素が削除されたら選択解除
-  if self.selected_id.get() == Some(id) {
-    self.selected_id.set(None)
-  }
+  self.remove_from_selection(id)
 }
 
 ///|
 /// 選択中の要素を削除
 pub fn EditorState::delete_selected(self : EditorState) -> Unit {
-  if self.selected_id.get() is Some(id) {
+  let ids = self.selected_ids.get().copy()
+  for id in ids {
     self.remove_element(id)
   }
 }
@@ -304,9 +346,8 @@ pub fn EditorState::remove_element_raw(self : EditorState, id : String) -> Unit 
   self.elements.update(fn(els) {
     els.filter(fn(el) { el.id != id && el.parent_id != Some(id) })
   })
-  if self.selected_id.get() == Some(id) {
-    self.selected_id.set(None)
-  }
+  // 選択から除外
+  self.remove_from_selection(id)
 }
 
 ///|
@@ -701,4 +742,118 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.ResizeElement(id, old_shape, _) => state.update_shape_raw(id, old_shape)
     @model.ReorderElement(id, from_idx, _) => state.reorder_element_raw(id, from_idx)
   }
+}
+
+// ============================================================
+// 矩形選択
+// ============================================================
+
+///|
+/// 矩形選択を開始
+pub fn EditorState::start_box_select(
+  self : EditorState,
+  x : Double,
+  y : Double,
+) -> Unit {
+  self.box_select.set(Some({
+    start_x: x,
+    start_y: y,
+    current_x: x,
+    current_y: y,
+  }))
+}
+
+///|
+/// 矩形選択を更新
+pub fn EditorState::update_box_select(
+  self : EditorState,
+  x : Double,
+  y : Double,
+) -> Unit {
+  guard self.box_select.get() is Some(state)
+  self.box_select.set(Some({ ..state, current_x: x, current_y: y }))
+}
+
+///|
+/// 矩形選択を終了し、範囲内の要素を選択
+pub fn EditorState::end_box_select(self : EditorState) -> Unit {
+  if self.box_select.get() is Some(state) {
+    let bbox = state.to_bbox()
+    // 一定サイズ以上の選択範囲の場合のみ処理
+    if bbox.width > 5.0 || bbox.height > 5.0 {
+      let elements = @model.find_elements_in_box(self.elements.get(), bbox)
+      let ids = elements.map(fn(el) { el.id })
+      self.select_multiple(ids)
+    }
+  }
+  self.box_select.set(None)
+}
+
+///|
+/// 矩形選択中かどうか
+pub fn EditorState::is_box_selecting(self : EditorState) -> Bool {
+  self.box_select.get() is Some(_)
+}
+
+// ============================================================
+// 複数要素ドラッグ
+// ============================================================
+
+///|
+/// 複数要素のドラッグを開始
+pub fn EditorState::start_multi_drag(
+  self : EditorState,
+  mouse_x : Double,
+  mouse_y : Double,
+) -> Unit {
+  let ids = self.selected_ids.get()
+  if ids.length() == 0 {
+    return
+  }
+  // 各要素の開始位置を記録
+  let start_positions : Array[(String, Double, Double)] = []
+  for id in ids {
+    if self.find_element(id) is Some(el) {
+      start_positions.push((id, el.x, el.y))
+    }
+  }
+  self.multi_drag_state.set(Some({
+    element_ids: ids,
+    start_positions,
+    mouse_start_x: mouse_x,
+    mouse_start_y: mouse_y,
+  }))
+}
+
+///|
+/// 複数要素のドラッグ中の移動
+pub fn EditorState::multi_drag_move(
+  self : EditorState,
+  mouse_x : Double,
+  mouse_y : Double,
+) -> Unit {
+  guard self.multi_drag_state.get() is Some(state)
+  let dx = mouse_x - state.mouse_start_x
+  let dy = mouse_y - state.mouse_start_y
+  // 各要素を移動
+  for pos in state.start_positions {
+    let (id, start_x, start_y) = pos
+    let new_x = start_x + dx
+    let new_y = start_y + dy
+    let (snapped_x, snapped_y) = self.snap_to_grid(new_x, new_y)
+    // 子要素も含めて移動
+    self.move_element(id, snapped_x, snapped_y)
+  }
+}
+
+///|
+/// 複数要素のドラッグを終了
+pub fn EditorState::end_multi_drag(self : EditorState) -> Unit {
+  self.multi_drag_state.set(None)
+}
+
+///|
+/// 複数要素ドラッグ中かどうか
+pub fn EditorState::is_multi_dragging(self : EditorState) -> Bool {
+  self.multi_drag_state.get() is Some(_)
 }

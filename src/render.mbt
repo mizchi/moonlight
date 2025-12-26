@@ -438,3 +438,21 @@ pub fn render_resize_handles(el : @model.Element) -> Array[@js.Any] {
   }
   handles
 }
+
+///|
+/// 矩形選択ボックスを描画
+pub fn render_selection_box(box_state : @model.BoxSelectState) -> @js.Any {
+  let bbox = box_state.to_bbox()
+  let attrs : Array[(String, String)] = [
+    ("x", num_str(bbox.x)),
+    ("y", num_str(bbox.y)),
+    ("width", num_str(bbox.width)),
+    ("height", num_str(bbox.height)),
+    ("fill", "rgba(0, 102, 255, 0.1)"),
+    ("stroke", "#0066ff"),
+    ("stroke-width", "1"),
+    ("stroke-dasharray", "4,2"),
+    ("pointer-events", "none"),
+  ]
+  create_svg_element("rect", attrs, [])
+}

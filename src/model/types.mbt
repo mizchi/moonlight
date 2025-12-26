@@ -317,6 +317,34 @@ pub(all) struct ResizeState {
 } derive(Show, Eq)
 
 ///|
+/// 矩形選択状態
+pub(all) struct BoxSelectState {
+  start_x : Double // 選択開始 X（シーン座標）
+  start_y : Double // 選択開始 Y（シーン座標）
+  current_x : Double // 現在の X（シーン座標）
+  current_y : Double // 現在の Y（シーン座標）
+} derive(Show, Eq)
+
+///|
+/// 矩形選択のバウンディングボックスを取得
+pub fn BoxSelectState::to_bbox(self : BoxSelectState) -> BoundingBox {
+  let min_x = if self.start_x < self.current_x { self.start_x } else { self.current_x }
+  let min_y = if self.start_y < self.current_y { self.start_y } else { self.current_y }
+  let max_x = if self.start_x > self.current_x { self.start_x } else { self.current_x }
+  let max_y = if self.start_y > self.current_y { self.start_y } else { self.current_y }
+  { x: min_x, y: min_y, width: max_x - min_x, height: max_y - min_y }
+}
+
+///|
+/// 複数要素のドラッグ状態
+pub(all) struct MultiDragState {
+  element_ids : Array[String] // ドラッグ中の要素 ID リスト
+  start_positions : Array[(String, Double, Double)] // 各要素の開始位置 (id, x, y)
+  mouse_start_x : Double // マウス開始位置 X
+  mouse_start_y : Double // マウス開始位置 Y
+} derive(Show, Eq)
+
+///|
 /// ドラッグ位置を計算（純粋関数）
 pub fn calc_drag_position(
   offset_x : Double,
@@ -337,4 +365,32 @@ pub fn find_element_at(elements : Array[Element], point : Point) -> Element? {
     }
   }
   None
+}
+
+///|
+/// 2つのバウンディングボックスが交差するか判定
+pub fn BoundingBox::intersects(self : BoundingBox, other : BoundingBox) -> Bool {
+  // 一方が他方の完全に外側にある場合は交差しない
+  not(
+    self.x + self.width < other.x ||
+    other.x + other.width < self.x ||
+    self.y + self.height < other.y ||
+    other.y + other.height < self.y
+  )
+}
+
+///|
+/// 矩形選択内の要素を検索（純粋関数）
+pub fn find_elements_in_box(elements : Array[Element], box_bbox : BoundingBox) -> Array[Element] {
+  let result : Array[Element] = []
+  for el in elements {
+    // 親要素のみを対象（子要素は除外）
+    if el.parent_id is None {
+      let el_bbox = el.bounding_box()
+      if box_bbox.intersects(el_bbox) {
+        result.push(el)
+      }
+    }
+  }
+  result
 }

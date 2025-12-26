@@ -273,12 +273,21 @@ fn editor_app() -> @element.DomNode {
       // クリック時間と要素を記録
       last_click_time.val = now
       last_click_element.val = dblclick_target
-      // 要素をクリック - 親を選択してドラッグ開始
-      state.select(Some(target_id))
-      state.start_drag(target_id, scene_x, scene_y)
+      // 要素をクリック
+      let already_selected = state.is_selected(target_id)
+      let selected_count = state.selected_ids.get().length()
+      if already_selected && selected_count > 1 {
+        // 複数選択中で選択済み要素をクリック - まとめてドラッグ開始
+        state.start_multi_drag(scene_x, scene_y)
+      } else {
+        // 通常の選択 - 親を選択してドラッグ開始
+        state.select(Some(target_id))
+        state.start_drag(target_id, scene_x, scene_y)
+      }
     } else {
-      // 空白をクリック - 選択解除
+      // 空白をクリック - 矩形選択を開始
       state.select(None)
+      state.start_box_select(scene_x, scene_y)
       last_click_time.val = 0.0
       last_click_element.val = ""
     }
@@ -293,14 +302,23 @@ fn editor_app() -> @element.DomNode {
     let (scene_x, scene_y) = get_scene_coords(e)
     if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
+    } else if state.is_multi_dragging() {
+      state.multi_drag_move(scene_x, scene_y)
     } else if state.is_dragging() {
       state.drag_move(scene_x, scene_y)
+    } else if state.is_box_selecting() {
+      state.update_box_select(scene_x, scene_y)
     }
   }
   let on_mouseup : (@js.Any) -> Unit = fn(_e) {
     // パン終了
     if state.is_panning.get() {
       state.end_pan()
+      return
+    }
+    // 矩形選択終了
+    if state.is_box_selecting() {
+      state.end_box_select()
       return
     }
     // リサイズ終了時にリサイズコマンドを履歴に記録
@@ -325,6 +343,21 @@ fn editor_app() -> @element.DomNode {
         }
       }
       state.end_resize()
+      return
+    }
+    // 複数要素ドラッグ終了時に移動コマンドを履歴に記録
+    if state.multi_drag_state.get() is Some(multi_drag) {
+      for pos in multi_drag.start_positions {
+        let (id, start_x, start_y) = pos
+        if state.find_element(id) is Some(el) {
+          if start_x != el.x || start_y != el.y {
+            let cmd = @model.MoveElement(id, start_x, start_y, el.x, el.y)
+            history.undo_stack.push(cmd)
+          }
+        }
+      }
+      history.redo_stack.clear()
+      state.end_multi_drag()
       return
     }
     // ドラッグ終了時に移動コマンドを履歴に記録
@@ -389,9 +422,8 @@ fn editor_app() -> @element.DomNode {
   // 初期 SVG を作成（effect より先に作成）
   let initial_children : Array[@js.Any] = []
   let elements = state.elements.get()
-  let selected = state.selected_id.get()
   for el in elements {
-    initial_children.push(render_element(el, Some(el.id) == selected))
+    initial_children.push(render_element(el, state.is_selected(el.id)))
   }
   let svg = render_svg_container_with_viewport(
     canvas_width,
@@ -426,20 +458,26 @@ fn editor_app() -> @element.DomNode {
           }
         }
         let elements = state.elements.get()
-        let selected = state.selected_id.get()
         for el in elements {
-          let is_selected = Some(el.id) == selected
+          let is_selected = state.is_selected(el.id)
           let child = render_element(el, is_selected)
           append_child_ffi(svg, child)
         }
-        // 選択中の要素のリサイズハンドルを描画
-        if selected is Some(id) {
+        // 選択中の要素のリサイズハンドルを描画（単一選択のみ）
+        let selected_ids = state.selected_ids.get()
+        if selected_ids.length() == 1 {
+          let id = selected_ids[0]
           if state.find_element(id) is Some(el) {
             let handles = render_resize_handles(el)
             for handle in handles {
               append_child_ffi(svg, handle)
             }
           }
+        }
+        // 矩形選択ボックスを描画
+        if state.box_select.get() is Some(box_state) {
+          let box_el = render_selection_box(box_state)
+          append_child_ffi(svg, box_el)
         }
       }
     }
@@ -452,8 +490,9 @@ fn editor_app() -> @element.DomNode {
   let _ = @luna.effect(fn() {
     // Signal を読み取って依存関係を登録
     let _ = state.elements.get()
-    let _ = state.selected_id.get()
+    let _ = state.selected_ids.get()
     let _ = state.grid_enabled.get()
+    let _ = state.box_select.get()
     // 初回はスキップ（既に初期レンダリング済み）
     if is_first_run.val {
       is_first_run.val = false
@@ -673,7 +712,8 @@ fn setup_keyboard_shortcuts(
     match key {
       // Delete or Backspace: 選択中の要素を削除
       "Delete" | "Backspace" => {
-        if state.selected_id.get() is Some(id) {
+        let selected_ids = state.selected_ids.get()
+        for id in selected_ids {
           if state.find_element(id) is Some(el) {
             execute_command(history, state, @model.RemoveElement(el))
           }
@@ -685,19 +725,24 @@ fn setup_keyboard_shortcuts(
       "d" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          if state.selected_id.get() is Some(id) {
+          let selected_ids = state.selected_ids.get()
+          let new_ids : Array[String] = []
+          for id in selected_ids {
             if state.find_element(id) is Some(el) {
               // 新しいIDで複製し、少しオフセット
+              let dup_id = new_id()
               let new_el = {
                 ..el,
-                id: new_id(),
+                id: dup_id,
                 x: el.x + 20.0,
                 y: el.y + 20.0,
               }
               execute_command(history, state, @model.AddElement(new_el))
-              state.select(Some(new_el.id))
+              new_ids.push(dup_id)
             }
           }
+          // 新しい要素を選択
+          state.select_multiple(new_ids)
         }
       // Ctrl+Z or Cmd+Z: Undo
       "z" =>
@@ -779,14 +824,23 @@ fn render_sidebar(state : EditorState) -> @element.DomNode {
       div(style="font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px;", [
         text("Element"),
       ]),
-      // 選択中の要素の詳細を表示
+      // 選択中の要素の詳細を表示（単一選択の場合）
       show(
-        fn() { state.selected_id.get() is Some(_) },
+        fn() { state.selected_ids.get().length() == 1 },
         fn() { render_element_details(state) },
+      ),
+      // 複数選択の場合
+      show(
+        fn() { state.selected_ids.get().length() > 1 },
+        fn() {
+          div(style="color: #333; font-size: 14px;", [
+            text_dyn(fn() { "\{state.selected_ids.get().length()} elements selected" }),
+          ])
+        },
       ),
       // 選択なしの場合
       show(
-        fn() { state.selected_id.get() is None },
+        fn() { state.selected_ids.get().length() == 0 },
         fn() {
           div(style="color: #888; font-size: 14px;", [
             text("Select an element to view details"),
@@ -813,7 +867,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
     div(style="margin-bottom: 10px;", [
       div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("ID")]),
       div(style="font-family: monospace; font-size: 14px; color: #333;", [
-        text_dyn(fn() { state.selected_id.get().unwrap_or("-") }),
+        text_dyn(fn() { state.get_selected_id().unwrap_or("-") }),
       ]),
     ]),
     // Position X
@@ -823,7 +877,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         type_="number",
         style=input_style,
         dyn_value=fn() {
-          match state.selected_id.get() {
+          match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
                 Some(el) => el.x.to_int().to_string()
@@ -833,7 +887,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           }
         },
         on=events().change(fn(e) {
-          if state.selected_id.get() is Some(id) {
+          if state.get_selected_id() is Some(id) {
             let value = get_event_target_value(e.as_any())
             if parse_double(value) is Some(x) {
               state.update_element(id, fn(el) { { ..el, x } })
@@ -849,7 +903,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         type_="number",
         style=input_style,
         dyn_value=fn() {
-          match state.selected_id.get() {
+          match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
                 Some(el) => el.y.to_int().to_string()
@@ -859,7 +913,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           }
         },
         on=events().change(fn(e) {
-          if state.selected_id.get() is Some(id) {
+          if state.get_selected_id() is Some(id) {
             let value = get_event_target_value(e.as_any())
             if parse_double(value) is Some(y) {
               state.update_element(id, fn(el) { { ..el, y } })
@@ -873,7 +927,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
       div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Shape")]),
       div(style="font-family: monospace; font-size: 14px;", [
         text_dyn(fn() {
-          match state.selected_id.get() {
+          match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
                 Some(el) => format_shape(el.shape)
@@ -892,7 +946,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           type_="color",
           style=color_input_style,
           dyn_value=fn() {
-            match state.selected_id.get() {
+            match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
                   Some(el) => el.style.fill.unwrap_or("#000000")
@@ -902,7 +956,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
             }
           },
           on=events().input(fn(e) {
-            if state.selected_id.get() is Some(id) {
+            if state.get_selected_id() is Some(id) {
               let value = get_event_target_value(e.as_any())
               state.update_element(id, fn(el) {
                 { ..el, style: { ..el.style, fill: Some(value) } }
@@ -912,7 +966,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         ),
         @element.span(style="font-family: monospace; font-size: 12px;", [
           text_dyn(fn() {
-            match state.selected_id.get() {
+            match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
                   Some(el) => el.style.fill.unwrap_or("none")
@@ -932,7 +986,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           type_="color",
           style=color_input_style,
           dyn_value=fn() {
-            match state.selected_id.get() {
+            match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
                   Some(el) => el.style.stroke.unwrap_or("#000000")
@@ -942,7 +996,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
             }
           },
           on=events().input(fn(e) {
-            if state.selected_id.get() is Some(id) {
+            if state.get_selected_id() is Some(id) {
               let value = get_event_target_value(e.as_any())
               state.update_element(id, fn(el) {
                 { ..el, style: { ..el.style, stroke: Some(value) } }
@@ -952,7 +1006,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         ),
         @element.span(style="font-family: monospace; font-size: 12px;", [
           text_dyn(fn() {
-            match state.selected_id.get() {
+            match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
                   Some(el) => el.style.stroke.unwrap_or("none")
@@ -971,7 +1025,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         type_="number",
         style=input_style,
         dyn_value=fn() {
-          match state.selected_id.get() {
+          match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
                 Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
@@ -981,7 +1035,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           }
         },
         on=events().change(fn(e) {
-          if state.selected_id.get() is Some(id) {
+          if state.get_selected_id() is Some(id) {
             let value = get_event_target_value(e.as_any())
             if parse_double(value) is Some(w) {
               state.update_element(id, fn(el) {

@@ -132,6 +132,59 @@ test('debug: insert shape from context menu', async ({ page }) => {
   await expect(page.locator('text=Insert')).not.toBeVisible();
 });
 
+test('debug: box selection', async ({ page }) => {
+  await page.goto('/');
+
+  // Initial - nothing selected
+  await expect(page.getByText('Select an element to view details')).toBeVisible();
+
+  // Drag to create selection box that covers all shapes
+  // Start from top-left corner and drag to bottom-right
+  const svg = page.locator('svg');
+  await svg.hover({ position: { x: 10, y: 10 } });
+  await page.mouse.down();
+  await page.mouse.move(390, 280);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // Should show "3 elements selected" (2 rects + 1 circle)
+  await expect(page.getByText('3 elements selected')).toBeVisible();
+});
+
+test('debug: multi-drag selected elements', async ({ page }) => {
+  await page.goto('/');
+
+  // Box select all elements
+  const svg = page.locator('svg');
+  await svg.hover({ position: { x: 10, y: 10 } });
+  await page.mouse.down();
+  await page.mouse.move(390, 280);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // Verify 3 elements selected
+  await expect(page.getByText('3 elements selected')).toBeVisible();
+
+  // Get initial positions
+  const rect1 = page.locator('svg rect[data-id="el-1"]');
+  const initialX1 = await rect1.getAttribute('x');
+  const circle = page.locator('svg circle[data-id="el-3"]');
+  const initialCx = await circle.getAttribute('cx');
+
+  // Drag one of the selected elements
+  await rect1.hover();
+  await page.mouse.down();
+  await page.mouse.move(200, 200);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // Both elements should have moved
+  const newX1 = await rect1.getAttribute('x');
+  const newCx = await circle.getAttribute('cx');
+  expect(newX1).not.toBe(initialX1);
+  expect(newCx).not.toBe(initialCx);
+});
+
 test('debug: Ctrl+D duplicate', async ({ page }) => {
   await page.goto('/');
 
