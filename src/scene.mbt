@@ -11,6 +11,14 @@ pub struct DragState {
 } derive(Show, Eq)
 
 ///|
+/// コンテキストメニューの状態
+pub struct ContextMenu {
+  x : Double // メニュー表示位置 X
+  y : Double // メニュー表示位置 Y
+  target_id : String? // 右クリック対象の要素 ID（None = 空白部分）
+} derive(Show, Eq)
+
+///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
@@ -18,6 +26,7 @@ pub struct EditorState {
   elements : @luna.Signal[Array[Element]] // 要素リスト
   selected_id : @luna.Signal[String?] // 選択中の要素 ID
   drag_state : @luna.Signal[DragState?] // ドラッグ状態
+  context_menu : @luna.Signal[ContextMenu?] // コンテキストメニュー
   viewport : @luna.Signal[Viewport] // ビューポート
 }
 
@@ -30,6 +39,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     elements: @luna.signal([]),
     selected_id: @luna.signal(None),
     drag_state: @luna.signal(None),
+    context_menu: @luna.signal(None),
     viewport: @luna.signal(Viewport::default()),
   }
 }
@@ -145,4 +155,39 @@ pub fn EditorState::end_drag(self : EditorState) -> Unit {
 /// ドラッグ中かどうか
 pub fn EditorState::is_dragging(self : EditorState) -> Bool {
   self.drag_state.get() is Some(_)
+}
+
+///|
+/// コンテキストメニューを表示
+pub fn EditorState::show_context_menu(
+  self : EditorState,
+  x : Double,
+  y : Double,
+  target_id : String?,
+) -> Unit {
+  self.context_menu.set(Some({ x, y, target_id }))
+}
+
+///|
+/// コンテキストメニューを非表示
+pub fn EditorState::hide_context_menu(self : EditorState) -> Unit {
+  self.context_menu.set(None)
+}
+
+///|
+/// 要素を削除
+pub fn EditorState::remove_element(self : EditorState, id : String) -> Unit {
+  self.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
+  // 選択中の要素が削除されたら選択解除
+  if self.selected_id.get() == Some(id) {
+    self.selected_id.set(None)
+  }
+}
+
+///|
+/// 選択中の要素を削除
+pub fn EditorState::delete_selected(self : EditorState) -> Unit {
+  if self.selected_id.get() is Some(id) {
+    self.remove_element(id)
+  }
 }

@@ -1,7 +1,7 @@
 // Moonlight - 軽量 SVG エディタ
 
 ///|
-using @element {div, h1, p, button, text, text_dyn, events}
+using @element {div, h1, p, button, text, text_dyn, events, show}
 
 ///|
 /// キャンバスサイズ
@@ -78,6 +78,9 @@ fn editor_app() -> @element.DomNode {
 
   // マウスイベントハンドラ
   let on_mousedown : (@js.Any) -> Unit = fn(e) {
+    // コンテキストメニューを閉じる
+    state.hide_context_menu()
+
     let mouse_event : @js_dom.MouseEvent = e.cast()
     let target = e._get("target")
     let data_id_raw = target._get("dataset")._get("id")
@@ -113,6 +116,30 @@ fn editor_app() -> @element.DomNode {
   }
   let on_mouseup : (@js.Any) -> Unit = fn(_e) { state.end_drag() }
 
+  // コンテキストメニューハンドラ
+  let on_contextmenu : (@js.Any) -> Unit = fn(e) {
+    // デフォルトメニューを無効化
+    let _ = e._call("preventDefault", [])
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+
+    // クリック対象を取得
+    let target = e._get("target")
+    let data_id_raw = target._get("dataset")._get("id")
+    let target_id : String? = if @js.is_nullish(data_id_raw) {
+      None
+    } else {
+      Some(data_id_raw.cast())
+    }
+
+    // 要素上で右クリックした場合は選択
+    if target_id is Some(id) {
+      state.select(Some(id))
+    }
+
+    // メニュー表示
+    state.show_context_menu(mouse_event.clientX, mouse_event.clientY, target_id)
+  }
+
   // 初期 SVG を作成（effect より先に作成）
   let initial_children : Array[@js.Any] = []
   let elements = state.elements.get()
@@ -126,6 +153,7 @@ fn editor_app() -> @element.DomNode {
     on_mousedown,
     on_mousemove,
     on_mouseup,
+    on_contextmenu,
     initial_children,
   )
   svg_ref.val = Some(svg)
@@ -174,8 +202,15 @@ fn editor_app() -> @element.DomNode {
         }
       }),
     ]),
-    // SVG キャンバス
-    svg_to_dom_node(svg),
+    // SVG キャンバス（position: relative でコンテキストメニューの基準に）
+    div(style="position: relative; display: inline-block;", [
+      svg_to_dom_node(svg),
+      // コンテキストメニュー
+      show(
+        fn() { state.context_menu.get() is Some(_) },
+        fn() { render_context_menu(state) },
+      ),
+    ]),
     // ボタン
     div(style="margin-top: 10px;", [
       button(
@@ -216,4 +251,33 @@ fn editor_app() -> @element.DomNode {
       ),
     ]),
   ])
+}
+
+///|
+/// コンテキストメニューをレンダリング
+fn render_context_menu(state : EditorState) -> @element.DomNode {
+  guard state.context_menu.get() is Some(menu)
+  let style =
+    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 120px; z-index: 1000;"
+  div(
+    style~,
+    [
+      // 要素上でクリックした場合のみ「削除」を表示
+      if menu.target_id is Some(id) {
+        div(style="padding: 8px 12px; cursor: pointer; hover: #f0f0f0;", [
+          button(
+            style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;",
+            on=events().click(fn(_) {
+              state.remove_element(id)
+              state.hide_context_menu()
+            }),
+            [text("Delete")],
+          ),
+        ])
+      } else {
+        // 空白部分を右クリックした場合
+        div(style="padding: 8px 12px; color: #999;", [text("No element selected")])
+      },
+    ],
+  )
 }

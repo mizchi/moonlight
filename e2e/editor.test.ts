@@ -72,4 +72,50 @@ test.describe('Moonlight SVG Editor', () => {
     const newX = await rect.getAttribute('x');
     expect(newX).not.toBe(initialX);
   });
+
+  test('should show context menu on right-click', async ({ page }) => {
+    const rect = page.locator('svg rect').first();
+
+    // Right-click on shape
+    await rect.click({ button: 'right' });
+
+    // Check context menu is visible with Delete button
+    const contextMenu = page.locator('button:has-text("Delete")');
+    await expect(contextMenu).toBeVisible();
+  });
+
+  test('should hide context menu on left-click', async ({ page }) => {
+    const rect = page.locator('svg rect').first();
+
+    // Right-click to show menu
+    await rect.click({ button: 'right' });
+    await expect(page.locator('button:has-text("Delete")')).toBeVisible();
+
+    // Left-click on SVG to hide menu
+    await page.locator('svg').click({ position: { x: 10, y: 10 } });
+
+    // Check context menu is hidden
+    await expect(page.locator('button:has-text("Delete")')).not.toBeVisible();
+  });
+
+  test('should delete shape via context menu', async ({ page }) => {
+    const initialRectCount = await page.locator('svg rect').count();
+
+    // Right-click on first rect
+    await page.locator('svg rect').first().click({ button: 'right' });
+
+    // Click Delete
+    await page.locator('button:has-text("Delete")').click();
+
+    // Check shape was deleted
+    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+  });
+
+  test('should show "No element selected" when right-clicking empty area', async ({ page }) => {
+    // Right-click on empty area of SVG
+    await page.locator('svg').click({ button: 'right', position: { x: 700, y: 500 } });
+
+    // Check message is shown
+    await expect(page.locator('text=No element selected')).toBeVisible();
+  });
 });

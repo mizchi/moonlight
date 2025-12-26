@@ -193,6 +193,7 @@ pub fn render_svg_container(
   on_mousedown : (@js.Any) -> Unit,
   on_mousemove : (@js.Any) -> Unit,
   on_mouseup : (@js.Any) -> Unit,
+  on_contextmenu : (@js.Any) -> Unit,
   children : Array[@js.Any],
 ) -> @js.Any {
   let attrs : Array[(String, String)] = [
@@ -205,6 +206,7 @@ pub fn render_svg_container(
     ("mousedown", on_mousedown),
     ("mousemove", on_mousemove),
     ("mouseup", on_mouseup),
+    ("contextmenu", on_contextmenu),
   ]
   let svg = create_svg_element("svg", attrs, handlers)
   for child in children {
