@@ -389,24 +389,52 @@ pub fn render_resize_handles(el : @model.Element) -> Array[@js.Any] {
   match el.shape {
     @model.Line(x2, y2) => {
       let positions = [
-        ("line-start", el.x - half, el.y - half, "move"),
-        ("line-end", x2 - half, y2 - half, "move"),
+        ("line-start", el.x, el.y, "move"),
+        ("line-end", x2, y2, "move"),
       ]
+      let hit_radius = 12.0 // ヒットエリア（大きめ）
+      let visible_radius = 5.0 // 通常表示サイズ
+      let hover_radius = 10.0 // ホバー時サイズ
       for pos in positions {
-        let (handle_id, hx, hy, cursor) = pos
-        // 円形のハンドルを使用
-        let attrs : Array[(String, String)] = [
+        let (handle_id, cx, cy, cursor) = pos
+        // グループ要素を作成
+        let group = create_svg_element("g", [("class", "line-handle-group")], [])
+        // 透明なヒットエリア（大きめ）
+        let hit_area_attrs : Array[(String, String)] = [
+          ("cx", num_str(cx)),
+          ("cy", num_str(cy)),
+          ("r", num_str(hit_radius)),
+          ("fill", "transparent"),
+          ("cursor", cursor),
           ("data-handle", handle_id),
           ("data-element-id", el.id),
-          ("cx", num_str(hx + half)),
-          ("cy", num_str(hy + half)),
-          ("r", num_str(half)),
+        ]
+        let hit_area = create_svg_element("circle", hit_area_attrs, [])
+        // 可視のハンドル（CSSでホバー効果）
+        let visible_attrs : Array[(String, String)] = [
+          ("cx", num_str(cx)),
+          ("cy", num_str(cy)),
+          ("r", num_str(visible_radius)),
           ("fill", "#0066ff"),
           ("stroke", "#ffffff"),
-          ("stroke-width", "1"),
-          ("cursor", cursor),
+          ("stroke-width", "2"),
+          ("pointer-events", "none"),
+          ("class", "line-handle-visible"),
+          ("style", "transition: r 0.15s ease, fill 0.15s ease;"),
         ]
-        handles.push(create_svg_element("circle", attrs, []))
+        let visible_circle = create_svg_element("circle", visible_attrs, [])
+        // ホバー時に可視ハンドルを拡大するイベント
+        add_event_listener_ffi(hit_area, "mouseenter", fn(_e) {
+          set_svg_attr_ffi(visible_circle, "r", num_str(hover_radius))
+          set_svg_attr_ffi(visible_circle, "fill", "#0088ff")
+        })
+        add_event_listener_ffi(hit_area, "mouseleave", fn(_e) {
+          set_svg_attr_ffi(visible_circle, "r", num_str(visible_radius))
+          set_svg_attr_ffi(visible_circle, "fill", "#0066ff")
+        })
+        append_child_ffi(group, hit_area)
+        append_child_ffi(group, visible_circle)
+        handles.push(group)
       }
     }
     _ => {
