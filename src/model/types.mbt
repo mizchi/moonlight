@@ -9,6 +9,12 @@ pub struct Point {
 } derive(Show, Eq)
 
 ///|
+/// Point コンストラクタ
+pub fn point(x : Double, y : Double) -> Point {
+  { x, y }
+}
+
+///|
 /// バウンディングボックス
 pub struct BoundingBox {
   x : Double
