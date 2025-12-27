@@ -515,6 +515,7 @@ pub(all) struct TextEditState {
   y : Double // 入力欄のY座標（シーン座標）
   editing_id : String? // 編集中のテキスト要素ID（None = 新規作成）
   initial_text : String // 初期テキスト（編集時は既存の内容）
+  font_size : Double? // フォントサイズ（None = デフォルト16px）
 } derive(Show, Eq)
 
 ///|

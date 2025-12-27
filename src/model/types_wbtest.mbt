@@ -727,10 +727,12 @@ test "TextEditState - construction" {
     y: 100.0,
     editing_id: Some("text-1"),
     initial_text: "Hello",
+    font_size: Some(16.0),
   }
   assert_eq(state.parent_id, "parent")
   assert_eq(state.editing_id, Some("text-1"))
   assert_eq(state.initial_text, "Hello")
+  assert_eq(state.font_size, Some(16.0))
 }
 
 // ============================================================

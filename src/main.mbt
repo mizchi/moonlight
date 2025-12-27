@@ -436,18 +436,18 @@ fn handle_element_click(
 fn handle_double_click(state : EditorState, element_id : String) -> Unit {
   guard state.find_element(element_id) is Some(el)
   // テキスト要素の場合は直接編集
-  if el.shape is @model.Text(content, _) {
+  if el.shape is @model.Text(content, font_size) {
     // parent_id がない場合は自分自身を親として扱う
     let parent_id = el.parent_id.unwrap_or(element_id)
-    state.start_text_edit_existing(element_id, parent_id, el.x, el.y, content)
+    state.start_text_edit_existing(element_id, parent_id, el.x, el.y, content, font_size)
     return
   }
   // 親要素の場合：既存のテキスト子要素があるかチェック
   let children = state.get_children(element_id)
   for child in children {
-    if child.shape is @model.Text(content, _) {
+    if child.shape is @model.Text(content, font_size) {
       // 既存テキストを編集
-      state.start_text_edit_existing(child.id, element_id, child.x, child.y, content)
+      state.start_text_edit_existing(child.id, element_id, child.x, child.y, content, font_size)
       return
     }
   }
@@ -462,10 +462,10 @@ fn handle_double_click(state : EditorState, element_id : String) -> Unit {
 /// テキスト要素の編集開始
 fn handle_text_edit(state : EditorState, text_id : String) -> Unit {
   guard state.find_element(text_id) is Some(el)
-  guard el.shape is @model.Text(content, _)
+  guard el.shape is @model.Text(content, font_size)
   // parent_id がない場合は自分自身を親として扱う
   let parent_id = el.parent_id.unwrap_or(text_id)
-  state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content)
+  state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content, font_size)
 }
 
 ///|
@@ -1127,8 +1127,16 @@ fn render_text_input_container(
       }
       let screen_pos = vp.scene_to_screen(text_x, text_y)
       let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
+      // フォントサイズをズーム率に合わせてスケール
+      let base_font_size = match edit_state.font_size {
+        Some(size) => size
+        None => 16.0
+      }
+      let scaled_font_size = base_font_size * vp.zoom
+      let scaled_min_height = 19.0 * vp.zoom
+      let scaled_max_height = 100.0 * vp.zoom
       let style =
-        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
+        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: \{scaled_min_height}px; max-height: \{scaled_max_height}px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
 
       let textarea = create_textarea_ffi(
         style,

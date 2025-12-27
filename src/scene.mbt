@@ -172,7 +172,9 @@ pub fn EditorState::start_text_edit(
   x : Double,
   y : Double,
 ) -> Unit {
-  self.text_edit.set(Some({ parent_id, x, y, editing_id: None, initial_text: "" }))
+  self.text_edit.set(
+    Some({ parent_id, x, y, editing_id: None, initial_text: "", font_size: None }),
+  )
 }
 
 ///|
@@ -184,9 +186,10 @@ pub fn EditorState::start_text_edit_existing(
   x : Double,
   y : Double,
   initial_text : String,
+  font_size : Double?,
 ) -> Unit {
   self.text_edit.set(
-    Some({ parent_id, x, y, editing_id: Some(text_id), initial_text }),
+    Some({ parent_id, x, y, editing_id: Some(text_id), initial_text, font_size }),
   )
 }
 
