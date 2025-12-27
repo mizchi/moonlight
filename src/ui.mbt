@@ -25,6 +25,18 @@ let swatch_style : String = "width: 20px; height: 20px; border: 1px solid #999; 
 let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
 
 ///|
+/// CSS 変数をヘックス色に変換（カラーピッカー用）
+fn to_hex_color(color : String, default : String) -> String {
+  if color.has_prefix("var(") {
+    default
+  } else if color == "transparent" || color == "" {
+    default
+  } else {
+    color
+  }
+}
+
+///|
 /// カラースウォッチを描画
 fn render_color_swatches(
   state : EditorState,
@@ -545,7 +557,7 @@ fn render_element_details(
           match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) => el.style.stroke.unwrap_or("#000000")
+                Some(el) => to_hex_color(el.style.stroke.unwrap_or("#000000"), "#000000")
                 None => "#000000"
               }
             None => "#000000"
@@ -633,10 +645,7 @@ fn render_element_details(
           match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) => {
-                  let fill = el.style.fill.unwrap_or("transparent")
-                  if fill == "transparent" { "#ffffff" } else { fill }
-                }
+                Some(el) => to_hex_color(el.style.fill.unwrap_or("transparent"), "#ffffff")
                 None => "#ffffff"
               }
             None => "#ffffff"

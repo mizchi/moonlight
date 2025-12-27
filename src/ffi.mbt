@@ -178,6 +178,11 @@ pub extern "js" fn clear_children_ffi(el : @js.Any) =
   #| (el) => { while (el.firstChild) el.removeChild(el.firstChild); }
 
 ///|
+/// 子要素を安全に削除（存在しない場合は何もしない）
+pub extern "js" fn remove_child_safe_ffi(parent : @js.Any, child : @js.Any) =
+  #| (parent, child) => { try { if (child && child.parentNode === parent) parent.removeChild(child); } catch(e) {} }
+
+///|
 /// SVG の背景スタイルを更新
 pub extern "js" fn update_svg_background_ffi(svg : @js.Any, background : String) =
   #| (svg, background) => svg.style.background = background

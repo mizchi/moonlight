@@ -41,9 +41,6 @@ fn editor_app() -> @element.DomNode {
   // サンプルの図形を追加
   add_sample_shapes(state, new_id)
 
-  // SVG コンテナへの参照
-  let svg_ref : Ref[@js.Any?] = { val: None }
-
   // Space キーが押されているか
   let space_pressed : Ref[Bool] = { val: false }
 
@@ -77,9 +74,6 @@ fn editor_app() -> @element.DomNode {
     commit_text_edit(state, history, new_id, text_content)
   }
 
-  // テキスト入力をキャンセルするコールバック
-  let cancel_text_input = fn() { state.text_edit.set(None) }
-
   // マウスイベントハンドラ
   let on_mousedown = create_mousedown_handler(
     state, history, new_id, get_screen_coords, get_scene_coords,
@@ -90,51 +84,21 @@ fn editor_app() -> @element.DomNode {
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
 
-  // 初期 SVG を作成
-  let initial_children : Array[@js.Any] = []
-  let elements = state.elements.get()
-  for el in elements {
-    let parent_el : @model.Element? = match el.parent_id {
-      Some(pid) => state.find_element(pid)
-      None => None
-    }
-    initial_children.push(render_element(el, state.is_selected(el.id), parent=parent_el))
-  }
-  let svg = render_svg_container_with_viewport(
-    canvas_width,
-    canvas_height,
-    state.viewport.get(),
+  // キーボードショートカット
+  setup_keyboard_shortcuts(state, history, new_id)
+
+  // SVG キャンバスを Luna VNode として作成（for_each による差分更新）
+  let svg_canvas = render_svg_canvas_node(
+    state,
     on_mousedown,
     on_mousemove,
     on_mouseup,
     on_contextmenu,
     on_wheel,
-    initial_children,
   )
-  svg_ref.val = Some(svg)
-
-  // SVG 再描画関数
-  let redraw_svg = fn() {
-    redraw_svg_content(state, svg_ref, canvas_width, canvas_height)
-  }
-
-  // Signal の変更を監視して再描画
-  setup_redraw_effect(state, redraw_svg)
-
-  // Viewport の変更を監視して viewBox を更新
-  setup_viewport_effect(state, svg_ref, canvas_width, canvas_height, redraw_svg)
-
-  // プレビュー背景の変更を監視
-  setup_preview_bg_effect(state, svg_ref)
-
-  // テーマ変更を監視してCSS変数を更新
-  setup_theme_effect(state, svg_ref)
-
-  // キーボードショートカット
-  setup_keyboard_shortcuts(state, history, new_id)
 
   // UI
-  render_editor_ui(state, history, new_id, svg, commit_text_input, cancel_text_input)
+  render_editor_ui_vnode(state, history, new_id, svg_canvas, commit_text_input)
 }
 
 // ============================================================
@@ -630,166 +594,6 @@ fn create_contextmenu_handler(
   }
 }
 
-// ============================================================
-// 描画関数
-// ============================================================
-
-///|
-/// SVG コンテンツを再描画
-fn redraw_svg_content(
-  state : EditorState,
-  svg_ref : Ref[@js.Any?],
-  canvas_width : Int,
-  canvas_height : Int,
-) -> Unit {
-  guard svg_ref.val is Some(svg)
-  clear_children_ffi(svg)
-
-  // 矢印マーカーの defs を追加
-  let defs = create_arrow_defs()
-  append_child_ffi(svg, defs)
-
-  // グリッド線を描画
-  if state.grid_enabled.get() {
-    let grid_lines = render_grid(
-      canvas_width,
-      canvas_height,
-      state.grid_size.get(),
-      state.viewport.get(),
-    )
-    for line in grid_lines {
-      append_child_ffi(svg, line)
-    }
-  }
-
-  // 要素を描画（テキスト編集中のテキスト要素はスキップ）
-  let elements = state.elements.get()
-  let editing_text_id : String? = match state.text_edit.get() {
-    Some(edit_state) => edit_state.editing_id
-    None => None
-  }
-  for el in elements {
-    // 編集中のテキスト要素はスキップ（入力フィールドと重複を避ける）
-    if editing_text_id is Some(text_id) && el.id == text_id {
-      continue
-    }
-    let is_selected = state.is_selected(el.id)
-    // テキスト子要素の場合は親要素を渡して中央配置
-    let parent_el : @model.Element? = match el.parent_id {
-      Some(pid) => state.find_element(pid)
-      None => None
-    }
-    let child = render_element(el, is_selected, parent=parent_el)
-    append_child_ffi(svg, child)
-  }
-
-  // 選択中の要素のアンカーポイントとリサイズハンドルを描画
-  let selected_ids = state.selected_ids.get()
-  for id in selected_ids {
-    if state.find_element(id) is Some(el) {
-      let anchors = render_element_anchors(el)
-      for anchor in anchors {
-        append_child_ffi(svg, anchor)
-      }
-      if selected_ids.length() == 1 {
-        let handles = render_resize_handles(el)
-        for handle in handles {
-          append_child_ffi(svg, handle)
-        }
-      }
-    }
-  }
-
-  // 矩形選択ボックスを描画
-  if state.box_select.get() is Some(box_state) {
-    let box_el = render_selection_box(box_state)
-    append_child_ffi(svg, box_el)
-  }
-
-  // 線の端点ドラッグ中はアンカーポイントを可視化
-  if state.resize_state.get() is Some(resize) {
-    if resize.start_shape is @model.Line(_, _) {
-      let anchors = render_all_anchor_points(state.elements.get(), resize.element_id)
-      for anchor in anchors {
-        append_child_ffi(svg, anchor)
-      }
-    }
-  }
-
-  // 接続ポイントのハイライトを描画
-  if state.pending_connection.get() is Some(pending) {
-    let highlight = render_connection_highlight(pending.point)
-    append_child_ffi(svg, highlight)
-  }
-}
-
-///|
-/// 再描画エフェクトを設定
-fn setup_redraw_effect(state : EditorState, redraw_svg : () -> Unit) -> Unit {
-  let is_first_run : Ref[Bool] = { val: true }
-  let _ = @luna.effect(fn() {
-    let _ = state.elements.get()
-    let _ = state.selected_ids.get()
-    let _ = state.grid_enabled.get()
-    let _ = state.box_select.get()
-    let _ = state.pending_connection.get()
-    let _ = state.resize_state.get()
-    if is_first_run.val {
-      is_first_run.val = false
-      return
-    }
-    redraw_svg()
-  })
-}
-
-///|
-/// ビューポートエフェクトを設定
-fn setup_viewport_effect(
-  state : EditorState,
-  svg_ref : Ref[@js.Any?],
-  canvas_width : Int,
-  canvas_height : Int,
-  redraw_svg : () -> Unit,
-) -> Unit {
-  let viewport_first_run : Ref[Bool] = { val: true }
-  let _ = @luna.effect(fn() {
-    let vp = state.viewport.get()
-    if viewport_first_run.val {
-      viewport_first_run.val = false
-      return
-    }
-    if svg_ref.val is Some(svg) {
-      let vb_width = canvas_width.to_double() / vp.zoom
-      let vb_height = canvas_height.to_double() / vp.zoom
-      let viewbox = "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
-      update_viewbox_ffi(svg, viewbox)
-      redraw_svg()
-    }
-  })
-}
-
-///|
-/// プレビュー背景の変更を監視
-fn setup_preview_bg_effect(state : EditorState, svg_ref : Ref[@js.Any?]) -> Unit {
-  let _ = @luna.effect(fn() {
-    let bg = state.preview_bg.get()
-    if svg_ref.val is Some(svg) {
-      update_svg_background_ffi(svg, bg)
-    }
-  })
-}
-
-///|
-/// テーマ変更を監視してCSS変数を更新
-fn setup_theme_effect(state : EditorState, svg_ref : Ref[@js.Any?]) -> Unit {
-  let _ = @luna.effect(fn() {
-    let theme = state.get_theme()
-    if svg_ref.val is Some(svg) {
-      update_svg_css_vars_ffi(svg, theme.stroke, theme.fill, theme.text)
-    }
-  })
-}
-
 ///|
 /// キーボードショートカットを設定
 fn setup_keyboard_shortcuts(
@@ -909,14 +713,13 @@ fn setup_keyboard_shortcuts(
 // ============================================================
 
 ///|
-/// エディタ UI をレンダリング
-fn render_editor_ui(
+/// エディタ UI をレンダリング（Luna VNode ベース）
+fn render_editor_ui_vnode(
   state : EditorState,
   history : @model.History,
   new_id : () -> String,
-  svg : @js.Any,
+  svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
-  cancel_text_input : () -> Unit,
 ) -> @element.DomNode {
   div([
     // タイトル
@@ -931,23 +734,83 @@ fn render_editor_ui(
         div(style="display: flex; gap: 4px; align-items: center; background: #f8f8f8; padding: 4px 6px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; font-size: 11px;", [
           render_embedded_toolbar(state, history, new_id),
         ]),
-        // SVG コンテナ
+        // SVG コンテナ（Luna VNode として直接使用）
         div(style="position: relative;", [
-          svg_to_dom_node(svg),
+          svg_canvas,
           // コンテキストメニュー
           show(
             fn() { state.context_menu.get() is Some(_) },
             fn() { render_context_menu(state, history, new_id) },
           ),
-          // テキスト入力
-          show(
-            fn() { state.text_edit.get() is Some(_) },
-            fn() { render_text_input(state, commit_text_input, cancel_text_input) },
-          ),
+          // テキスト入力（FFI 要素は show の cleanup と相性が悪いため、別 div で管理）
+          render_text_input_container(state, commit_text_input),
         ]),
       ]),
     ]),
   ])
+}
+
+///|
+/// テキスト入力コンテナ（FFI 要素を Effect で手動管理）
+fn render_text_input_container(
+  state : EditorState,
+  commit : (String) -> Unit,
+) -> @element.DomNode {
+  let container_ref : Ref[@js.Any?] = { val: None }
+  let current_textarea : Ref[@js.Any?] = { val: None }
+
+  // Effect で text_edit の変更を監視
+  let _ = @luna.effect(fn() {
+    let text_edit = state.text_edit.get()
+
+    // コンテナがまだレンダリングされていない場合は何もしない
+    let container = match container_ref.val {
+      Some(c) => c
+      None => return
+    }
+
+    // 既存の textarea を削除
+    if current_textarea.val is Some(textarea) {
+      remove_child_safe_ffi(container, textarea)
+      current_textarea.val = None
+    }
+
+    // 新しい textarea を作成
+    if text_edit is Some(edit_state) {
+      let vp = state.viewport.get()
+      let (text_x, text_y, max_width) : (Double, Double, Double) = match state.find_element(edit_state.parent_id) {
+        Some(parent) => {
+          let bbox = parent.bounding_box()
+          let center_x = bbox.x + bbox.width / 2.0
+          let center_y = bbox.y + bbox.height / 2.0
+          (center_x, center_y, (bbox.width * vp.zoom) - 16.0)
+        }
+        None => (edit_state.x, edit_state.y, 200.0)
+      }
+      let screen_pos = vp.scene_to_screen(text_x, text_y)
+      let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
+      let style =
+        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
+
+      let textarea = create_textarea_ffi(
+        style,
+        edit_state.initial_text,
+        fn(value) { commit(value) },
+        fn(_) { state.text_edit.set(None) },
+      )
+      append_child_ffi(container, textarea)
+      current_textarea.val = Some(textarea)
+    }
+  })
+
+  @element.create_element(
+    "div",
+    [
+      ("style", @element.Static("position: absolute; top: 0; left: 0; pointer-events: none;")),
+      ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+    ],
+    [],
+  )
 }
 
 ///|
@@ -1142,4 +1005,155 @@ fn render_embedded_toolbar(
     ),
   ])
 }
+
+// =============================================================================
+// SVG キャンバス（Effect ベースの再描画 + Luna VNode コンテナ）
+// =============================================================================
+
+///|
+/// SVG キャンバスを作成（Luna VNode + Effect ベースの内部再描画）
+fn render_svg_canvas_node(
+  state : EditorState,
+  on_mousedown : (@js.Any) -> Unit,
+  on_mousemove : (@js.Any) -> Unit,
+  on_mouseup : (@js.Any) -> Unit,
+  on_contextmenu : (@js.Any) -> Unit,
+  on_wheel : (@js.Any) -> Unit,
+) -> @element.DomNode {
+  // SVG 要素への参照
+  let svg_ref : Ref[@js.Any?] = { val: None }
+
+  // SVG 属性（動的な viewBox と style）
+  let svg_attrs : Array[(String, @element.AttrValue)] = [
+    ("width", @element.Static(canvas_width.to_string())),
+    ("height", @element.Static(canvas_height.to_string())),
+    // viewBox は viewport に連動（Dynamic）
+    ("viewBox", @element.Dynamic(fn() {
+      let vp = state.viewport.get()
+      let vb_width = canvas_width.to_double() / vp.zoom
+      let vb_height = canvas_height.to_double() / vp.zoom
+      "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
+    })),
+    // style は theme と preview_bg に連動（Dynamic）
+    ("style", @element.Dynamic(fn() {
+      let bg = state.preview_bg.get()
+      let theme = state.get_theme()
+      "border: 1px solid #ccc; background: \{bg}; user-select: none; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
+    })),
+    // イベントハンドラ
+    ("mousedown", @element.Handler(on_mousedown)),
+    ("mousemove", @element.Handler(on_mousemove)),
+    ("mouseup", @element.Handler(on_mouseup)),
+    ("contextmenu", @element.Handler(on_contextmenu)),
+    ("wheel", @element.Handler(on_wheel)),
+    // __ref で SVG 要素への参照を取得
+    ("__ref", @element.Handler(fn(el) {
+      svg_ref.val = Some(el)
+      // 初回描画
+      redraw_svg_inner(state, el)
+    })),
+  ]
+
+  // Effect: Signal 変更時に SVG 内部を再描画
+  let _ = @luna.effect(fn() {
+    // 依存関係を登録
+    let _ = state.elements.get()
+    let _ = state.selected_ids.get()
+    let _ = state.grid_enabled.get()
+    let _ = state.box_select.get()
+    let _ = state.pending_connection.get()
+    let _ = state.resize_state.get()
+    let _ = state.text_edit.get()
+    let _ = state.grid_size.get()
+
+    if svg_ref.val is Some(svg) {
+      redraw_svg_inner(state, svg)
+    }
+  })
+
+  // SVG 要素を作成（子要素は Effect で動的に追加）
+  @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, [])
+}
+
+///|
+/// SVG 内部を再描画（Effect から呼び出し）
+fn redraw_svg_inner(state : EditorState, svg : @js.Any) -> Unit {
+  clear_children_ffi(svg)
+
+  // 矢印マーカーの defs を追加
+  let defs = create_arrow_defs()
+  append_child_ffi(svg, defs)
+
+  // グリッド線を描画
+  if state.grid_enabled.get() {
+    let grid_lines = render_grid(
+      canvas_width,
+      canvas_height,
+      state.grid_size.get(),
+      state.viewport.get(),
+    )
+    for line in grid_lines {
+      append_child_ffi(svg, line)
+    }
+  }
+
+  // 要素を描画（テキスト編集中のテキスト要素はスキップ）
+  let elements = state.elements.get()
+  let editing_text_id : String? = match state.text_edit.get() {
+    Some(edit_state) => edit_state.editing_id
+    None => None
+  }
+  for el in elements {
+    if editing_text_id is Some(text_id) && el.id == text_id {
+      continue
+    }
+    let is_selected = state.is_selected(el.id)
+    let parent_el : @model.Element? = match el.parent_id {
+      Some(pid) => state.find_element(pid)
+      None => None
+    }
+    let child = render_element(el, is_selected, parent=parent_el)
+    append_child_ffi(svg, child)
+  }
+
+  // 選択中の要素のアンカーポイントとリサイズハンドルを描画
+  let selected_ids = state.selected_ids.get()
+  for id in selected_ids {
+    if state.find_element(id) is Some(el) {
+      let anchors = render_element_anchors(el)
+      for anchor in anchors {
+        append_child_ffi(svg, anchor)
+      }
+      if selected_ids.length() == 1 {
+        let handles = render_resize_handles(el)
+        for handle in handles {
+          append_child_ffi(svg, handle)
+        }
+      }
+    }
+  }
+
+  // 矩形選択ボックスを描画
+  if state.box_select.get() is Some(box_state) {
+    let box_el = render_selection_box(box_state)
+    append_child_ffi(svg, box_el)
+  }
+
+  // 線の端点ドラッグ中はアンカーポイントを可視化
+  if state.resize_state.get() is Some(resize) {
+    if resize.start_shape is @model.Line(_, _) {
+      let anchors = render_all_anchor_points(elements, resize.element_id)
+      for anchor in anchors {
+        append_child_ffi(svg, anchor)
+      }
+    }
+  }
+
+  // 接続ポイントのハイライトを描画
+  if state.pending_connection.get() is Some(pending) {
+    let highlight = render_connection_highlight(pending.point)
+    append_child_ffi(svg, highlight)
+  }
+}
+
 

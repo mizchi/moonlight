@@ -1,8 +1,5 @@
 // SVG Rendering - @model.Element → DomNode への変換
-
-///|
-/// SVG namespace URI
-let svg_ns : String = "http://www.w3.org/2000/svg"
+// Luna の create_element_ns を使用
 
 ///|
 /// XML エスケープ
@@ -15,20 +12,12 @@ fn escape_xml(s : String) -> String {
 }
 
 ///|
-/// SVG 要素を createElementNS で作成（FFI）
-extern "js" fn create_svg_element_ffi(
-  tag : String,
-  ns : String,
-) -> @js.Any =
-  #| (tag, ns) => document.createElementNS(ns, tag)
-
-///|
-/// SVG 要素に属性を設定（FFI）
+/// SVG 要素に属性を設定（FFI）- 動的更新用
 extern "js" fn set_svg_attr_ffi(el : @js.Any, name : String, value : String) =
   #| (el, name, value) => el.setAttribute(name, value)
 
 ///|
-/// SVG 要素にイベントリスナーを追加（FFI）
+/// SVG 要素にイベントリスナーを追加（FFI）- 動的イベント用
 extern "js" fn add_event_listener_ffi(
   el : @js.Any,
   event : String,
@@ -42,20 +31,24 @@ extern "js" fn append_child_ffi(parent : @js.Any, child : @js.Any) =
   #| (parent, child) => parent.appendChild(child)
 
 ///|
-/// SVG 要素を作成
+/// SVG 要素を作成（Luna の create_element_ns を使用）
 fn create_svg_element(
   tag : String,
   attrs : Array[(String, String)],
   handlers : Array[(String, (@js.Any) -> Unit)],
 ) -> @js.Any {
-  let el = create_svg_element_ffi(tag, svg_ns)
+  // 属性を AttrValue に変換
+  let luna_attrs : Array[(String, @element.AttrValue)] = []
   for attr in attrs {
-    set_svg_attr_ffi(el, attr.0, attr.1)
+    luna_attrs.push((attr.0, @element.Static(attr.1)))
   }
+  // ハンドラを追加
   for handler in handlers {
-    add_event_listener_ffi(el, handler.0, handler.1)
+    luna_attrs.push((handler.0, @element.Handler(handler.1)))
   }
-  el
+  // Luna の create_element_ns で作成し、@js.Any に変換
+  let node = @element.create_element_ns(@element.svg_ns, tag, luna_attrs, [])
+  node.to_dom().as_any()
 }
 
 ///|
@@ -753,4 +746,449 @@ pub fn render_all_anchor_points(elements : Array[@model.Element], exclude_id : S
     }
   }
   result
+}
+
+// =============================================================================
+// Luna VNode ベースのレンダリング（差分更新対応）
+// =============================================================================
+
+///|
+/// SVG ノードを作成（Luna の create_element_ns を使用、DomNode を返す）
+fn create_svg_node(
+  tag : String,
+  attrs : Array[(String, String)],
+  handlers : Array[(String, (@js.Any) -> Unit)],
+  children : Array[@element.DomNode],
+) -> @element.DomNode {
+  let luna_attrs : Array[(String, @element.AttrValue)] = []
+  for attr in attrs {
+    luna_attrs.push((attr.0, @element.Static(attr.1)))
+  }
+  for handler in handlers {
+    luna_attrs.push((handler.0, @element.Handler(handler.1)))
+  }
+  @element.create_element_ns(@element.svg_ns, tag, luna_attrs, children)
+}
+
+///|
+/// 要素を DomNode に変換（Luna VNode ベース）
+pub fn render_element_node(
+  el : @model.Element,
+  is_selected : Bool,
+  parent~ : @model.Element? = None,
+) -> @element.DomNode {
+  let attrs : Array[(String, String)] = []
+  attrs.push(("data-id", el.id))
+  let style = el.style
+  let _ = is_selected
+  match el.shape {
+    @model.Rect(w, h, rx, ry) => {
+      attrs.push(("x", num_str(el.x)))
+      attrs.push(("y", num_str(el.y)))
+      attrs.push(("width", num_str(w)))
+      attrs.push(("height", num_str(h)))
+      if rx is Some(v) {
+        attrs.push(("rx", num_str(v)))
+      }
+      if ry is Some(v) {
+        attrs.push(("ry", num_str(v)))
+      }
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      attrs.push(("cursor", "move"))
+      create_svg_node("rect", attrs, [], [])
+    }
+    @model.Circle(r) => {
+      attrs.push(("cx", num_str(el.x)))
+      attrs.push(("cy", num_str(el.y)))
+      attrs.push(("r", num_str(r)))
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      attrs.push(("cursor", "move"))
+      create_svg_node("circle", attrs, [], [])
+    }
+    @model.Ellipse(rx, ry) => {
+      attrs.push(("cx", num_str(el.x)))
+      attrs.push(("cy", num_str(el.y)))
+      attrs.push(("rx", num_str(rx)))
+      attrs.push(("ry", num_str(ry)))
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      attrs.push(("cursor", "move"))
+      create_svg_node("ellipse", attrs, [], [])
+    }
+    @model.Line(x2, y2) => {
+      // 透明なヒットエリア
+      let hit_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("x1", num_str(el.x)),
+        ("y1", num_str(el.y)),
+        ("x2", num_str(x2)),
+        ("y2", num_str(y2)),
+        ("stroke", "transparent"),
+        ("stroke-width", "24"),
+      ]
+      let hit_area = create_svg_node("line", hit_attrs, [], [])
+      // 子要素を収集
+      let children : Array[@element.DomNode] = [hit_area]
+      // 選択時はハイライト
+      if is_selected {
+        let highlight_attrs : Array[(String, String)] = [
+          ("x1", num_str(el.x)),
+          ("y1", num_str(el.y)),
+          ("x2", num_str(x2)),
+          ("y2", num_str(y2)),
+          ("stroke", "rgba(0, 102, 255, 0.3)"),
+          ("stroke-width", num_str(el.style.stroke_width.unwrap_or(1.0) + 6.0)),
+          ("stroke-linecap", "round"),
+          ("pointer-events", "none"),
+        ]
+        children.push(create_svg_node("line", highlight_attrs, [], []))
+      }
+      // 実際の線
+      let line_attrs : Array[(String, String)] = [
+        ("x1", num_str(el.x)),
+        ("y1", num_str(el.y)),
+        ("x2", num_str(x2)),
+        ("y2", num_str(y2)),
+        ("pointer-events", "none"),
+      ]
+      add_style_attrs(line_attrs, el.style)
+      let stroke_color = el.style.stroke.unwrap_or("#000000")
+      add_marker_attrs(line_attrs, el.style, stroke_color)
+      if el.transform is Some(t) {
+        line_attrs.push(("transform", t))
+      }
+      children.push(create_svg_node("line", line_attrs, [], []))
+      // グループ
+      create_svg_node(
+        "g",
+        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
+        [],
+        children,
+      )
+    }
+    @model.Polyline(points) => {
+      let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
+      attrs.push(("points", points_str))
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      attrs.push(("cursor", "move"))
+      create_svg_node("polyline", attrs, [], [])
+    }
+    @model.Path(d) => {
+      attrs.push(("d", d))
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      attrs.push(("cursor", "move"))
+      create_svg_node("path", attrs, [], [])
+    }
+    @model.Text(content, font_size) => {
+      let size = font_size.unwrap_or(16.0)
+      let (text_x, text_y) = match parent {
+        Some(p) => {
+          let bbox = p.bounding_box()
+          (bbox.x + bbox.width / 2.0, bbox.y + bbox.height / 2.0)
+        }
+        None => (el.x, el.y)
+      }
+      // ヒットエリアサイズ計算
+      let (hit_width, hit_height) = if content.contains("\n") {
+        let lines : Array[String] = content
+          .split("\n")
+          .map(fn(sv) { sv.to_string() })
+          .collect()
+        let line_count = lines.length()
+        let line_height = size * 1.2
+        let total_height = line_count.to_double() * line_height
+        let max_line_len = lines.fold(init=0, fn(acc, line) {
+          let len = line.iter().count()
+          if len > acc { len } else { acc }
+        })
+        let estimated_width = max_line_len.to_double() * size * 0.6
+        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+        let h = if total_height < 24.0 { 24.0 } else { total_height }
+        (w, h)
+      } else {
+        let char_count = content.iter().count()
+        let estimated_width = char_count.to_double() * size * 0.6
+        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+        (w, size * 1.2)
+      }
+      // ヒットエリア
+      let hit_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("x", num_str(text_x - hit_width / 2.0)),
+        ("y", num_str(text_y - hit_height / 2.0)),
+        ("width", num_str(hit_width)),
+        ("height", num_str(hit_height)),
+        ("fill", "transparent"),
+      ]
+      let hit_area = create_svg_node("rect", hit_attrs, [], [])
+      // テキスト要素（FFI で複数行テキストを設定するため、ref callback を使用）
+      attrs.push(("x", num_str(text_x)))
+      attrs.push(("y", num_str(text_y)))
+      attrs.push(("font-size", num_str(size)))
+      attrs.push(("text-anchor", "middle"))
+      attrs.push(("dominant-baseline", "middle"))
+      attrs.push(("pointer-events", "none"))
+      add_style_attrs(attrs, style)
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
+      // テキスト内容を設定するために __ref callback を使用
+      let luna_attrs : Array[(String, @element.AttrValue)] = []
+      for attr in attrs {
+        luna_attrs.push((attr.0, @element.Static(attr.1)))
+      }
+      // __ref で DOM 要素にアクセスしてテキストを設定
+      luna_attrs.push(("__ref", @element.Handler(fn(text_el) {
+        set_multiline_text_ffi(text_el, content, text_x, size)
+      })))
+      let text_node = @element.create_element_ns(
+        @element.svg_ns,
+        "text",
+        luna_attrs,
+        [],
+      )
+      // グループ
+      create_svg_node(
+        "g",
+        [("data-id", el.id), ("data-element-type", "text"), ("cursor", "move")],
+        [],
+        [hit_area, text_node],
+      )
+    }
+  }
+}
+
+///|
+/// 矢印マーカーを DomNode として作成
+fn create_arrow_marker_node(id : String, color : String, is_start : Bool) -> @element.DomNode {
+  let path_d = if is_start { "M10,0 L0,5 L10,10" } else { "M0,0 L10,5 L0,10" }
+  let path = create_svg_node("path", [("d", path_d), ("fill", color)], [], [])
+  create_svg_node(
+    "marker",
+    [
+      ("id", id),
+      ("markerWidth", "10"),
+      ("markerHeight", "10"),
+      ("refX", if is_start { "0" } else { "10" }),
+      ("refY", "5"),
+      ("orient", "auto"),
+      ("markerUnits", "strokeWidth"),
+    ],
+    [],
+    [path],
+  )
+}
+
+///|
+/// SVG defs を DomNode として作成
+pub fn create_arrow_defs_node() -> @element.DomNode {
+  let colors = [
+    "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
+    "#ffff00", "#ff00ff", "#00ffff", "#808080", "#c0c0c0",
+  ]
+  let markers : Array[@element.DomNode] = []
+  for color in colors {
+    let suffix = color.replace(old="#", new="")
+    markers.push(create_arrow_marker_node("arrow-start-\{suffix}", color, true))
+    markers.push(create_arrow_marker_node("arrow-end-\{suffix}", color, false))
+  }
+  create_svg_node("defs", [], [], markers)
+}
+
+///|
+/// グリッド線を DomNode として作成
+pub fn render_grid_nodes(
+  width : Int,
+  height : Int,
+  grid_size : Int,
+  viewport : @model.Viewport,
+) -> Array[@element.DomNode] {
+  let lines : Array[@element.DomNode] = []
+  let size = grid_size.to_double()
+  let vb_width = width.to_double() / viewport.zoom
+  let vb_height = height.to_double() / viewport.zoom
+  let start_x = viewport.scroll_x
+  let start_y = viewport.scroll_y
+  let end_x = start_x + vb_width
+  let end_y = start_y + vb_height
+  let grid_start_x = (start_x / size).floor() * size
+  let grid_start_y = (start_y / size).floor() * size
+  // 縦線
+  let mut x = grid_start_x
+  while x <= end_x {
+    lines.push(create_svg_node("line", [
+      ("x1", x.to_string()),
+      ("y1", start_y.to_string()),
+      ("x2", x.to_string()),
+      ("y2", end_y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ], [], []))
+    x = x + size
+  }
+  // 横線
+  let mut y = grid_start_y
+  while y <= end_y {
+    lines.push(create_svg_node("line", [
+      ("x1", start_x.to_string()),
+      ("y1", y.to_string()),
+      ("x2", end_x.to_string()),
+      ("y2", y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ], [], []))
+    y = y + size
+  }
+  lines
+}
+
+///|
+/// リサイズハンドルを DomNode として作成
+pub fn render_resize_handles_nodes(el : @model.Element) -> Array[@element.DomNode] {
+  let half = handle_size / 2.0
+  let handles : Array[@element.DomNode] = []
+  match el.shape {
+    @model.Line(x2, y2) => {
+      let positions = [
+        ("line-start", el.x, el.y),
+        ("line-end", x2, y2),
+      ]
+      for pos in positions {
+        let (handle_id, cx, cy) = pos
+        // ヒットエリア
+        let hit_area = create_svg_node("circle", [
+          ("cx", num_str(cx)),
+          ("cy", num_str(cy)),
+          ("r", "12"),
+          ("fill", "transparent"),
+          ("cursor", "move"),
+          ("data-handle", handle_id),
+          ("data-element-id", el.id),
+        ], [], [])
+        // 可視ハンドル
+        let visible = create_svg_node("circle", [
+          ("cx", num_str(cx)),
+          ("cy", num_str(cy)),
+          ("r", "5"),
+          ("fill", "#0066ff"),
+          ("stroke", "#ffffff"),
+          ("stroke-width", "2"),
+          ("pointer-events", "none"),
+        ], [], [])
+        handles.push(create_svg_node("g", [("class", "line-handle-group")], [], [hit_area, visible]))
+      }
+    }
+    _ => {
+      let bbox = el.bounding_box()
+      let positions = [
+        ("nw", bbox.x - half, bbox.y - half, "nwse-resize"),
+        ("ne", bbox.x + bbox.width - half, bbox.y - half, "nesw-resize"),
+        ("sw", bbox.x - half, bbox.y + bbox.height - half, "nesw-resize"),
+        ("se", bbox.x + bbox.width - half, bbox.y + bbox.height - half, "nwse-resize"),
+      ]
+      for pos in positions {
+        let (handle_id, hx, hy, cursor) = pos
+        handles.push(create_svg_node("rect", [
+          ("data-handle", handle_id),
+          ("data-element-id", el.id),
+          ("x", num_str(hx)),
+          ("y", num_str(hy)),
+          ("width", num_str(handle_size)),
+          ("height", num_str(handle_size)),
+          ("fill", "#0066ff"),
+          ("stroke", "#ffffff"),
+          ("stroke-width", "1"),
+          ("cursor", cursor),
+        ], [], []))
+      }
+    }
+  }
+  handles
+}
+
+///|
+/// アンカーポイントを DomNode として作成
+pub fn render_element_anchors_nodes(el : @model.Element) -> Array[@element.DomNode] {
+  let result : Array[@element.DomNode] = []
+  if el.shape is @model.Line(_, _) {
+    return result
+  }
+  for anchor_data in el.get_all_anchors() {
+    let (anchor, point) = anchor_data
+    if anchor == @model.Center ||
+       anchor == @model.TopLeft ||
+       anchor == @model.TopRight ||
+       anchor == @model.BottomLeft ||
+       anchor == @model.BottomRight {
+      continue
+    }
+    let anchor_name = match anchor {
+      @model.Center => "center"
+      @model.Top => "top"
+      @model.Bottom => "bottom"
+      @model.Left => "left"
+      @model.Right => "right"
+      @model.TopLeft => "top-left"
+      @model.TopRight => "top-right"
+      @model.BottomLeft => "bottom-left"
+      @model.BottomRight => "bottom-right"
+    }
+    result.push(create_svg_node("circle", [
+      ("cx", num_str(point.x)),
+      ("cy", num_str(point.y)),
+      ("r", "6"),
+      ("fill", "rgba(100, 100, 255, 0.3)"),
+      ("stroke", "#6666ff"),
+      ("stroke-width", "1.5"),
+      ("cursor", "crosshair"),
+      ("data-anchor", anchor_name),
+      ("data-element-id", el.id),
+    ], [], []))
+  }
+  result
+}
+
+///|
+/// 矩形選択ボックスを DomNode として作成
+pub fn render_selection_box_node(box_state : @model.BoxSelectState) -> @element.DomNode {
+  let bbox = box_state.to_bbox()
+  create_svg_node("rect", [
+    ("x", num_str(bbox.x)),
+    ("y", num_str(bbox.y)),
+    ("width", num_str(bbox.width)),
+    ("height", num_str(bbox.height)),
+    ("fill", "rgba(0, 102, 255, 0.1)"),
+    ("stroke", "#0066ff"),
+    ("stroke-width", "1"),
+    ("stroke-dasharray", "4,2"),
+    ("pointer-events", "none"),
+  ], [], [])
+}
+
+///|
+/// 接続ポイントハイライトを DomNode として作成
+pub fn render_connection_highlight_node(point : @model.Point) -> @element.DomNode {
+  create_svg_node("circle", [
+    ("cx", num_str(point.x)),
+    ("cy", num_str(point.y)),
+    ("r", "10"),
+    ("fill", "rgba(0, 200, 100, 0.4)"),
+    ("stroke", "#00c864"),
+    ("stroke-width", "2"),
+    ("pointer-events", "none"),
+  ], [], [])
 }
