@@ -643,3 +643,178 @@ pub fn parse_anchor(anchor_str : String) -> Anchor? {
     _ => None
   }
 }
+
+// ============================================================
+// 接続ライン計算（純粋関数）
+// ============================================================
+
+///|
+/// LineConnections から接続要素のIDリストを取得
+pub fn LineConnections::get_connected_ids(self : LineConnections) -> Array[String] {
+  let ids : Array[String] = []
+  match self.start {
+    Some(conn) =>
+      if not(ids.contains(conn.element_id)) {
+        ids.push(conn.element_id)
+      }
+    None => ()
+  }
+  match self.end {
+    Some(conn) =>
+      if not(ids.contains(conn.element_id)) {
+        ids.push(conn.element_id)
+      }
+    None => ()
+  }
+  ids
+}
+
+///|
+/// 接続ラインの更新結果
+pub(all) struct ConnectedLineUpdate {
+  line_id : String
+  new_x : Double
+  new_y : Double
+  new_x2 : Double
+  new_y2 : Double
+} derive(Show, Eq)
+
+///|
+/// 要素移動後の接続ラインの新座標を計算（純粋関数）
+/// target_id: 移動した要素のID
+/// new_target_x, new_target_y: 移動後の座標
+/// lines: 接続されている可能性があるLine要素のリスト
+/// all_elements: 全要素（アンカー位置計算用）
+pub fn calc_connected_line_updates(
+  target_id : String,
+  new_target_x : Double,
+  new_target_y : Double,
+  lines : Array[Element],
+  all_elements : Array[Element],
+) -> Array[ConnectedLineUpdate] {
+  let updates : Array[ConnectedLineUpdate] = []
+  // 移動後のターゲット要素を作成（アンカー計算用）
+  let mut moved_target : Element? = None
+  for el in all_elements {
+    if el.id == target_id {
+      moved_target = Some({ ..el, x: new_target_x, y: new_target_y })
+      break
+    }
+  }
+  // ターゲット要素が見つからない場合は空配列を返す
+  guard moved_target is Some(target) else { return updates }
+  for line in lines {
+    // Line 要素のみ処理
+    guard line.shape is Line(x2, y2) else { continue }
+    guard line.connections is Some(conns) else { continue }
+    let mut new_x = line.x
+    let mut new_y = line.y
+    let mut new_x2 = x2
+    let mut new_y2 = y2
+    let mut changed = false
+    // 始点の接続を確認
+    match conns.start {
+      Some(conn) if conn.element_id == target_id => {
+        let anchor_point = target.get_anchor_point(conn.anchor)
+        new_x = anchor_point.x
+        new_y = anchor_point.y
+        changed = true
+      }
+      _ => ()
+    }
+    // 終点の接続を確認
+    match conns.end {
+      Some(conn) if conn.element_id == target_id => {
+        let anchor_point = target.get_anchor_point(conn.anchor)
+        new_x2 = anchor_point.x
+        new_y2 = anchor_point.y
+        changed = true
+      }
+      _ => ()
+    }
+    if changed {
+      updates.push({ line_id: line.id, new_x, new_y, new_x2, new_y2 })
+    }
+  }
+  updates
+}
+
+///|
+/// 子要素の移動後座標を計算（純粋関数）
+pub(all) struct ChildMoveResult {
+  child_id : String
+  new_x : Double
+  new_y : Double
+} derive(Show, Eq)
+
+///|
+/// 親要素移動時の子要素の新座標を計算
+pub fn calc_child_positions(
+  parent_id : String,
+  dx : Double,
+  dy : Double,
+  elements : Array[Element],
+) -> Array[ChildMoveResult] {
+  let results : Array[ChildMoveResult] = []
+  for el in elements {
+    if el.parent_id == Some(parent_id) {
+      results.push({ child_id: el.id, new_x: el.x + dx, new_y: el.y + dy })
+    }
+  }
+  results
+}
+
+///|
+/// 要素の移動結果を計算（純粋関数）
+/// 入力の要素配列を変更せず、更新後の新しい配列を返す
+pub fn apply_element_move(
+  elements : Array[Element],
+  target_id : String,
+  new_x : Double,
+  new_y : Double,
+) -> Array[Element] {
+  // 移動差分を計算
+  let mut dx = 0.0
+  let mut dy = 0.0
+  for el in elements {
+    if el.id == target_id {
+      dx = new_x - el.x
+      dy = new_y - el.y
+      break
+    }
+  }
+  // 子要素のIDを収集
+  let child_ids : Array[String] = []
+  for el in elements {
+    if el.parent_id == Some(target_id) {
+      child_ids.push(el.id)
+    }
+  }
+  // Line要素を収集（接続ライン更新用）
+  let lines : Array[Element] = []
+  for el in elements {
+    if el.shape is Line(_, _) && el.connections is Some(_) && el.id != target_id {
+      lines.push(el)
+    }
+  }
+  // 接続ラインの更新を計算
+  let line_updates = calc_connected_line_updates(target_id, new_x, new_y, lines, elements)
+  // 要素配列を更新
+  elements.map(fn(el) {
+    // ターゲット要素を移動
+    if el.id == target_id {
+      return { ..el, x: new_x, y: new_y }
+    }
+    // 子要素を移動
+    if child_ids.contains(el.id) {
+      return { ..el, x: el.x + dx, y: el.y + dy }
+    }
+    // 接続ラインを更新
+    for update in line_updates {
+      if el.id == update.line_id {
+        return { ..el, x: update.new_x, y: update.new_y, shape: Line(update.new_x2, update.new_y2) }
+      }
+    }
+    el
+  })
+}

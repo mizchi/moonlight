@@ -102,8 +102,9 @@ pub extern "js" fn create_textarea_ffi(
   #|         onCommit(textarea.value);
   #|       }
   #|     } else if (e.key === 'Escape') {
-  #|       // Escape: 確定
-  #|       onCommit(textarea.value);
+  #|       // Escape: キャンセル（初期値に戻す）
+  #|       e.preventDefault();
+  #|       onEscape(initialValue);
   #|     }
   #|   });
   #|   textarea.addEventListener('blur', () => {

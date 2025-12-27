@@ -77,6 +77,9 @@ fn editor_app() -> @element.DomNode {
     commit_text_edit(state, history, new_id, text_content)
   }
 
+  // テキスト入力をキャンセルするコールバック
+  let cancel_text_input = fn() { state.text_edit.set(None) }
+
   // マウスイベントハンドラ
   let on_mousedown = create_mousedown_handler(
     state, history, new_id, get_screen_coords, get_scene_coords,
@@ -131,7 +134,7 @@ fn editor_app() -> @element.DomNode {
   setup_keyboard_shortcuts(state, history, new_id)
 
   // UI
-  render_editor_ui(state, history, new_id, svg, commit_text_input)
+  render_editor_ui(state, history, new_id, svg, commit_text_input, cancel_text_input)
 }
 
 // ============================================================
@@ -422,13 +425,12 @@ fn commit_text_edit(
           execute_command(history, state, @model.RemoveElement(el))
         }
       } else if text_content != edit_state.initial_text {
-        state.update_element(text_id, fn(el) {
-          match el.shape {
-            @model.Text(_, font_size) =>
-              { ..el, shape: @model.Text(text_content, font_size) }
-            _ => el
-          }
-        })
+        // UpdateText コマンドを使ってUndoスタックに記録
+        execute_command(
+          history,
+          state,
+          @model.UpdateText(text_id, edit_state.initial_text, text_content),
+        )
       }
     }
     None => {
@@ -914,6 +916,7 @@ fn render_editor_ui(
   new_id : () -> String,
   svg : @js.Any,
   commit_text_input : (String) -> Unit,
+  cancel_text_input : () -> Unit,
 ) -> @element.DomNode {
   div([
     // タイトル
@@ -939,7 +942,7 @@ fn render_editor_ui(
           // テキスト入力
           show(
             fn() { state.text_edit.get() is Some(_) },
-            fn() { render_text_input(state, commit_text_input) },
+            fn() { render_text_input(state, commit_text_input, cancel_text_input) },
           ),
         ]),
       ]),

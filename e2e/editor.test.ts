@@ -9,9 +9,11 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('h1')).toHaveText('Moonlight SVG Editor');
   });
 
-  test('should display status text in sidebar', async ({ page }) => {
-    // Sidebar should show "Select an element to view details" when nothing is selected
-    await expect(page.getByText('Select an element to view details')).toBeVisible();
+  test('should display element tree in sidebar when nothing selected', async ({ page }) => {
+    // Sidebar should show element tree when nothing is selected (no breadcrumb at root)
+    // Should show element list (initial shapes - ID shown in separate span)
+    await expect(page.locator('text=#el-1')).toBeVisible();
+    await expect(page.locator('text=#el-2')).toBeVisible();
   });
 
   test('should have Add Rectangle and Add Circle buttons', async ({ page }) => {
@@ -149,6 +151,7 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Ellipse', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Line', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Arrow', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Text', exact: true })).toBeVisible();
   });
 
@@ -362,8 +365,8 @@ test.describe('Moonlight SVG Editor', () => {
     // Press Escape key
     await page.keyboard.press('Escape');
 
-    // Verify shape was deselected (sidebar shows "Select an element")
-    await expect(page.getByText('Select an element to view details')).toBeVisible();
+    // Verify shape was deselected (sidebar shows element tree, no breadcrumb at root)
+    await expect(page.locator('text=#el-1')).toBeVisible();
   });
 
   test('should duplicate shape with Ctrl+D', async ({ page }) => {
@@ -430,5 +433,166 @@ test.describe('Moonlight SVG Editor', () => {
     const seY = y + height;
     expect(seX % 20).toBe(0);
     expect(seY % 20).toBe(0);
+  });
+
+  test.describe('Text editing', () => {
+    test('should show inline textarea on double-click text element', async ({ page }) => {
+      // Add a text element first
+      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.waitForTimeout(100);
+
+      // Find the text element
+      const textElement = page.locator('svg text').last();
+      await expect(textElement).toHaveText('Hello');
+
+      // Get text element bounding box for double-click
+      const bbox = await textElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      // Double-click on text element
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(100);
+
+      // Inline textarea should appear
+      const textarea = page.locator('textarea');
+      await expect(textarea).toBeVisible();
+      await expect(textarea).toHaveValue('Hello');
+    });
+
+    test('should update text content after editing and pressing Enter', async ({ page }) => {
+      // Add a text element first
+      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.waitForTimeout(100);
+
+      // Find the text element
+      const textElement = page.locator('svg text').last();
+      await expect(textElement).toHaveText('Hello');
+
+      // Get text element bounding box for double-click
+      const bbox = await textElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      // Double-click on text element
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(100);
+
+      // Find textarea and clear it, then type new text
+      const textarea = page.locator('textarea');
+      await expect(textarea).toBeVisible();
+      await textarea.fill('Updated Text');
+
+      // Press Enter to confirm
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(100);
+
+      // Verify text was updated
+      await expect(textElement).toHaveText('Updated Text');
+
+      // Textarea should be hidden
+      await expect(textarea).not.toBeVisible();
+    });
+
+    test('should cancel text editing on Escape', async ({ page }) => {
+      // Add a text element first
+      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.waitForTimeout(100);
+
+      // Find the text element
+      const textElement = page.locator('svg text').last();
+      await expect(textElement).toHaveText('Hello');
+
+      // Get text element bounding box for double-click
+      const bbox = await textElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      // Double-click on text element
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(100);
+
+      // Find textarea and type new text
+      const textarea = page.locator('textarea');
+      await expect(textarea).toBeVisible();
+      await textarea.fill('Should Not Apply');
+
+      // Press Escape to cancel
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(100);
+
+      // Verify original text is preserved
+      await expect(textElement).toHaveText('Hello');
+
+      // Textarea should be hidden
+      await expect(textarea).not.toBeVisible();
+    });
+
+    test('should support multiline text with Shift+Enter', async ({ page }) => {
+      // Add a text element first
+      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.waitForTimeout(100);
+
+      // Find the text element
+      const textElement = page.locator('svg text').last();
+
+      // Get text element bounding box for double-click
+      const bbox = await textElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      // Double-click on text element
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(100);
+
+      // Find textarea and type multiline text
+      const textarea = page.locator('textarea');
+      await expect(textarea).toBeVisible();
+      await textarea.fill('Line 1');
+      await page.keyboard.press('Shift+Enter');
+      await page.keyboard.type('Line 2');
+
+      // Press Enter to confirm
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(100);
+
+      // Verify text contains both lines (SVG text may render as tspans)
+      const textContent = await textElement.textContent();
+      expect(textContent).toContain('Line 1');
+      expect(textContent).toContain('Line 2');
+    });
+
+    test('should undo text edit', async ({ page }) => {
+      // Add a text element first
+      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.waitForTimeout(100);
+
+      // Find the text element and get its data-id for stable reference
+      const textElement = page.locator('svg text').last();
+      const textId = await textElement.getAttribute('data-id');
+      expect(textId).not.toBeNull();
+      const originalText = await textElement.textContent();
+
+      // Get text element bounding box for double-click
+      const bbox = await textElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      // Double-click on text element
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(100);
+
+      // Edit text
+      const textarea = page.locator('textarea');
+      await textarea.fill('Changed Text');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(100);
+
+      // Verify text changed using data-id selector for stability
+      const textByIdSelector = page.locator(`svg text[data-id="${textId}"]`);
+      await expect(textByIdSelector).toHaveText('Changed Text');
+
+      // Undo text edit (not the add element command)
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await page.waitForTimeout(100);
+
+      // Verify original text is restored
+      await expect(textByIdSelector).toHaveText(originalText!);
+    });
   });
 });

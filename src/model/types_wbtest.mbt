@@ -879,3 +879,208 @@ test "Element::bounding_box - Polyline with points" {
   assert_eq(bbox.width, 100.0) // 150 - 50
   assert_eq(bbox.height, 100.0) // 150 - 50
 }
+
+// ============================================================
+// LineConnections::get_connected_ids tests
+// ============================================================
+
+test "LineConnections::get_connected_ids - no connections" {
+  let conns = LineConnections::none()
+  let ids = conns.get_connected_ids()
+  assert_eq(ids.length(), 0)
+}
+
+test "LineConnections::get_connected_ids - start only" {
+  let conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Top }),
+    end: None,
+  }
+  let ids = conns.get_connected_ids()
+  assert_eq(ids.length(), 1)
+  assert_eq(ids[0], "rect-1")
+}
+
+test "LineConnections::get_connected_ids - end only" {
+  let conns : LineConnections = {
+    start: None,
+    end: Some({ element_id: "rect-2", anchor: Bottom }),
+  }
+  let ids = conns.get_connected_ids()
+  assert_eq(ids.length(), 1)
+  assert_eq(ids[0], "rect-2")
+}
+
+test "LineConnections::get_connected_ids - both ends different" {
+  let conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Top }),
+    end: Some({ element_id: "rect-2", anchor: Bottom }),
+  }
+  let ids = conns.get_connected_ids()
+  assert_eq(ids.length(), 2)
+  assert_true(ids.contains("rect-1"))
+  assert_true(ids.contains("rect-2"))
+}
+
+test "LineConnections::get_connected_ids - both ends same element" {
+  let conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Top }),
+    end: Some({ element_id: "rect-1", anchor: Bottom }),
+  }
+  let ids = conns.get_connected_ids()
+  // 同じ要素への接続は重複を除去
+  assert_eq(ids.length(), 1)
+  assert_eq(ids[0], "rect-1")
+}
+
+// ============================================================
+// calc_connected_line_updates tests
+// ============================================================
+
+test "calc_connected_line_updates - no connected lines" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let line = Element::new("line-1", 50.0, 50.0, Line(200.0, 200.0))
+  // 接続情報なし
+  let updates = calc_connected_line_updates("rect-1", 150.0, 150.0, [line], [rect, line])
+  assert_eq(updates.length(), 0)
+}
+
+test "calc_connected_line_updates - line connected at start" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let line_conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Right }),
+    end: None,
+  }
+  let line = { ..Element::new("line-1", 180.0, 130.0, Line(300.0, 200.0)), connections: Some(line_conns) }
+  // rect-1 を (100, 100) → (200, 200) に移動
+  // Right アンカーは bbox.x + bbox.width, bbox.y + bbox.height/2
+  // 移動後の rect の bbox は x=200, y=200, w=80, h=60
+  // Right アンカーは (280, 230)
+  let updates = calc_connected_line_updates("rect-1", 200.0, 200.0, [line], [rect, line])
+  assert_eq(updates.length(), 1)
+  assert_eq(updates[0].line_id, "line-1")
+  assert_eq(updates[0].new_x, 280.0) // 200 + 80
+  assert_eq(updates[0].new_y, 230.0) // 200 + 60/2
+  assert_eq(updates[0].new_x2, 300.0) // 終点は変わらない
+  assert_eq(updates[0].new_y2, 200.0)
+}
+
+test "calc_connected_line_updates - line connected at end" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let line_conns : LineConnections = {
+    start: None,
+    end: Some({ element_id: "rect-1", anchor: Center }),
+  }
+  let line = { ..Element::new("line-1", 50.0, 50.0, Line(140.0, 130.0)), connections: Some(line_conns) }
+  // rect-1 を移動、Center アンカーは x + w/2, y + h/2
+  let updates = calc_connected_line_updates("rect-1", 200.0, 200.0, [line], [rect, line])
+  assert_eq(updates.length(), 1)
+  assert_eq(updates[0].new_x, 50.0) // 始点は変わらない
+  assert_eq(updates[0].new_y, 50.0)
+  assert_eq(updates[0].new_x2, 240.0) // 200 + 80/2
+  assert_eq(updates[0].new_y2, 230.0) // 200 + 60/2
+}
+
+test "calc_connected_line_updates - line connected at both ends to same element" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let line_conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Top }),
+    end: Some({ element_id: "rect-1", anchor: Bottom }),
+  }
+  let line = { ..Element::new("line-1", 140.0, 100.0, Line(140.0, 160.0)), connections: Some(line_conns) }
+  // rect-1 を移動
+  let updates = calc_connected_line_updates("rect-1", 200.0, 200.0, [line], [rect, line])
+  assert_eq(updates.length(), 1)
+  // Top: (x + w/2, y) = (240, 200)
+  assert_eq(updates[0].new_x, 240.0)
+  assert_eq(updates[0].new_y, 200.0)
+  // Bottom: (x + w/2, y + h) = (240, 260)
+  assert_eq(updates[0].new_x2, 240.0)
+  assert_eq(updates[0].new_y2, 260.0)
+}
+
+// ============================================================
+// calc_child_positions tests
+// ============================================================
+
+test "calc_child_positions - no children" {
+  let parent = Element::new("parent", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let results = calc_child_positions("parent", 50.0, 30.0, [parent])
+  assert_eq(results.length(), 0)
+}
+
+test "calc_child_positions - with children" {
+  let parent = Element::new("parent", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let child1 = Element::new("child-1", 110.0, 110.0, Text("A", None)).with_parent("parent")
+  let child2 = Element::new("child-2", 120.0, 120.0, Text("B", None)).with_parent("parent")
+  let other = Element::new("other", 200.0, 200.0, Circle(20.0))
+  let results = calc_child_positions("parent", 50.0, 30.0, [parent, child1, child2, other])
+  assert_eq(results.length(), 2)
+  // child-1: (110 + 50, 110 + 30) = (160, 140)
+  assert_true(results.iter().any(fn(r) { r.child_id == "child-1" && r.new_x == 160.0 && r.new_y == 140.0 }))
+  // child-2: (120 + 50, 120 + 30) = (170, 150)
+  assert_true(results.iter().any(fn(r) { r.child_id == "child-2" && r.new_x == 170.0 && r.new_y == 150.0 }))
+}
+
+// ============================================================
+// apply_element_move tests
+// ============================================================
+
+test "apply_element_move - simple move" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let elements = [rect]
+  let result = apply_element_move(elements, "rect-1", 200.0, 150.0)
+  assert_eq(result.length(), 1)
+  assert_eq(result[0].x, 200.0)
+  assert_eq(result[0].y, 150.0)
+}
+
+test "apply_element_move - with children" {
+  let parent = Element::new("parent", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let child = Element::new("child", 110.0, 110.0, Text("A", None)).with_parent("parent")
+  let elements = [parent, child]
+  // 親を (100, 100) → (200, 200) に移動 (dx=100, dy=100)
+  let result = apply_element_move(elements, "parent", 200.0, 200.0)
+  assert_eq(result.length(), 2)
+  // 親の位置
+  let result_parent = result[0]
+  assert_eq(result_parent.x, 200.0)
+  assert_eq(result_parent.y, 200.0)
+  // 子も同じ差分で移動
+  let result_child = result[1]
+  assert_eq(result_child.x, 210.0) // 110 + 100
+  assert_eq(result_child.y, 210.0) // 110 + 100
+}
+
+test "apply_element_move - with connected line" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let line_conns : LineConnections = {
+    start: Some({ element_id: "rect-1", anchor: Right }),
+    end: None,
+  }
+  // Right アンカー初期位置: (180, 130)
+  let line = { ..Element::new("line-1", 180.0, 130.0, Line(300.0, 200.0)), connections: Some(line_conns) }
+  let elements = [rect, line]
+  // rect を (100, 100) → (200, 200) に移動
+  let result = apply_element_move(elements, "rect-1", 200.0, 200.0)
+  assert_eq(result.length(), 2)
+  // rect の位置
+  assert_eq(result[0].x, 200.0)
+  assert_eq(result[0].y, 200.0)
+  // line の始点が Right アンカー (280, 230) に更新
+  assert_eq(result[1].x, 280.0)
+  assert_eq(result[1].y, 230.0)
+  // 終点は変わらない
+  guard result[1].shape is Line(x2, y2)
+  assert_eq(x2, 300.0)
+  assert_eq(y2, 200.0)
+}
+
+test "apply_element_move - element not found" {
+  let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  let elements = [rect]
+  // 存在しない要素を移動しようとしても、配列は変更されない
+  let result = apply_element_move(elements, "nonexistent", 200.0, 200.0)
+  assert_eq(result.length(), 1)
+  assert_eq(result[0].x, 100.0)
+  assert_eq(result[0].y, 100.0)
+}

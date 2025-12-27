@@ -861,6 +861,7 @@ fn render_dasharray_buttons(
 pub fn render_text_input(
   state : EditorState,
   commit : (String) -> Unit,
+  cancel : () -> Unit,
 ) -> @element.DomNode {
   guard state.text_edit.get() is Some(edit_state)
   let vp = state.viewport.get()
@@ -886,7 +887,7 @@ pub fn render_text_input(
     style,
     edit_state.initial_text,
     fn(value) { commit(value) },
-    fn(value) { commit(value) },
+    fn(_) { cancel() },
   )
   let node : @js_dom.Node = textarea.cast()
   @element.dom_node(node)

@@ -1,3 +1,4 @@
 {
-  "import": []
+  "import": [],
+  "supported-targets": ["wasm", "wasm-gc", "js"]
 }
