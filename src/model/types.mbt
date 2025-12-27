@@ -427,6 +427,7 @@ pub fn BoxSelectState::to_bbox(self : BoxSelectState) -> BoundingBox {
 pub(all) struct MultiDragState {
   element_ids : Array[String] // ドラッグ中の要素 ID リスト
   start_positions : Array[(String, Double, Double)] // 各要素の開始位置 (id, x, y)
+  line_endpoints : Array[(String, Double, Double)] // Line の終点初期値 (id, x2, y2)
   mouse_start_x : Double // マウス開始位置 X
   mouse_start_y : Double // マウス開始位置 Y
 } derive(Show, Eq)
@@ -534,5 +535,22 @@ pub fn parse_handle_position(handle_str : String) -> HandlePosition {
     "line-start" => LineStart
     "line-end" => LineEnd
     _ => SE // デフォルト
+  }
+}
+
+///|
+/// アンカー名文字列を Anchor に変換
+pub fn parse_anchor(anchor_str : String) -> Anchor? {
+  match anchor_str {
+    "center" => Some(Center)
+    "top" => Some(Top)
+    "bottom" => Some(Bottom)
+    "left" => Some(Left)
+    "right" => Some(Right)
+    "top-left" => Some(TopLeft)
+    "top-right" => Some(TopRight)
+    "bottom-left" => Some(BottomLeft)
+    "bottom-right" => Some(BottomRight)
+    _ => None
   }
 }

@@ -502,6 +502,53 @@ pub fn render_connection_highlight(point : @model.Point) -> @js.Any {
 }
 
 ///|
+/// 選択中の図形のアンカーポイントを描画（ドラッグでライン生成用）
+pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
+  let result : Array[@js.Any] = []
+  // Line にはアンカーを表示しない
+  if el.shape is @model.Line(_, _) {
+    return result
+  }
+  // 全アンカーポイントを描画（中心と四隅以外）
+  for anchor_data in el.get_all_anchors() {
+    let (anchor, point) = anchor_data
+    // 中心点はスキップ（ドラッグやダブルクリックと干渉するため）
+    // 四隅はリサイズハンドルと重なるためスキップ
+    if anchor == @model.Center ||
+       anchor == @model.TopLeft ||
+       anchor == @model.TopRight ||
+       anchor == @model.BottomLeft ||
+       anchor == @model.BottomRight {
+      continue
+    }
+    let anchor_name = match anchor {
+      @model.Center => "center"
+      @model.Top => "top"
+      @model.Bottom => "bottom"
+      @model.Left => "left"
+      @model.Right => "right"
+      @model.TopLeft => "top-left"
+      @model.TopRight => "top-right"
+      @model.BottomLeft => "bottom-left"
+      @model.BottomRight => "bottom-right"
+    }
+    let attrs : Array[(String, String)] = [
+      ("cx", num_str(point.x)),
+      ("cy", num_str(point.y)),
+      ("r", "6"),
+      ("fill", "rgba(100, 100, 255, 0.3)"),
+      ("stroke", "#6666ff"),
+      ("stroke-width", "1.5"),
+      ("cursor", "crosshair"),
+      ("data-anchor", anchor_name),
+      ("data-element-id", el.id),
+    ]
+    result.push(create_svg_element("circle", attrs, []))
+  }
+  result
+}
+
+///|
 /// 全てのアンカーポイントを描画（ドラッグ中の可視化用）
 pub fn render_all_anchor_points(elements : Array[@model.Element], exclude_id : String) -> Array[@js.Any] {
   let result : Array[@js.Any] = []

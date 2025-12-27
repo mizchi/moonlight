@@ -17,11 +17,6 @@ fn create_id_counter() -> @luna.Signal[Int] {
 }
 
 ///|
-/// SVG コンテナの参照を保持（FFI）
-extern "js" fn clear_children_ffi(el : @js.Any) =
-  #| (el) => { while (el.firstChild) el.removeChild(el.firstChild); }
-
-///|
 fn main {
   guard @js_dom.document().getElementById("app") is Some(el)
   @element.render(el |> @element.DomElement::from_dom, editor_app())
@@ -44,6 +39,98 @@ fn editor_app() -> @element.DomNode {
   let history = @model.History::new()
 
   // サンプルの図形を追加
+  add_sample_shapes(state, new_id)
+
+  // SVG コンテナへの参照
+  let svg_ref : Ref[@js.Any?] = { val: None }
+
+  // Space キーが押されているか
+  let space_pressed : Ref[Bool] = { val: false }
+
+  // Space キーの監視を設定
+  setup_space_key_listener(state, space_pressed)
+
+  // 座標取得ヘルパー
+  let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let svg = e._get("currentTarget")
+    let rect = svg._call("getBoundingClientRect", [])
+    let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+    let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    (screen_x, screen_y)
+  }
+
+  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+    let (screen_x, screen_y) = get_screen_coords(e)
+    let vp = state.viewport.get()
+    let scene = vp.screen_to_scene(screen_x, screen_y)
+    (scene.x, scene.y)
+  }
+
+  // ダブルクリック検出用の状態
+  let last_click_time : Ref[Double] = { val: 0.0 }
+  let last_click_element : Ref[String] = { val: "" }
+  let double_click_threshold : Double = 300.0
+
+  // テキスト入力を確定するコールバック
+  let commit_text_input = fn(text_content : String) {
+    commit_text_edit(state, history, new_id, text_content)
+  }
+
+  // マウスイベントハンドラ
+  let on_mousedown = create_mousedown_handler(
+    state, history, new_id, get_screen_coords, get_scene_coords,
+    space_pressed, last_click_time, last_click_element, double_click_threshold,
+  )
+  let on_mousemove = create_mousemove_handler(state, get_screen_coords, get_scene_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_wheel = create_wheel_handler(state)
+  let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
+
+  // 初期 SVG を作成
+  let initial_children : Array[@js.Any] = []
+  let elements = state.elements.get()
+  for el in elements {
+    initial_children.push(render_element(el, state.is_selected(el.id)))
+  }
+  let svg = render_svg_container_with_viewport(
+    canvas_width,
+    canvas_height,
+    state.viewport.get(),
+    on_mousedown,
+    on_mousemove,
+    on_mouseup,
+    on_contextmenu,
+    on_wheel,
+    initial_children,
+  )
+  svg_ref.val = Some(svg)
+
+  // SVG 再描画関数
+  let redraw_svg = fn() {
+    redraw_svg_content(state, svg_ref, canvas_width, canvas_height)
+  }
+
+  // Signal の変更を監視して再描画
+  setup_redraw_effect(state, redraw_svg)
+
+  // Viewport の変更を監視して viewBox を更新
+  setup_viewport_effect(state, svg_ref, canvas_width, canvas_height, redraw_svg)
+
+  // キーボードショートカット
+  setup_keyboard_shortcuts(state, history, new_id)
+
+  // UI
+  render_editor_ui(state, history, new_id, svg, commit_text_input)
+}
+
+// ============================================================
+// 初期化ヘルパー
+// ============================================================
+
+///|
+/// サンプル図形を追加
+fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
   let rect1 = @model.Element::new(
     new_id(),
     50.0,
@@ -72,18 +159,14 @@ fn editor_app() -> @element.DomNode {
     stroke_width: Some(2.0),
     opacity: None,
   })
-  // 初期要素は履歴に記録しない
   state.add_element_raw(rect1)
   state.add_element_raw(rect2)
   state.add_element_raw(circle1)
+}
 
-  // SVG コンテナへの参照
-  let svg_ref : Ref[@js.Any?] = { val: None }
-
-  // Space キーが押されているか
-  let space_pressed : Ref[Bool] = { val: false }
-
-  // Space キーの監視を設定
+///|
+/// Space キーリスナーを設定
+fn setup_space_key_listener(state : EditorState, space_pressed : Ref[Bool]) -> Unit {
   let _ = add_keydown_listener(fn(e) {
     let key : String = e._get("key").cast()
     if key == " " {
@@ -94,103 +177,31 @@ fn editor_app() -> @element.DomNode {
     let key : String = e._get("key").cast()
     if key == " " {
       space_pressed.val = false
-      // Space を離したらパン終了
       if state.is_panning.get() {
         state.end_pan()
       }
     }
   })
+}
 
-  // マウス座標をスクリーン座標で取得
-  let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
-    let mouse_event : @js_dom.MouseEvent = e.cast()
-    let svg = e._get("currentTarget")
-    let rect = svg._call("getBoundingClientRect", [])
-    let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
-    let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
-    (screen_x, screen_y)
-  }
+// ============================================================
+// イベントハンドラ作成
+// ============================================================
 
-  // マウス座標をシーン座標に変換するヘルパー
-  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
-    let (screen_x, screen_y) = get_screen_coords(e)
-    let vp = state.viewport.get()
-    let scene = vp.screen_to_scene(screen_x, screen_y)
-    (scene.x, scene.y)
-  }
-
-  // ダブルクリック検出用の状態
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
-  let double_click_threshold : Double = 300.0 // ms
-
-  // ダブルクリック時のテキスト編集開始
-  let handle_double_click = fn(element_id : String) {
-    guard state.find_element(element_id) is Some(el)
-    // 要素のバウンディングボックスの中心を計算
-    let bbox = el.bounding_box()
-    let center_x = bbox.x + bbox.width / 2.0
-    let center_y = bbox.y + bbox.height / 2.0
-    // テキスト編集を開始
-    state.start_text_edit(element_id, center_x, center_y)
-  }
-
-  // テキスト要素の編集開始
-  let handle_text_edit = fn(text_id : String) {
-    guard state.find_element(text_id) is Some(el)
-    guard el.shape is @model.Text(content, _)
-    // 親要素IDを取得（必須）
-    guard el.parent_id is Some(parent_id)
-    // テキスト要素の位置で編集開始
-    state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content)
-  }
-
-  // テキスト入力を確定
-  let commit_text_input = fn(text_content : String) {
-    guard state.text_edit.get() is Some(edit_state)
-    match edit_state.editing_id {
-      Some(text_id) => {
-        // 既存テキストの編集
-        if text_content == "" {
-          // 空文字の場合はテキストを削除
-          if state.find_element(text_id) is Some(el) {
-            execute_command(history, state, @model.RemoveElement(el))
-          }
-        } else if text_content != edit_state.initial_text {
-          // 内容が変わった場合のみ更新
-          state.update_element(text_id, fn(el) {
-            match el.shape {
-              @model.Text(_, font_size) =>
-                { ..el, shape: @model.Text(text_content, font_size) }
-              _ => el
-            }
-          })
-        }
-      }
-      None => {
-        // 新規テキストの作成
-        if text_content != "" {
-          let text_el = @model.Element::new(
-            new_id(),
-            edit_state.x,
-            edit_state.y,
-            @model.Text(text_content, Some(16.0)),
-          ).with_style({
-            fill: Some("#333333"),
-            stroke: None,
-            stroke_width: None,
-            opacity: None,
-          }).with_parent(edit_state.parent_id)
-          execute_command(history, state, @model.AddElement(text_el))
-        }
-      }
-    }
-    state.end_text_edit()
-  }
-
-  // マウスイベントハンドラ
-  let on_mousedown : (@js.Any) -> Unit = fn(e) {
-    // コンテキストメニューを閉じる
+///|
+/// mousedown ハンドラを作成
+fn create_mousedown_handler(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+  get_screen_coords : (@js.Any) -> (Double, Double),
+  get_scene_coords : (@js.Any) -> (Double, Double),
+  space_pressed : Ref[Bool],
+  last_click_time : Ref[Double],
+  last_click_element : Ref[String],
+  double_click_threshold : Double,
+) -> (@js.Any) -> Unit {
+  fn(e) {
     state.hide_context_menu()
 
     // Space キーが押されていればパンを開始
@@ -203,19 +214,14 @@ fn editor_app() -> @element.DomNode {
     let target = e._get("target")
     let dataset = target._get("dataset")
 
+    // アンカーポイントのクリックをチェック（ライン生成）
+    if handle_anchor_click(state, history, new_id, get_scene_coords, e, dataset) {
+      return
+    }
+
     // リサイズハンドルのクリックをチェック
-    let data_handle_raw = dataset._get("handle")
-    if not(@js.is_nullish(data_handle_raw)) {
-      let handle_str : String = data_handle_raw.cast()
-      let element_id_raw = dataset._get("elementId")
-      if not(@js.is_nullish(element_id_raw)) {
-        let element_id : String = element_id_raw.cast()
-        // viewport 考慮した座標を取得
-        let (scene_x, scene_y) = get_scene_coords(e)
-        let handle = @model.parse_handle_position(handle_str)
-        state.start_resize(element_id, handle, scene_x, scene_y)
-        return
-      }
+    if handle_resize_click(state, get_scene_coords, e, dataset) {
+      return
     }
 
     let data_id_raw = dataset._get("id")
@@ -225,57 +231,12 @@ fn editor_app() -> @element.DomNode {
       Some(data_id_raw.cast())
     }
 
-    // SVG 要素の座標を取得（viewport 考慮）
     let (scene_x, scene_y) = get_scene_coords(e)
     if data_id is Some(id) {
-      // 子要素の場合は親を取得
-      let target_id = match state.get_parent_id(id) {
-        Some(parent_id) => parent_id
-        None => id
-      }
-      let now = get_current_time()
-      let is_child = state.is_child_element(id)
-      // テキスト子要素かどうかをチェック
-      let is_text_child = if is_child {
-        match state.find_element(id) {
-          Some(el) => el.shape is @model.Text(_, _)
-          None => false
-        }
-      } else {
-        false
-      }
-      // ダブルクリック判定
-      // - 親要素: target_id が一致
-      // - テキスト子要素: id（テキスト要素自体）が一致
-      let dblclick_target = if is_text_child { id } else { target_id }
-      if last_click_element.val == dblclick_target && now - last_click_time.val < double_click_threshold {
-        // ダブルクリック検出
-        last_click_time.val = 0.0
-        last_click_element.val = ""
-        state.end_drag()
-        if is_text_child {
-          // テキスト子要素の場合は編集モード
-          handle_text_edit(id)
-        } else {
-          // 親要素の場合は新規テキスト追加
-          handle_double_click(target_id)
-        }
-        return
-      }
-      // クリック時間と要素を記録
-      last_click_time.val = now
-      last_click_element.val = dblclick_target
-      // 要素をクリック
-      let already_selected = state.is_selected(target_id)
-      let selected_count = state.selected_ids.get().length()
-      if already_selected && selected_count > 1 {
-        // 複数選択中で選択済み要素をクリック - まとめてドラッグ開始
-        state.start_multi_drag(scene_x, scene_y)
-      } else {
-        // 通常の選択 - 親を選択してドラッグ開始
-        state.select(Some(target_id))
-        state.start_drag(target_id, scene_x, scene_y)
-      }
+      handle_element_click(
+        state, id, scene_x, scene_y,
+        last_click_time, last_click_element, double_click_threshold,
+      )
     } else {
       // 空白をクリック - 矩形選択を開始
       state.select(None)
@@ -284,8 +245,207 @@ fn editor_app() -> @element.DomNode {
       last_click_element.val = ""
     }
   }
-  let on_mousemove : (@js.Any) -> Unit = fn(e) {
-    // パン中の場合
+}
+
+///|
+/// アンカーポイントクリックを処理
+fn handle_anchor_click(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+  get_scene_coords : (@js.Any) -> (Double, Double),
+  e : @js.Any,
+  dataset : @js.Any,
+) -> Bool {
+  let data_anchor_raw = dataset._get("anchor")
+  if @js.is_nullish(data_anchor_raw) {
+    return false
+  }
+  let anchor_str : String = data_anchor_raw.cast()
+  let element_id_raw = dataset._get("elementId")
+  if @js.is_nullish(element_id_raw) {
+    return false
+  }
+  let source_id : String = element_id_raw.cast()
+  guard @model.parse_anchor(anchor_str) is Some(anchor) else { return false }
+  guard state.find_element(source_id) is Some(source_el) else { return false }
+
+  let anchor_point = source_el.get_anchor_point(anchor)
+  let (scene_x, scene_y) = get_scene_coords(e)
+  let line_id = new_id()
+  let new_line = @model.Element::new(
+    line_id,
+    anchor_point.x,
+    anchor_point.y,
+    @model.Line(anchor_point.x, anchor_point.y),
+  ).with_style({
+    fill: None,
+    stroke: Some("#666666"),
+    stroke_width: Some(2.0),
+    opacity: None,
+  })
+  let line_with_conn = {
+    ..new_line,
+    connections: Some({
+      start: Some({ element_id: source_id, anchor }),
+      end: None,
+    }),
+  }
+  execute_command(history, state, @model.AddElement(line_with_conn))
+  state.start_resize(line_id, @model.LineEnd, scene_x, scene_y)
+  true
+}
+
+///|
+/// リサイズハンドルクリックを処理
+fn handle_resize_click(
+  state : EditorState,
+  get_scene_coords : (@js.Any) -> (Double, Double),
+  e : @js.Any,
+  dataset : @js.Any,
+) -> Bool {
+  let data_handle_raw = dataset._get("handle")
+  if @js.is_nullish(data_handle_raw) {
+    return false
+  }
+  let handle_str : String = data_handle_raw.cast()
+  let element_id_raw = dataset._get("elementId")
+  if @js.is_nullish(element_id_raw) {
+    return false
+  }
+  let element_id : String = element_id_raw.cast()
+  let (scene_x, scene_y) = get_scene_coords(e)
+  let handle = @model.parse_handle_position(handle_str)
+  state.start_resize(element_id, handle, scene_x, scene_y)
+  true
+}
+
+///|
+/// 要素クリックを処理
+fn handle_element_click(
+  state : EditorState,
+  id : String,
+  scene_x : Double,
+  scene_y : Double,
+  last_click_time : Ref[Double],
+  last_click_element : Ref[String],
+  double_click_threshold : Double,
+) -> Unit {
+  // 子要素の場合は親を取得
+  let target_id = match state.get_parent_id(id) {
+    Some(parent_id) => parent_id
+    None => id
+  }
+  let now = get_current_time()
+  let is_child = state.is_child_element(id)
+  let is_text_child = if is_child {
+    match state.find_element(id) {
+      Some(el) => el.shape is @model.Text(_, _)
+      None => false
+    }
+  } else {
+    false
+  }
+
+  let dblclick_target = if is_text_child { id } else { target_id }
+  if last_click_element.val == dblclick_target && now - last_click_time.val < double_click_threshold {
+    // ダブルクリック検出
+    last_click_time.val = 0.0
+    last_click_element.val = ""
+    state.end_drag()
+    if is_text_child {
+      handle_text_edit(state, id)
+    } else {
+      handle_double_click(state, target_id)
+    }
+    return
+  }
+
+  last_click_time.val = now
+  last_click_element.val = dblclick_target
+
+  let already_selected = state.is_selected(target_id)
+  let selected_count = state.selected_ids.get().length()
+  if already_selected && selected_count > 1 {
+    state.start_multi_drag(scene_x, scene_y)
+  } else {
+    state.select(Some(target_id))
+    state.start_drag(target_id, scene_x, scene_y)
+  }
+}
+
+///|
+/// ダブルクリック時のテキスト編集開始
+fn handle_double_click(state : EditorState, element_id : String) -> Unit {
+  guard state.find_element(element_id) is Some(el)
+  let bbox = el.bounding_box()
+  let center_x = bbox.x + bbox.width / 2.0
+  let center_y = bbox.y + bbox.height / 2.0
+  state.start_text_edit(element_id, center_x, center_y)
+}
+
+///|
+/// テキスト要素の編集開始
+fn handle_text_edit(state : EditorState, text_id : String) -> Unit {
+  guard state.find_element(text_id) is Some(el)
+  guard el.shape is @model.Text(content, _)
+  guard el.parent_id is Some(parent_id)
+  state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content)
+}
+
+///|
+/// テキスト入力を確定
+fn commit_text_edit(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+  text_content : String,
+) -> Unit {
+  guard state.text_edit.get() is Some(edit_state)
+  match edit_state.editing_id {
+    Some(text_id) => {
+      if text_content == "" {
+        if state.find_element(text_id) is Some(el) {
+          execute_command(history, state, @model.RemoveElement(el))
+        }
+      } else if text_content != edit_state.initial_text {
+        state.update_element(text_id, fn(el) {
+          match el.shape {
+            @model.Text(_, font_size) =>
+              { ..el, shape: @model.Text(text_content, font_size) }
+            _ => el
+          }
+        })
+      }
+    }
+    None => {
+      if text_content != "" {
+        let text_el = @model.Element::new(
+          new_id(),
+          edit_state.x,
+          edit_state.y,
+          @model.Text(text_content, Some(16.0)),
+        ).with_style({
+          fill: Some("#333333"),
+          stroke: None,
+          stroke_width: None,
+          opacity: None,
+        }).with_parent(edit_state.parent_id)
+        execute_command(history, state, @model.AddElement(text_el))
+      }
+    }
+  }
+  state.end_text_edit()
+}
+
+///|
+/// mousemove ハンドラを作成
+fn create_mousemove_handler(
+  state : EditorState,
+  get_screen_coords : (@js.Any) -> (Double, Double),
+  get_scene_coords : (@js.Any) -> (Double, Double),
+) -> (@js.Any) -> Unit {
+  fn(e) {
     if state.is_panning.get() {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.pan_move(screen_x, screen_y)
@@ -302,24 +462,30 @@ fn editor_app() -> @element.DomNode {
       state.update_box_select(scene_x, scene_y)
     }
   }
-  let on_mouseup : (@js.Any) -> Unit = fn(_e) {
-    // パン終了
+}
+
+///|
+/// mouseup ハンドラを作成
+fn create_mouseup_handler(
+  state : EditorState,
+  history : @model.History,
+  get_screen_coords : (@js.Any) -> (Double, Double),
+) -> (@js.Any) -> Unit {
+  let _ = get_screen_coords // unused but kept for consistency
+  fn(_e) {
     if state.is_panning.get() {
       state.end_pan()
       return
     }
-    // 矩形選択終了
     if state.is_box_selecting() {
       state.end_box_select()
       return
     }
-    // リサイズ終了時にリサイズコマンドを履歴に記録
+    // リサイズ終了時
     if state.resize_state.get() is Some(resize) {
       if state.find_element(resize.element_id) is Some(el) {
-        // 実際にリサイズした場合のみ履歴に記録
         if resize.start_shape != el.shape || resize.start_x != el.x || resize.start_y != el.y {
           let cmd = @model.ResizeElement(resize.element_id, resize.start_shape, el.shape)
-          // 位置も変わった場合は移動も記録（NW, NE, SW ハンドルの場合）
           if resize.start_x != el.x || resize.start_y != el.y {
             let move_cmd = @model.MoveElement(
               resize.element_id,
@@ -337,7 +503,7 @@ fn editor_app() -> @element.DomNode {
       state.end_resize()
       return
     }
-    // 複数要素ドラッグ終了時に移動コマンドを履歴に記録
+    // 複数要素ドラッグ終了時
     if state.multi_drag_state.get() is Some(multi_drag) {
       for pos in multi_drag.start_positions {
         let (id, start_x, start_y) = pos
@@ -352,13 +518,11 @@ fn editor_app() -> @element.DomNode {
       state.end_multi_drag()
       return
     }
-    // ドラッグ終了時に移動コマンドを履歴に記録
+    // ドラッグ終了時
     if state.drag_state.get() is Some(drag) {
       if state.find_element(drag.element_id) is Some(el) {
-        // 実際に移動した場合のみ履歴に記録
         if drag.start_x != el.x || drag.start_y != el.y {
           let cmd = @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y)
-          // 履歴に追加（実行はすでにドラッグ中に完了している）
           history.undo_stack.push(cmd)
           history.redo_stack.clear()
         }
@@ -366,9 +530,12 @@ fn editor_app() -> @element.DomNode {
     }
     state.end_drag()
   }
+}
 
-  // ホイールイベントハンドラ（ズーム）
-  let on_wheel : (@js.Any) -> Unit = fn(e) {
+///|
+/// wheel ハンドラを作成
+fn create_wheel_handler(state : EditorState) -> (@js.Any) -> Unit {
+  fn(e) {
     let _ = e._call("preventDefault", [])
     let delta_y : Double = e._get("deltaY").cast()
     if delta_y < 0.0 {
@@ -377,17 +544,18 @@ fn editor_app() -> @element.DomNode {
       state.zoom_out()
     }
   }
+}
 
-  // コンテキストメニューハンドラ
-  let on_contextmenu : (@js.Any) -> Unit = fn(e) {
-    // デフォルトメニューを無効化
+///|
+/// contextmenu ハンドラを作成
+fn create_contextmenu_handler(
+  state : EditorState,
+  get_scene_coords : (@js.Any) -> (Double, Double),
+) -> (@js.Any) -> Unit {
+  fn(e) {
     let _ = e._call("preventDefault", [])
     let mouse_event : @js_dom.MouseEvent = e.cast()
-
-    // シーン座標を取得（図形挿入用）
     let (scene_x, scene_y) = get_scene_coords(e)
-
-    // クリック対象を取得
     let target = e._get("target")
     let data_id_raw = target._get("dataset")._get("id")
     let target_id : String? = if @js.is_nullish(data_id_raw) {
@@ -395,13 +563,9 @@ fn editor_app() -> @element.DomNode {
     } else {
       Some(data_id_raw.cast())
     }
-
-    // 要素上で右クリックした場合は選択
     if target_id is Some(id) {
       state.select(Some(id))
     }
-
-    // メニュー表示（スクリーン座標とシーン座標の両方を渡す）
     state.show_context_menu(
       mouse_event.clientX,
       mouse_event.clientY,
@@ -410,107 +574,112 @@ fn editor_app() -> @element.DomNode {
       target_id,
     )
   }
+}
 
-  // 初期 SVG を作成（effect より先に作成）
-  let initial_children : Array[@js.Any] = []
+// ============================================================
+// 描画関数
+// ============================================================
+
+///|
+/// SVG コンテンツを再描画
+fn redraw_svg_content(
+  state : EditorState,
+  svg_ref : Ref[@js.Any?],
+  canvas_width : Int,
+  canvas_height : Int,
+) -> Unit {
+  guard svg_ref.val is Some(svg)
+  clear_children_ffi(svg)
+
+  // グリッド線を描画
+  if state.grid_enabled.get() {
+    let grid_lines = render_grid(
+      canvas_width,
+      canvas_height,
+      state.grid_size.get(),
+      state.viewport.get(),
+    )
+    for line in grid_lines {
+      append_child_ffi(svg, line)
+    }
+  }
+
+  // 要素を描画
   let elements = state.elements.get()
   for el in elements {
-    initial_children.push(render_element(el, state.is_selected(el.id)))
+    let is_selected = state.is_selected(el.id)
+    let child = render_element(el, is_selected)
+    append_child_ffi(svg, child)
   }
-  let svg = render_svg_container_with_viewport(
-    canvas_width,
-    canvas_height,
-    state.viewport.get(),
-    on_mousedown,
-    on_mousemove,
-    on_mouseup,
-    on_contextmenu,
-    on_wheel,
-    initial_children,
-  )
-  svg_ref.val = Some(svg)
 
-  // SVG を再描画する関数
-  let redraw_svg = fn() {
-    // svg_ref が None の場合は何もしない
-    match svg_ref.val {
-      None => ()
-      Some(svg) => {
-        clear_children_ffi(svg)
-        // グリッド線を描画（有効な場合）
-        if state.grid_enabled.get() {
-          let grid_lines = render_grid(
-            canvas_width,
-            canvas_height,
-            state.grid_size.get(),
-            state.viewport.get(),
-          )
-          for line in grid_lines {
-            append_child_ffi(svg, line)
-          }
-        }
-        let elements = state.elements.get()
-        for el in elements {
-          let is_selected = state.is_selected(el.id)
-          let child = render_element(el, is_selected)
-          append_child_ffi(svg, child)
-        }
-        // 選択中の要素のリサイズハンドルを描画（単一選択のみ）
-        let selected_ids = state.selected_ids.get()
-        if selected_ids.length() == 1 {
-          let id = selected_ids[0]
-          if state.find_element(id) is Some(el) {
-            let handles = render_resize_handles(el)
-            for handle in handles {
-              append_child_ffi(svg, handle)
-            }
-          }
-        }
-        // 矩形選択ボックスを描画
-        if state.box_select.get() is Some(box_state) {
-          let box_el = render_selection_box(box_state)
-          append_child_ffi(svg, box_el)
-        }
-        // 線の端点ドラッグ中はアンカーポイントを可視化
-        if state.resize_state.get() is Some(resize) {
-          // start_shape が Line ならアンカーポイントを表示
-          if resize.start_shape is @model.Line(_, _) {
-            let anchors = render_all_anchor_points(state.elements.get(), resize.element_id)
-            for anchor in anchors {
-              append_child_ffi(svg, anchor)
-            }
-          }
-        }
-        // 接続ポイントのハイライトを描画（スナップ先）
-        if state.pending_connection.get() is Some(pending) {
-          let highlight = render_connection_highlight(pending.point)
-          append_child_ffi(svg, highlight)
+  // 選択中の要素のアンカーポイントとリサイズハンドルを描画
+  let selected_ids = state.selected_ids.get()
+  for id in selected_ids {
+    if state.find_element(id) is Some(el) {
+      let anchors = render_element_anchors(el)
+      for anchor in anchors {
+        append_child_ffi(svg, anchor)
+      }
+      if selected_ids.length() == 1 {
+        let handles = render_resize_handles(el)
+        for handle in handles {
+          append_child_ffi(svg, handle)
         }
       }
     }
   }
 
-  // 初回フラグ（effect は作成直後に一度実行されるのでスキップ）
-  let is_first_run : Ref[Bool] = { val: true }
+  // 矩形選択ボックスを描画
+  if state.box_select.get() is Some(box_state) {
+    let box_el = render_selection_box(box_state)
+    append_child_ffi(svg, box_el)
+  }
 
-  // Signal の変更を監視して再描画
+  // 線の端点ドラッグ中はアンカーポイントを可視化
+  if state.resize_state.get() is Some(resize) {
+    if resize.start_shape is @model.Line(_, _) {
+      let anchors = render_all_anchor_points(state.elements.get(), resize.element_id)
+      for anchor in anchors {
+        append_child_ffi(svg, anchor)
+      }
+    }
+  }
+
+  // 接続ポイントのハイライトを描画
+  if state.pending_connection.get() is Some(pending) {
+    let highlight = render_connection_highlight(pending.point)
+    append_child_ffi(svg, highlight)
+  }
+}
+
+///|
+/// 再描画エフェクトを設定
+fn setup_redraw_effect(state : EditorState, redraw_svg : () -> Unit) -> Unit {
+  let is_first_run : Ref[Bool] = { val: true }
   let _ = @luna.effect(fn() {
-    // Signal を読み取って依存関係を登録
     let _ = state.elements.get()
     let _ = state.selected_ids.get()
     let _ = state.grid_enabled.get()
     let _ = state.box_select.get()
     let _ = state.pending_connection.get()
     let _ = state.resize_state.get()
-    // 初回はスキップ（既に初期レンダリング済み）
     if is_first_run.val {
       is_first_run.val = false
       return
     }
     redraw_svg()
   })
+}
 
-  // Viewport の変更を監視して viewBox を更新
+///|
+/// ビューポートエフェクトを設定
+fn setup_viewport_effect(
+  state : EditorState,
+  svg_ref : Ref[@js.Any?],
+  canvas_width : Int,
+  canvas_height : Int,
+  redraw_svg : () -> Unit,
+) -> Unit {
   let viewport_first_run : Ref[Bool] = { val: true }
   let _ = @luna.effect(fn() {
     let vp = state.viewport.get()
@@ -523,186 +692,9 @@ fn editor_app() -> @element.DomNode {
       let vb_height = canvas_height.to_double() / vp.zoom
       let viewbox = "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
       update_viewbox_ffi(svg, viewbox)
-      // グリッドも再描画
       redraw_svg()
     }
   })
-
-  // キーボードショートカット
-  setup_keyboard_shortcuts(state, history, new_id)
-
-  // UI
-  div([
-    // ヘッダー
-    div(style="margin-bottom: 10px;", [
-      h1(style="margin: 0 0 8px 0;", [text("Moonlight SVG Editor")]),
-      // ツールバー
-      div([
-        button(
-          on=events().click(fn(_) {
-            let current = id_counter.get()
-            let new_rect = @model.Element::new(
-              new_id(),
-              150.0 + current.to_double() * 20.0,
-              150.0 + current.to_double() * 20.0,
-              @model.Rect(80.0, 60.0, None, None),
-            ).with_style({
-              fill: Some("#9f7aea"),
-              stroke: Some("#6b46c1"),
-              stroke_width: Some(2.0),
-              opacity: None,
-            })
-            execute_command(history, state, @model.AddElement(new_rect))
-          }),
-          [text("Add Rectangle")],
-        ),
-        button(
-          on=events().click(fn(_) {
-            let current = id_counter.get()
-            let new_circle = @model.Element::new(
-              new_id(),
-              200.0 + current.to_double() * 20.0,
-              200.0 + current.to_double() * 20.0,
-              @model.Circle(40.0),
-            ).with_style({
-              fill: Some("#f56565"),
-              stroke: Some("#c53030"),
-              stroke_width: Some(2.0),
-              opacity: None,
-            })
-            execute_command(history, state, @model.AddElement(new_circle))
-          }),
-          [text("Add Circle")],
-        ),
-        button(
-          on=events().click(fn(_) {
-            let current = id_counter.get()
-            let new_ellipse = @model.Element::new(
-              new_id(),
-              180.0 + current.to_double() * 20.0,
-              120.0 + current.to_double() * 20.0,
-              @model.Ellipse(60.0, 35.0),
-            ).with_style({
-              fill: Some("#38b2ac"),
-              stroke: Some("#234e52"),
-              stroke_width: Some(2.0),
-              opacity: None,
-            })
-            execute_command(history, state, @model.AddElement(new_ellipse))
-          }),
-          [text("Add Ellipse")],
-        ),
-        button(
-          on=events().click(fn(_) {
-            let current = id_counter.get()
-            let offset = current.to_double() * 20.0
-            let new_line = @model.Element::new(
-              new_id(),
-              50.0 + offset,
-              50.0 + offset,
-              @model.Line(150.0 + offset, 100.0 + offset),
-            ).with_style({
-              fill: None,
-              stroke: Some("#805ad5"),
-              stroke_width: Some(3.0),
-              opacity: None,
-            })
-            execute_command(history, state, @model.AddElement(new_line))
-          }),
-          [text("Add Line")],
-        ),
-        button(
-          on=events().click(fn(_) {
-            let current = id_counter.get()
-            let new_text = @model.Element::new(
-              new_id(),
-              100.0 + current.to_double() * 20.0,
-              200.0 + current.to_double() * 15.0,
-              @model.Text("Hello", Some(24.0)),
-            ).with_style({
-              fill: Some("#2d3748"),
-              stroke: None,
-              stroke_width: None,
-              opacity: None,
-            })
-            execute_command(history, state, @model.AddElement(new_text))
-          }),
-          [text("Add Text")],
-        ),
-        button(
-          on=events().click(fn(_) { let _ = undo_command(history, state) }),
-          [text("Undo")],
-        ),
-        button(
-          on=events().click(fn(_) { let _ = redo_command(history, state) }),
-          [text("Redo")],
-        ),
-        button(
-          style="margin-left: 16px;",
-          on=events().click(fn(_) {
-            let svg_str = elements_to_svg(
-              state.elements.get(),
-              canvas_width,
-              canvas_height,
-            )
-            download_file(svg_str, "drawing.svg", "image/svg+xml")
-          }),
-          [text("Export SVG")],
-        ),
-        // ズームコントロール
-        @element.span(style="margin-left: 16px; display: inline-flex; align-items: center; gap: 4px;", [
-          button(
-            on=events().click(fn(_) { state.zoom_out() }),
-            [text("-")],
-          ),
-          @element.span(style="min-width: 50px; text-align: center;", [
-            text_dyn(fn() {
-              let zoom = state.viewport.get().zoom
-              "\{(zoom * 100.0).to_int()}%"
-            }),
-          ]),
-          button(
-            on=events().click(fn(_) { state.zoom_in() }),
-            [text("+")],
-          ),
-          button(
-            style="margin-left: 4px;",
-            on=events().click(fn(_) { state.reset_viewport() }),
-            [text("Reset")],
-          ),
-        ]),
-        // グリッドスナップ
-        @element.span(style="margin-left: 16px;", [
-          @element.label(style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;", [
-            input(
-              type_="checkbox",
-              on=events().change(fn(_) { state.toggle_grid() }),
-            ),
-            text("Grid Snap"),
-          ]),
-        ]),
-      ]),
-    ]),
-    // メインエリア（Canvas + Sidebar）
-    div(style="display: flex; gap: 16px;", [
-      // SVG キャンバス（position: relative でコンテキストメニューの基準に）
-      div(style="position: relative;", [
-        svg_to_dom_node(svg),
-        // コンテキストメニュー
-        show(
-          fn() { state.context_menu.get() is Some(_) },
-          fn() { render_context_menu(state, history, new_id) },
-        ),
-        // テキスト入力オーバーレイ
-        show(
-          fn() { state.text_edit.get() is Some(_) },
-          fn() { render_text_input(state, commit_text_input) },
-        ),
-      ]),
-      // サイドバー
-      render_sidebar(state),
-    ]),
-  ])
 }
 
 ///|
@@ -713,7 +705,6 @@ fn setup_keyboard_shortcuts(
   new_id : () -> String,
 ) -> Unit {
   let handler : (@js.Any) -> Unit = fn(e) {
-    // テキスト編集中はショートカットを無効化
     if state.text_edit.get() is Some(_) {
       return
     }
@@ -724,7 +715,6 @@ fn setup_keyboard_shortcuts(
     let is_cmd = ctrl_key || meta_key
 
     match key {
-      // Delete or Backspace: 選択中の要素を削除
       "Delete" | "Backspace" => {
         let selected_ids = state.selected_ids.get()
         for id in selected_ids {
@@ -733,9 +723,7 @@ fn setup_keyboard_shortcuts(
           }
         }
       }
-      // Escape: 選択解除
       "Escape" => state.select(None)
-      // Ctrl+D or Cmd+D: 複製
       "d" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
@@ -743,7 +731,6 @@ fn setup_keyboard_shortcuts(
           let new_ids : Array[String] = []
           for id in selected_ids {
             if state.find_element(id) is Some(el) {
-              // 新しいIDで複製し、少しオフセット
               let dup_id = new_id()
               let new_el = {
                 ..el,
@@ -755,22 +742,17 @@ fn setup_keyboard_shortcuts(
               new_ids.push(dup_id)
             }
           }
-          // 新しい要素を選択
           state.select_multiple(new_ids)
         }
-      // Ctrl+Z or Cmd+Z: Undo
       "z" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
           let _ = undo_command(history, state)
-
         }
-      // Ctrl+Y or Cmd+Shift+Z: Redo
       "y" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
           let _ = redo_command(history, state)
-
         }
       _ => ()
     }
@@ -778,536 +760,202 @@ fn setup_keyboard_shortcuts(
   add_keyboard_listener(handler)
 }
 
-///|
-/// window に keydown イベントリスナーを追加
-extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
-  #| (handler) => window.addEventListener('keydown', handler)
+// ============================================================
+// UI レンダリング
+// ============================================================
 
 ///|
-/// keydown リスナー（別名）
-extern "js" fn add_keydown_listener(handler : (@js.Any) -> Unit) =
-  #| (handler) => window.addEventListener('keydown', handler)
+/// エディタ UI をレンダリング
+fn render_editor_ui(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+  svg : @js.Any,
+  commit_text_input : (String) -> Unit,
+) -> @element.DomNode {
+  let id_counter = @luna.signal(0)
 
-///|
-/// keyup リスナー
-extern "js" fn add_keyup_listener(handler : (@js.Any) -> Unit) =
-  #| (handler) => window.addEventListener('keyup', handler)
-
-///|
-/// SVG の viewBox を更新
-extern "js" fn update_viewbox_ffi(svg : @js.Any, viewbox : String) =
-  #| (svg, viewbox) => svg.setAttribute('viewBox', viewbox)
-
-///|
-/// ファイルをダウンロード
-extern "js" fn download_file(content : String, filename : String, mime_type : String) =
-  #| (content, filename, mimeType) => {
-  #|   const blob = new Blob([content], { type: mimeType });
-  #|   const url = URL.createObjectURL(blob);
-  #|   const a = document.createElement('a');
-  #|   a.href = url;
-  #|   a.download = filename;
-  #|   document.body.appendChild(a);
-  #|   a.click();
-  #|   document.body.removeChild(a);
-  #|   URL.revokeObjectURL(url);
-  #| }
-
-///|
-/// 現在時刻を取得（ミリ秒）
-extern "js" fn get_current_time() -> Double =
-  #| () => performance.now()
-
-///|
-/// 指定セレクタの要素にフォーカスを遅延設定（初期値付き）
-extern "js" fn schedule_focus_with_value_ffi(selector : String, value : String) -> Int =
-  #| (selector, value) => setTimeout(() => { const el = document.querySelector(selector); if (el) { el.value = value; el.focus(); el.select(); } }, 0)
-
-///|
-/// サイドバー幅
-let sidebar_width : Int = 220
-
-///|
-/// サイドバーをレンダリング
-fn render_sidebar(state : EditorState) -> @element.DomNode {
-  let sidebar_style =
-    "width: \{sidebar_width}px; min-height: \{canvas_height}px; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box;"
-  div(
-    style=sidebar_style,
-    [
-      div(style="font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px;", [
-        text("Element"),
-      ]),
-      // 選択中の要素の詳細を表示（単一選択の場合）
-      show(
-        fn() { state.selected_ids.get().length() == 1 },
-        fn() { render_element_details(state) },
-      ),
-      // 複数選択の場合
-      show(
-        fn() { state.selected_ids.get().length() > 1 },
-        fn() {
-          div(style="color: #333; font-size: 14px;", [
-            text_dyn(fn() { "\{state.selected_ids.get().length()} elements selected" }),
-          ])
-        },
-      ),
-      // 選択なしの場合
-      show(
-        fn() { state.selected_ids.get().length() == 0 },
-        fn() {
-          div(style="color: #888; font-size: 14px;", [
-            text("Select an element to view details"),
-          ])
-        },
-      ),
-    ],
-  )
-}
-
-///|
-/// 入力フィールドのスタイル
-let input_style : String = "width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
-
-///|
-/// カラー入力のスタイル
-let color_input_style : String = "width: 60px; height: 24px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;"
-
-///|
-/// 要素の詳細を表示・編集
-fn render_element_details(state : EditorState) -> @element.DomNode {
   div([
-    // ID (読み取り専用)
+    // ヘッダー
     div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("ID")]),
-      div(style="font-family: monospace; font-size: 14px; color: #333;", [
-        text_dyn(fn() { state.get_selected_id().unwrap_or("-") }),
-      ]),
+      h1(style="margin: 0 0 8px 0;", [text("Moonlight SVG Editor")]),
+      render_toolbar(state, history, new_id, id_counter),
     ]),
-    // Position X
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("X")]),
-      input(
-        type_="number",
-        style=input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.x.to_int().to_string()
-                None => "0"
-              }
-            None => "0"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(x) {
-              state.update_element(id, fn(el) { { ..el, x } })
-            }
-          }
-        }),
-      ),
-    ]),
-    // Position Y
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Y")]),
-      input(
-        type_="number",
-        style=input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.y.to_int().to_string()
-                None => "0"
-              }
-            None => "0"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(y) {
-              state.update_element(id, fn(el) { { ..el, y } })
-            }
-          }
-        }),
-      ),
-    ]),
-    // Shape (読み取り専用)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Shape")]),
-      div(style="font-family: monospace; font-size: 14px;", [
-        text_dyn(fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => @model.format_shape(el.shape)
-                None => "-"
-              }
-            None => "-"
-          }
-        }),
-      ]),
-    ]),
-    // Fill (カラーピッカー)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Fill")]),
-      div(style="display: flex; gap: 8px; align-items: center;", [
-        input(
-          type_="color",
-          style=color_input_style,
-          dyn_value=fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.fill.unwrap_or("#000000")
-                  None => "#000000"
-                }
-              None => "#000000"
-            }
-          },
-          on=events().input(fn(e) {
-            if state.get_selected_id() is Some(id) {
-              let value = get_event_target_value(e.as_any())
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, fill: Some(value) } }
-              })
-            }
-          }),
+    // メインエリア
+    div(style="display: flex; gap: 16px;", [
+      div(style="position: relative;", [
+        svg_to_dom_node(svg),
+        show(
+          fn() { state.context_menu.get() is Some(_) },
+          fn() { render_context_menu(state, history, new_id) },
         ),
-        @element.span(style="font-family: monospace; font-size: 12px;", [
-          text_dyn(fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.fill.unwrap_or("none")
-                  None => "-"
-                }
-              None => "-"
-            }
-          }),
-        ]),
-      ]),
-    ]),
-    // Stroke (カラーピッカー)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke")]),
-      div(style="display: flex; gap: 8px; align-items: center;", [
-        input(
-          type_="color",
-          style=color_input_style,
-          dyn_value=fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.stroke.unwrap_or("#000000")
-                  None => "#000000"
-                }
-              None => "#000000"
-            }
-          },
-          on=events().input(fn(e) {
-            if state.get_selected_id() is Some(id) {
-              let value = get_event_target_value(e.as_any())
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, stroke: Some(value) } }
-              })
-            }
-          }),
+        show(
+          fn() { state.text_edit.get() is Some(_) },
+          fn() { render_text_input(state, commit_text_input) },
         ),
-        @element.span(style="font-family: monospace; font-size: 12px;", [
-          text_dyn(fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.stroke.unwrap_or("none")
-                  None => "-"
-                }
-              None => "-"
-            }
-          }),
-        ]),
       ]),
-    ]),
-    // Stroke Width
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke Width")]),
-      input(
-        type_="number",
-        style=input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
-                None => "1"
-              }
-            None => "1"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(w) {
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, stroke_width: Some(w) } }
-              })
-            }
-          }
-        }),
-      ),
+      render_sidebar(state, canvas_height),
     ]),
   ])
 }
 
 ///|
-/// イベントから target.value を取得（FFI）
-extern "js" fn get_event_target_value(e : @js.Any) -> String =
-  #| (e) => e.target.value
-
-///|
-/// 文字列を Double にパース（FFI）
-extern "js" fn parse_double_ffi(s : String) -> @js.Any =
-  #| (s) => { const n = parseFloat(s); return isNaN(n) ? null : n; }
-
-///|
-fn parse_double(s : String) -> Double? {
-  let result = parse_double_ffi(s)
-  if @js.is_nullish(result) {
-    None
-  } else {
-    Some(result.cast())
-  }
-}
-
-
-///|
-/// メニューボタンのスタイル
-let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
-
-///|
-/// テキスト入力オーバーレイをレンダリング
-fn render_text_input(
-  state : EditorState,
-  commit : (String) -> Unit,
-) -> @element.DomNode {
-  guard state.text_edit.get() is Some(edit_state)
-  // シーン座標をスクリーン座標に変換
-  let vp = state.viewport.get()
-  let screen_pos = vp.scene_to_screen(edit_state.x, edit_state.y)
-  // 入力フィールドの幅と高さ
-  let input_width = 150
-  let input_height = 28
-  // 中央に配置（入力フィールドの半分をオフセット）
-  let left = screen_pos.x - input_width.to_double() / 2.0
-  let top = screen_pos.y - input_height.to_double() / 2.0
-  let style =
-    "position: absolute; left: \{left}px; top: \{top}px; width: \{input_width}px; height: \{input_height}px; padding: 4px 8px; border: 2px solid #0066ff; border-radius: 4px; font-size: 14px; text-align: center; box-sizing: border-box; outline: none;"
-  // 自動フォーカス（初期値付き）
-  let _ = schedule_focus_with_value_ffi("input[type=text]", edit_state.initial_text)
-  input(
-    type_="text",
-    style~,
-    on=events()
-      .keydown(fn(e) {
-        let key : String = e.as_any()._get("key").cast()
-        if key == "Enter" {
-          let value = get_event_target_value(e.as_any())
-          commit(value)
-        } else if key == "Escape" {
-          state.end_text_edit()
-        }
-      })
-      .blur(fn(e) {
-        let value = get_event_target_value(e.as_any())
-        commit(value)
-      }),
-  )
-}
-
-///|
-/// コンテキストメニューをレンダリング
-fn render_context_menu(
+/// ツールバーをレンダリング
+fn render_toolbar(
   state : EditorState,
   history : @model.History,
   new_id : () -> String,
+  id_counter : @luna.Signal[Int],
 ) -> @element.DomNode {
-  guard state.context_menu.get() is Some(menu)
-  let style =
-    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 140px; z-index: 1000;"
-  div(
-    style~,
-    [
-      // 要素上でクリックした場合のみメニューを表示
-      if menu.target_id is Some(id) {
-        @element.fragment([
-          // Bring to Front
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                if state.bring_to_front(id) is Some((from_idx, to_idx)) {
-                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                  history.undo_stack.push(cmd)
-                  history.redo_stack.clear()
-                }
-                state.hide_context_menu()
-              }),
-              [text("Bring to Front")],
-            ),
-          ]),
-          // Send to Back
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                if state.send_to_back(id) is Some((from_idx, to_idx)) {
-                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                  history.undo_stack.push(cmd)
-                  history.redo_stack.clear()
-                }
-                state.hide_context_menu()
-              }),
-              [text("Send to Back")],
-            ),
-          ]),
-          // Delete
-          div(style="padding: 4px 12px;", [
-            button(
-              style=menu_button_style + " color: #c53030;",
-              on=events().click(fn(_) {
-                if state.find_element(id) is Some(el) {
-                  execute_command(history, state, @model.RemoveElement(el))
-                }
-                state.hide_context_menu()
-              }),
-              [text("Delete")],
-            ),
-          ]),
-        ])
-      } else {
-        // 空白部分を右クリックした場合 - 挿入メニュー
-        let insert_x = menu.scene_x
-        let insert_y = menu.scene_y
-        @element.fragment([
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 12px;", [
-            text("Insert"),
-          ]),
-          // Rectangle
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                let el = @model.Element::new(
-                  new_id(),
-                  insert_x,
-                  insert_y,
-                  @model.Rect(80.0, 60.0, None, None),
-                ).with_style({
-                  fill: Some("#9f7aea"),
-                  stroke: Some("#6b46c1"),
-                  stroke_width: Some(2.0),
-                  opacity: None,
-                })
-                execute_command(history, state, @model.AddElement(el))
-                state.hide_context_menu()
-              }),
-              [text("Rectangle")],
-            ),
-          ]),
-          // Circle
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                let el = @model.Element::new(
-                  new_id(),
-                  insert_x,
-                  insert_y,
-                  @model.Circle(40.0),
-                ).with_style({
-                  fill: Some("#f56565"),
-                  stroke: Some("#c53030"),
-                  stroke_width: Some(2.0),
-                  opacity: None,
-                })
-                execute_command(history, state, @model.AddElement(el))
-                state.hide_context_menu()
-              }),
-              [text("Circle")],
-            ),
-          ]),
-          // Ellipse
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                let el = @model.Element::new(
-                  new_id(),
-                  insert_x,
-                  insert_y,
-                  @model.Ellipse(60.0, 35.0),
-                ).with_style({
-                  fill: Some("#38b2ac"),
-                  stroke: Some("#234e52"),
-                  stroke_width: Some(2.0),
-                  opacity: None,
-                })
-                execute_command(history, state, @model.AddElement(el))
-                state.hide_context_menu()
-              }),
-              [text("Ellipse")],
-            ),
-          ]),
-          // Line
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                let el = @model.Element::new(
-                  new_id(),
-                  insert_x,
-                  insert_y,
-                  @model.Line(insert_x + 100.0, insert_y + 50.0),
-                ).with_style({
-                  fill: None,
-                  stroke: Some("#805ad5"),
-                  stroke_width: Some(3.0),
-                  opacity: None,
-                })
-                execute_command(history, state, @model.AddElement(el))
-                state.hide_context_menu()
-              }),
-              [text("Line")],
-            ),
-          ]),
-          // Text
-          div(style="padding: 4px 12px;", [
-            button(
-              style=menu_button_style,
-              on=events().click(fn(_) {
-                let el = @model.Element::new(
-                  new_id(),
-                  insert_x,
-                  insert_y,
-                  @model.Text("Text", Some(24.0)),
-                ).with_style({
-                  fill: Some("#2d3748"),
-                  stroke: None,
-                  stroke_width: None,
-                  opacity: None,
-                })
-                execute_command(history, state, @model.AddElement(el))
-                state.hide_context_menu()
-              }),
-              [text("Text")],
-            ),
-          ]),
-        ])
-      },
-    ],
-  )
+  div([
+    // 図形追加ボタン
+    button(
+      on=events().click(fn(_) {
+        let current = id_counter.get()
+        id_counter.set(current + 1)
+        let new_rect = @model.Element::new(
+          new_id(),
+          150.0 + current.to_double() * 20.0,
+          150.0 + current.to_double() * 20.0,
+          @model.Rect(80.0, 60.0, None, None),
+        ).with_style({
+          fill: Some("#9f7aea"),
+          stroke: Some("#6b46c1"),
+          stroke_width: Some(2.0),
+          opacity: None,
+        })
+        execute_command(history, state, @model.AddElement(new_rect))
+      }),
+      [text("Add Rectangle")],
+    ),
+    button(
+      on=events().click(fn(_) {
+        let current = id_counter.get()
+        id_counter.set(current + 1)
+        let new_circle = @model.Element::new(
+          new_id(),
+          200.0 + current.to_double() * 20.0,
+          200.0 + current.to_double() * 20.0,
+          @model.Circle(40.0),
+        ).with_style({
+          fill: Some("#f56565"),
+          stroke: Some("#c53030"),
+          stroke_width: Some(2.0),
+          opacity: None,
+        })
+        execute_command(history, state, @model.AddElement(new_circle))
+      }),
+      [text("Add Circle")],
+    ),
+    button(
+      on=events().click(fn(_) {
+        let current = id_counter.get()
+        id_counter.set(current + 1)
+        let new_ellipse = @model.Element::new(
+          new_id(),
+          180.0 + current.to_double() * 20.0,
+          120.0 + current.to_double() * 20.0,
+          @model.Ellipse(60.0, 35.0),
+        ).with_style({
+          fill: Some("#38b2ac"),
+          stroke: Some("#234e52"),
+          stroke_width: Some(2.0),
+          opacity: None,
+        })
+        execute_command(history, state, @model.AddElement(new_ellipse))
+      }),
+      [text("Add Ellipse")],
+    ),
+    button(
+      on=events().click(fn(_) {
+        let current = id_counter.get()
+        id_counter.set(current + 1)
+        let offset = current.to_double() * 20.0
+        let new_line = @model.Element::new(
+          new_id(),
+          50.0 + offset,
+          50.0 + offset,
+          @model.Line(150.0 + offset, 100.0 + offset),
+        ).with_style({
+          fill: None,
+          stroke: Some("#805ad5"),
+          stroke_width: Some(3.0),
+          opacity: None,
+        })
+        execute_command(history, state, @model.AddElement(new_line))
+      }),
+      [text("Add Line")],
+    ),
+    button(
+      on=events().click(fn(_) {
+        let current = id_counter.get()
+        id_counter.set(current + 1)
+        let new_text = @model.Element::new(
+          new_id(),
+          100.0 + current.to_double() * 20.0,
+          200.0 + current.to_double() * 15.0,
+          @model.Text("Hello", Some(24.0)),
+        ).with_style({
+          fill: Some("#2d3748"),
+          stroke: None,
+          stroke_width: None,
+          opacity: None,
+        })
+        execute_command(history, state, @model.AddElement(new_text))
+      }),
+      [text("Add Text")],
+    ),
+    button(
+      on=events().click(fn(_) { let _ = undo_command(history, state) }),
+      [text("Undo")],
+    ),
+    button(
+      on=events().click(fn(_) { let _ = redo_command(history, state) }),
+      [text("Redo")],
+    ),
+    button(
+      style="margin-left: 16px;",
+      on=events().click(fn(_) {
+        let svg_str = elements_to_svg(
+          state.elements.get(),
+          canvas_width,
+          canvas_height,
+        )
+        download_file(svg_str, "drawing.svg", "image/svg+xml")
+      }),
+      [text("Export SVG")],
+    ),
+    // ズームコントロール
+    @element.span(style="margin-left: 16px; display: inline-flex; align-items: center; gap: 4px;", [
+      button(
+        on=events().click(fn(_) { state.zoom_out() }),
+        [text("-")],
+      ),
+      @element.span(style="min-width: 50px; text-align: center;", [
+        text_dyn(fn() {
+          let zoom = state.viewport.get().zoom
+          "\{(zoom * 100.0).to_int()}%"
+        }),
+      ]),
+      button(
+        on=events().click(fn(_) { state.zoom_in() }),
+        [text("+")],
+      ),
+      button(
+        style="margin-left: 4px;",
+        on=events().click(fn(_) { state.reset_viewport() }),
+        [text("Reset")],
+      ),
+    ]),
+    // グリッドスナップ
+    @element.span(style="margin-left: 16px;", [
+      @element.label(style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;", [
+        input(
+          type_="checkbox",
+          on=events().change(fn(_) { state.toggle_grid() }),
+        ),
+        text("Grid Snap"),
+      ]),
+    ]),
+  ])
 }

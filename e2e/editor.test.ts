@@ -395,4 +395,39 @@ test.describe('Moonlight SVG Editor', () => {
     // Verify shape was removed
     await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
   });
+
+  test('should snap resize to grid when grid is enabled', async ({ page }) => {
+    // Enable grid snap
+    await page.getByLabel('Grid Snap').click();
+    await page.waitForTimeout(50);
+
+    // Select first rect
+    const rect = page.locator('svg rect[data-id="el-1"]');
+    await rect.click();
+    await page.waitForTimeout(100);
+
+    // Resize using SE handle
+    const seHandle = page.locator('svg rect[data-handle="se"]');
+    const handleBox = await seHandle.boundingBox();
+    expect(handleBox).not.toBeNull();
+
+    await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handleBox!.x + 33, handleBox!.y + 27); // Non-grid aligned values
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+
+    // Get the new position and dimensions
+    const x = parseFloat(await rect.getAttribute('x') || '0');
+    const y = parseFloat(await rect.getAttribute('y') || '0');
+    const width = parseFloat(await rect.getAttribute('width') || '0');
+    const height = parseFloat(await rect.getAttribute('height') || '0');
+
+    // The dragged corner (SE = x + width, y + height) should be grid-aligned
+    // The fixed corner (NW = x, y) stays at its original position
+    const seX = x + width;
+    const seY = y + height;
+    expect(seX % 20).toBe(0);
+    expect(seY % 20).toBe(0);
+  });
 });
