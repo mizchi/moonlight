@@ -46,14 +46,14 @@ test('should insert shape from context menu', async ({ page }) => {
 test('should duplicate shape with Ctrl+D', async ({ page }) => {
   await page.goto('/');
 
-  // Only count shape rects (with data-id), not resize handles (with data-handle)
-  const shapeRects = page.locator('svg rect[data-id]');
+  // Only count shape rects (with cursor="move"), not text hit areas or resize handles
+  const shapeRects = page.locator('svg rect[data-id][cursor="move"]');
 
   // Initial count
   const initialCount = await shapeRects.count();
 
-  // Select first shape
-  await shapeRects.first().click();
+  // Select first shape (use force:true because child text hit area may intercept clicks)
+  await shapeRects.first().click({ force: true });
   await page.waitForTimeout(100);
 
   // Press Meta+D (macOS) / Ctrl+D
