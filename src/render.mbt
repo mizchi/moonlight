@@ -1192,3 +1192,455 @@ pub fn render_connection_highlight_node(point : @model.Point) -> @element.DomNod
     ("pointer-events", "none"),
   ], [], [])
 }
+
+// =============================================================================
+// Luna VNode + Dynamic 属性による差分更新（for_each 用）
+// =============================================================================
+
+///|
+/// グリッド線を VNode として描画
+pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
+  let children : Array[@element.DomNode] = []
+  let grid_size = state.grid_size.get()
+  let viewport = state.viewport.get()
+  let size = grid_size.to_double()
+  // viewBox の範囲を計算
+  let vb_width = canvas_width.to_double() / viewport.zoom
+  let vb_height = canvas_height.to_double() / viewport.zoom
+  let start_x = viewport.scroll_x
+  let start_y = viewport.scroll_y
+  let end_x = start_x + vb_width
+  let end_y = start_y + vb_height
+  // グリッドの開始位置を計算
+  let grid_start_x = (start_x / size).floor() * size
+  let grid_start_y = (start_y / size).floor() * size
+  // 縦線
+  let mut x = grid_start_x
+  while x <= end_x {
+    children.push(create_svg_node("line", [
+      ("x1", x.to_string()),
+      ("y1", start_y.to_string()),
+      ("x2", x.to_string()),
+      ("y2", end_y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ], [], []))
+    x = x + size
+  }
+  // 横線
+  let mut y = grid_start_y
+  while y <= end_y {
+    children.push(create_svg_node("line", [
+      ("x1", start_x.to_string()),
+      ("y1", y.to_string()),
+      ("x2", end_x.to_string()),
+      ("y2", y.to_string()),
+      ("stroke", "#e0e0e0"),
+      ("stroke-width", "0.5"),
+    ], [], []))
+    y = y + size
+  }
+  @element.fragment(children)
+}
+
+///|
+/// 要素を VNode として描画（Effect で直接 DOM 更新）
+pub fn render_element_vnode(state : EditorState, id : String) -> @element.DomNode {
+  // 現在の要素を取得（初期値）
+  guard state.find_element(id) is Some(el) else {
+    return @element.fragment([])
+  }
+
+  // テキスト編集中は非表示
+  match state.text_edit.get() {
+    Some(edit_state) =>
+      if edit_state.editing_id == Some(id) {
+        return @element.fragment([])
+      }
+    None => ()
+  }
+
+  // 要素の種類に応じて Effect ベースの VNode を作成
+  render_element_with_effect(state, id, el)
+}
+
+///|
+/// Effect で直接 DOM を更新する要素レンダリング
+fn render_element_with_effect(
+  state : EditorState,
+  id : String,
+  initial_el : @model.Element,
+) -> @element.DomNode {
+  // DOM 要素への参照
+  let el_ref : Ref[@js.Any?] = { val: None }
+
+  // 前回の値を保持（差分検出用）
+  let prev_x : Ref[Double] = { val: initial_el.x }
+  let prev_y : Ref[Double] = { val: initial_el.y }
+  // Line の場合は端点も追跡
+  let (initial_x2, initial_y2) = match initial_el.shape {
+    @model.Line(x2, y2) => (x2, y2)
+    _ => (0.0, 0.0)
+  }
+  let prev_x2 : Ref[Double] = { val: initial_x2 }
+  let prev_y2 : Ref[Double] = { val: initial_y2 }
+
+  // Effect で Signal 変更時に直接 DOM を更新
+  let _ = @luna.effect(fn() {
+    let elements = state.elements.get()
+    guard el_ref.val is Some(dom_el) else { return }
+
+    // 現在の要素を検索
+    let current_el : @model.Element? = {
+      let mut found : @model.Element? = None
+      for e in elements {
+        if e.id == id {
+          found = Some(e)
+          break
+        }
+      }
+      found
+    }
+    guard current_el is Some(el) else { return }
+
+    // Line の場合は端点も考慮
+    match el.shape {
+      @model.Line(x2, y2) => {
+        if el.x != prev_x.val || el.y != prev_y.val || x2 != prev_x2.val || y2 != prev_y2.val {
+          prev_x.val = el.x
+          prev_y.val = el.y
+          prev_x2.val = x2
+          prev_y2.val = y2
+          update_element_position(dom_el, el)
+        }
+      }
+      _ => {
+        // 位置が変わった場合のみ更新
+        if el.x != prev_x.val || el.y != prev_y.val {
+          prev_x.val = el.x
+          prev_y.val = el.y
+          update_element_position(dom_el, el)
+        }
+      }
+    }
+  })
+
+  // 初期 VNode を作成（__ref で DOM 参照を取得）
+  create_element_vnode_with_ref(initial_el, el_ref)
+}
+
+///|
+/// 要素の位置を直接 DOM 更新
+fn update_element_position(dom_el : @js.Any, el : @model.Element) -> Unit {
+  match el.shape {
+    @model.Rect(_, _, _, _) => {
+      set_svg_attr_ffi(dom_el, "x", num_str(el.x))
+      set_svg_attr_ffi(dom_el, "y", num_str(el.y))
+    }
+    @model.Circle(_) | @model.Ellipse(_, _) => {
+      set_svg_attr_ffi(dom_el, "cx", num_str(el.x))
+      set_svg_attr_ffi(dom_el, "cy", num_str(el.y))
+    }
+    @model.Line(x2, y2) => {
+      // Line はグループ内の子要素を更新
+      update_line_children(dom_el, el.x, el.y, x2, y2)
+    }
+    _ => ()
+  }
+}
+
+///|
+/// Line グループの子要素を更新
+extern "js" fn update_line_children(
+  group : @js.Any,
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+) =
+  #| (group, x1, y1, x2, y2) => {
+  #|   const children = group.children;
+  #|   for (let i = 0; i < children.length; i++) {
+  #|     const child = children[i];
+  #|     if (child.tagName === 'line') {
+  #|       child.setAttribute('x1', x1);
+  #|       child.setAttribute('y1', y1);
+  #|       child.setAttribute('x2', x2);
+  #|       child.setAttribute('y2', y2);
+  #|     }
+  #|   }
+  #| }
+
+///|
+/// __ref 付きの VNode を作成
+fn create_element_vnode_with_ref(
+  el : @model.Element,
+  el_ref : Ref[@js.Any?],
+) -> @element.DomNode {
+  let attrs : Array[(String, String)] = []
+  attrs.push(("data-id", el.id))
+
+  match el.shape {
+    @model.Rect(w, h, rx, ry) => {
+      attrs.push(("x", num_str(el.x)))
+      attrs.push(("y", num_str(el.y)))
+      attrs.push(("width", num_str(w)))
+      attrs.push(("height", num_str(h)))
+      if rx is Some(v) { attrs.push(("rx", num_str(v))) }
+      if ry is Some(v) { attrs.push(("ry", num_str(v))) }
+      add_style_attrs(attrs, el.style)
+      attrs.push(("cursor", "move"))
+      create_svg_node_with_ref("rect", attrs, el_ref)
+    }
+    @model.Circle(r) => {
+      attrs.push(("cx", num_str(el.x)))
+      attrs.push(("cy", num_str(el.y)))
+      attrs.push(("r", num_str(r)))
+      add_style_attrs(attrs, el.style)
+      attrs.push(("cursor", "move"))
+      create_svg_node_with_ref("circle", attrs, el_ref)
+    }
+    @model.Ellipse(rx, ry) => {
+      attrs.push(("cx", num_str(el.x)))
+      attrs.push(("cy", num_str(el.y)))
+      attrs.push(("rx", num_str(rx)))
+      attrs.push(("ry", num_str(ry)))
+      add_style_attrs(attrs, el.style)
+      attrs.push(("cursor", "move"))
+      create_svg_node_with_ref("ellipse", attrs, el_ref)
+    }
+    @model.Line(x2, y2) => {
+      // Line はグループで __ref を取得
+      create_line_vnode_with_ref(el, x2, y2, el_ref)
+    }
+    _ => {
+      // 他の形状は既存の静的レンダリング
+      render_element_node(el, false, parent=None)
+    }
+  }
+}
+
+///|
+/// Line 用の __ref 付き VNode を作成
+fn create_line_vnode_with_ref(
+  el : @model.Element,
+  x2 : Double,
+  y2 : Double,
+  el_ref : Ref[@js.Any?],
+) -> @element.DomNode {
+  // 子要素を作成
+  let children : Array[@element.DomNode] = []
+
+  // 透明なヒットエリア
+  let hit_attrs : Array[(String, String)] = [
+    ("data-id", el.id),
+    ("x1", num_str(el.x)),
+    ("y1", num_str(el.y)),
+    ("x2", num_str(x2)),
+    ("y2", num_str(y2)),
+    ("stroke", "transparent"),
+    ("stroke-width", "24"),
+  ]
+  children.push(create_svg_node("line", hit_attrs, [], []))
+
+  // 実際の線
+  let line_attrs : Array[(String, String)] = [
+    ("x1", num_str(el.x)),
+    ("y1", num_str(el.y)),
+    ("x2", num_str(x2)),
+    ("y2", num_str(y2)),
+    ("pointer-events", "none"),
+  ]
+  add_style_attrs(line_attrs, el.style)
+  let stroke_color = el.style.stroke.unwrap_or("#000000")
+  add_marker_attrs(line_attrs, el.style, stroke_color)
+  children.push(create_svg_node("line", line_attrs, [], []))
+
+  // グループを作成（__ref 付き）
+  let group_attrs : Array[(String, @element.AttrValue)] = [
+    ("data-id", @element.Static(el.id)),
+    ("data-element-type", @element.Static("line")),
+    ("cursor", @element.Static("move")),
+    ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
+}
+
+///|
+/// __ref 付き SVG ノードを作成
+fn create_svg_node_with_ref(
+  tag : String,
+  attrs : Array[(String, String)],
+  el_ref : Ref[@js.Any?],
+) -> @element.DomNode {
+  let luna_attrs : Array[(String, @element.AttrValue)] = []
+  for attr in attrs {
+    luna_attrs.push((attr.0, @element.Static(attr.1)))
+  }
+  // __ref で DOM 参照を取得
+  luna_attrs.push(("__ref", @element.Handler(fn(dom) {
+    el_ref.val = Some(dom)
+  })))
+  @element.create_element_ns(@element.svg_ns, tag, luna_attrs, [])
+}
+
+///|
+/// 選択オーバーレイ（ハンドル・アンカー）を描画（Effect ベース）
+pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
+  // コンテナへの参照
+  let container_ref : Ref[@js.Any?] = { val: None }
+
+  // Effect で選択要素の変更を監視して再描画
+  let _ = @luna.effect(fn() {
+    let _ = state.elements.get() // 依存関係を登録
+    let selected_ids = state.selected_ids.get()
+
+    guard container_ref.val is Some(container) else { return }
+
+    // コンテナをクリア
+    clear_children_ffi(container)
+
+    // 選択された要素のオーバーレイを描画
+    for sel_id in selected_ids {
+      if state.find_element(sel_id) is Some(el) {
+        // アンカーポイント
+        let anchors = render_element_anchors(el)
+        for anchor in anchors {
+          append_child_ffi(container, anchor)
+        }
+        // リサイズハンドル（単一選択の場合のみ）
+        if selected_ids.length() == 1 {
+          let handles = render_resize_handles(el)
+          for handle in handles {
+            append_child_ffi(container, handle)
+          }
+        }
+      }
+    }
+  })
+
+  // コンテナグループを作成
+  let attrs : Array[(String, @element.AttrValue)] = [
+    ("class", @element.Static("selection-overlay")),
+    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", attrs, [])
+}
+
+///|
+/// 矩形選択ボックスを VNode として描画（Effect ベース）
+pub fn render_box_select_vnode(state : EditorState) -> @element.DomNode {
+  let rect_ref : Ref[@js.Any?] = { val: None }
+
+  let _ = @luna.effect(fn() {
+    let box_state = state.box_select.get()
+    guard rect_ref.val is Some(rect) else { return }
+    guard box_state is Some(bs) else { return }
+
+    let bbox = bs.to_bbox()
+    set_svg_attr_ffi(rect, "x", num_str(bbox.x))
+    set_svg_attr_ffi(rect, "y", num_str(bbox.y))
+    set_svg_attr_ffi(rect, "width", num_str(bbox.width))
+    set_svg_attr_ffi(rect, "height", num_str(bbox.height))
+  })
+
+  // 初期値で rect を作成
+  let initial_box = state.box_select.get()
+  let (x, y, w, h) = match initial_box {
+    Some(bs) => {
+      let bbox = bs.to_bbox()
+      (bbox.x, bbox.y, bbox.width, bbox.height)
+    }
+    None => (0.0, 0.0, 0.0, 0.0)
+  }
+
+  let attrs : Array[(String, @element.AttrValue)] = [
+    ("x", @element.Static(num_str(x))),
+    ("y", @element.Static(num_str(y))),
+    ("width", @element.Static(num_str(w))),
+    ("height", @element.Static(num_str(h))),
+    ("fill", @element.Static("rgba(0, 102, 255, 0.1)")),
+    ("stroke", @element.Static("#0066ff")),
+    ("stroke-width", @element.Static("1")),
+    ("stroke-dasharray", @element.Static("4,2")),
+    ("pointer-events", @element.Static("none")),
+    ("__ref", @element.Handler(fn(el) { rect_ref.val = Some(el) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "rect", attrs, [])
+}
+
+///|
+/// 全アンカーポイントを VNode として描画（ライン編集中、Effect ベース）
+pub fn render_all_anchors_vnode(state : EditorState) -> @element.DomNode {
+  let container_ref : Ref[@js.Any?] = { val: None }
+
+  let _ = @luna.effect(fn() {
+    let elements = state.elements.get()
+    let resize_state = state.resize_state.get()
+    guard container_ref.val is Some(container) else { return }
+    guard resize_state is Some(resize) else { return }
+
+    // コンテナをクリア
+    clear_children_ffi(container)
+
+    for el in elements {
+      // 編集中の要素はスキップ
+      if el.id == resize.element_id {
+        continue
+      }
+      // Line はスキップ
+      if el.shape is @model.Line(_, _) {
+        continue
+      }
+      // 子要素はスキップ
+      if el.parent_id is Some(_) {
+        continue
+      }
+      // アンカーポイント
+      let anchors = render_all_anchor_points([el], resize.element_id)
+      for anchor in anchors {
+        append_child_ffi(container, anchor)
+      }
+    }
+  })
+
+  let attrs : Array[(String, @element.AttrValue)] = [
+    ("class", @element.Static("all-anchors")),
+    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", attrs, [])
+}
+
+///|
+/// 接続ハイライトを VNode として描画（Effect ベース）
+pub fn render_connection_highlight_vnode(state : EditorState) -> @element.DomNode {
+  let circle_ref : Ref[@js.Any?] = { val: None }
+
+  let _ = @luna.effect(fn() {
+    let pending = state.pending_connection.get()
+    guard circle_ref.val is Some(circle) else { return }
+    guard pending is Some(p) else { return }
+
+    set_svg_attr_ffi(circle, "cx", num_str(p.point.x))
+    set_svg_attr_ffi(circle, "cy", num_str(p.point.y))
+  })
+
+  // 初期値で circle を作成
+  let initial = state.pending_connection.get()
+  let (cx, cy) = match initial {
+    Some(p) => (p.point.x, p.point.y)
+    None => (0.0, 0.0)
+  }
+
+  let attrs : Array[(String, @element.AttrValue)] = [
+    ("cx", @element.Static(num_str(cx))),
+    ("cy", @element.Static(num_str(cy))),
+    ("r", @element.Static("10")),
+    ("fill", @element.Static("rgba(0, 200, 100, 0.4)")),
+    ("stroke", @element.Static("#00c864")),
+    ("stroke-width", @element.Static("2")),
+    ("pointer-events", @element.Static("none")),
+    ("__ref", @element.Handler(fn(el) { circle_ref.val = Some(el) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "circle", attrs, [])
+}

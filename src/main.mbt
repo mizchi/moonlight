@@ -1007,11 +1007,11 @@ fn render_embedded_toolbar(
 }
 
 // =============================================================================
-// SVG キャンバス（Effect ベースの再描画 + Luna VNode コンテナ）
+// SVG キャンバス（Luna VNode + for_each による差分更新）
 // =============================================================================
 
 ///|
-/// SVG キャンバスを作成（Luna VNode + Effect ベースの内部再描画）
+/// SVG キャンバスを作成（Luna VNode + for_each による差分更新）
 fn render_svg_canvas_node(
   state : EditorState,
   on_mousedown : (@js.Any) -> Unit,
@@ -1020,140 +1020,77 @@ fn render_svg_canvas_node(
   on_contextmenu : (@js.Any) -> Unit,
   on_wheel : (@js.Any) -> Unit,
 ) -> @element.DomNode {
-  // SVG 要素への参照
-  let svg_ref : Ref[@js.Any?] = { val: None }
+  // 要素 ID リスト（for_each のキーとして使用）
+  let element_ids = @luna.memo(fn() {
+    state.elements.get().map(fn(el) { el.id })
+  })
 
-  // SVG 属性（動的な viewBox と style）
+  // SVG 子要素
+  let children : Array[@element.DomNode] = []
+
+  // 矢印マーカーの defs（静的）
+  let defs_node : @js_dom.Node = create_arrow_defs().cast()
+  children.push(@element.static_node(defs_node))
+
+  // グリッド線
+  children.push(@element.show(
+    fn() { state.grid_enabled.get() },
+    fn() { render_grid_vnode(state) },
+  ))
+
+  // 要素を for_each で描画（ID ベースの差分更新）
+  children.push(@element.for_each(
+    fn() { element_ids() },
+    fn(id, _idx) { render_element_vnode(state, id) },
+  ))
+
+  // 選択ハンドル・アンカー
+  children.push(render_selection_overlay(state))
+
+  // 矩形選択ボックス
+  children.push(@element.show(
+    fn() { state.box_select.get() is Some(_) },
+    fn() { render_box_select_vnode(state) },
+  ))
+
+  // 線ドラッグ中のアンカーポイント
+  children.push(@element.show(
+    fn() {
+      match state.resize_state.get() {
+        Some(resize) => resize.start_shape is @model.Line(_, _)
+        None => false
+      }
+    },
+    fn() { render_all_anchors_vnode(state) },
+  ))
+
+  // 接続ハイライト
+  children.push(@element.show(
+    fn() { state.pending_connection.get() is Some(_) },
+    fn() { render_connection_highlight_vnode(state) },
+  ))
+
+  // SVG 属性
   let svg_attrs : Array[(String, @element.AttrValue)] = [
     ("width", @element.Static(canvas_width.to_string())),
     ("height", @element.Static(canvas_height.to_string())),
-    // viewBox は viewport に連動（Dynamic）
     ("viewBox", @element.Dynamic(fn() {
       let vp = state.viewport.get()
       let vb_width = canvas_width.to_double() / vp.zoom
       let vb_height = canvas_height.to_double() / vp.zoom
       "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
     })),
-    // style は theme と preview_bg に連動（Dynamic）
     ("style", @element.Dynamic(fn() {
       let bg = state.preview_bg.get()
       let theme = state.get_theme()
       "border: 1px solid #ccc; background: \{bg}; user-select: none; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
     })),
-    // イベントハンドラ
     ("mousedown", @element.Handler(on_mousedown)),
     ("mousemove", @element.Handler(on_mousemove)),
     ("mouseup", @element.Handler(on_mouseup)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
-    // __ref で SVG 要素への参照を取得
-    ("__ref", @element.Handler(fn(el) {
-      svg_ref.val = Some(el)
-      // 初回描画
-      redraw_svg_inner(state, el)
-    })),
   ]
 
-  // Effect: Signal 変更時に SVG 内部を再描画
-  let _ = @luna.effect(fn() {
-    // 依存関係を登録
-    let _ = state.elements.get()
-    let _ = state.selected_ids.get()
-    let _ = state.grid_enabled.get()
-    let _ = state.box_select.get()
-    let _ = state.pending_connection.get()
-    let _ = state.resize_state.get()
-    let _ = state.text_edit.get()
-    let _ = state.grid_size.get()
-
-    if svg_ref.val is Some(svg) {
-      redraw_svg_inner(state, svg)
-    }
-  })
-
-  // SVG 要素を作成（子要素は Effect で動的に追加）
-  @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, [])
+  @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, children)
 }
-
-///|
-/// SVG 内部を再描画（Effect から呼び出し）
-fn redraw_svg_inner(state : EditorState, svg : @js.Any) -> Unit {
-  clear_children_ffi(svg)
-
-  // 矢印マーカーの defs を追加
-  let defs = create_arrow_defs()
-  append_child_ffi(svg, defs)
-
-  // グリッド線を描画
-  if state.grid_enabled.get() {
-    let grid_lines = render_grid(
-      canvas_width,
-      canvas_height,
-      state.grid_size.get(),
-      state.viewport.get(),
-    )
-    for line in grid_lines {
-      append_child_ffi(svg, line)
-    }
-  }
-
-  // 要素を描画（テキスト編集中のテキスト要素はスキップ）
-  let elements = state.elements.get()
-  let editing_text_id : String? = match state.text_edit.get() {
-    Some(edit_state) => edit_state.editing_id
-    None => None
-  }
-  for el in elements {
-    if editing_text_id is Some(text_id) && el.id == text_id {
-      continue
-    }
-    let is_selected = state.is_selected(el.id)
-    let parent_el : @model.Element? = match el.parent_id {
-      Some(pid) => state.find_element(pid)
-      None => None
-    }
-    let child = render_element(el, is_selected, parent=parent_el)
-    append_child_ffi(svg, child)
-  }
-
-  // 選択中の要素のアンカーポイントとリサイズハンドルを描画
-  let selected_ids = state.selected_ids.get()
-  for id in selected_ids {
-    if state.find_element(id) is Some(el) {
-      let anchors = render_element_anchors(el)
-      for anchor in anchors {
-        append_child_ffi(svg, anchor)
-      }
-      if selected_ids.length() == 1 {
-        let handles = render_resize_handles(el)
-        for handle in handles {
-          append_child_ffi(svg, handle)
-        }
-      }
-    }
-  }
-
-  // 矩形選択ボックスを描画
-  if state.box_select.get() is Some(box_state) {
-    let box_el = render_selection_box(box_state)
-    append_child_ffi(svg, box_el)
-  }
-
-  // 線の端点ドラッグ中はアンカーポイントを可視化
-  if state.resize_state.get() is Some(resize) {
-    if resize.start_shape is @model.Line(_, _) {
-      let anchors = render_all_anchor_points(elements, resize.element_id)
-      for anchor in anchors {
-        append_child_ffi(svg, anchor)
-      }
-    }
-  }
-
-  // 接続ポイントのハイライトを描画
-  if state.pending_connection.get() is Some(pending) {
-    let highlight = render_connection_highlight(pending.point)
-    append_child_ffi(svg, highlight)
-  }
-}
-
-

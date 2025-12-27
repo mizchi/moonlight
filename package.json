@@ -10,6 +10,7 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^25.0.3",
+    "happy-dom": "^20.0.11",
     "vite": "8.0.0-beta.3",
     "vite-plugin-moonbit": "^0.1.0"
   },

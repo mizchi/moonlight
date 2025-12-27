@@ -183,6 +183,21 @@ pub extern "js" fn remove_child_safe_ffi(parent : @js.Any, child : @js.Any) =
   #| (parent, child) => { try { if (child && child.parentNode === parent) parent.removeChild(child); } catch(e) {} }
 
 ///|
+/// 要素を親から削除
+pub extern "js" fn remove_element_ffi(el : @js.Any) =
+  #| (el) => { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
+///|
+/// 指定した子要素の前に挿入
+pub extern "js" fn insert_before_ffi(parent : @js.Any, new_child : @js.Any, ref_child : @js.Any) =
+  #| (parent, newChild, refChild) => parent.insertBefore(newChild, refChild)
+
+///|
+/// 子要素を取得
+pub extern "js" fn get_child_at_ffi(parent : @js.Any, index : Int) -> @js.Any =
+  #| (parent, index) => parent.children[index] || null
+
+///|
 /// SVG の背景スタイルを更新
 pub extern "js" fn update_svg_background_ffi(svg : @js.Any, background : String) =
   #| (svg, background) => svg.style.background = background
