@@ -9,6 +9,40 @@ pub(all) struct Point {
 } derive(Show, Eq)
 
 ///|
+/// アンカー位置（図形上の接続点）
+pub(all) enum Anchor {
+  Center
+  Top
+  Bottom
+  Left
+  Right
+  TopLeft
+  TopRight
+  BottomLeft
+  BottomRight
+} derive(Show, Eq)
+
+///|
+/// 接続情報（線の端点が他の要素に接続している場合）
+pub(all) struct Connection {
+  element_id : String // 接続先の要素 ID
+  anchor : Anchor // 接続点の位置
+} derive(Show, Eq)
+
+///|
+/// 線の接続情報
+pub(all) struct LineConnections {
+  start : Connection? // 始点の接続（None = 自由端点）
+  end : Connection? // 終点の接続（None = 自由端点）
+} derive(Show, Eq)
+
+///|
+/// デフォルトの接続情報（接続なし）
+pub fn LineConnections::none() -> LineConnections {
+  { start: None, end: None }
+}
+
+///|
 /// 共通スタイル属性
 pub(all) struct Style {
   fill : String? // 塗りつぶし色 (e.g., "#ff0000", "none")
@@ -57,6 +91,7 @@ pub(all) struct Element {
   style : Style // スタイル属性
   transform : String? // SVG transform 属性
   parent_id : String? // 親要素の ID（グループ化用）
+  connections : LineConnections? // 線の接続情報（Line のみ使用）
 } derive(Show, Eq)
 
 ///|
@@ -67,7 +102,7 @@ pub fn Element::new(
   y : Double,
   shape : ShapeType,
 ) -> Element {
-  { id, x, y, shape, style: Style::default(), transform: None, parent_id: None }
+  { id, x, y, shape, style: Style::default(), transform: None, parent_id: None, connections: None }
 }
 
 ///|
@@ -140,6 +175,58 @@ pub fn Element::bounding_box(self : Element) -> BoundingBox {
 /// ポイントが要素上にあるか判定
 pub fn Element::hit_test(self : Element, p : Point) -> Bool {
   self.bounding_box().contains(p)
+}
+
+///|
+/// 指定アンカーの座標を取得
+pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
+  let bbox = self.bounding_box()
+  let cx = bbox.x + bbox.width / 2.0
+  let cy = bbox.y + bbox.height / 2.0
+  match anchor {
+    Center => { x: cx, y: cy }
+    Top => { x: cx, y: bbox.y }
+    Bottom => { x: cx, y: bbox.y + bbox.height }
+    Left => { x: bbox.x, y: cy }
+    Right => { x: bbox.x + bbox.width, y: cy }
+    TopLeft => { x: bbox.x, y: bbox.y }
+    TopRight => { x: bbox.x + bbox.width, y: bbox.y }
+    BottomLeft => { x: bbox.x, y: bbox.y + bbox.height }
+    BottomRight => { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+  }
+}
+
+///|
+/// 全てのアンカー位置を取得
+pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
+  let anchors : Array[Anchor] = [Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft, BottomRight]
+  anchors.map(fn(a) { (a, self.get_anchor_point(a)) })
+}
+
+///|
+/// 点から最も近いアンカーを探す
+pub fn Element::find_nearest_anchor(
+  self : Element,
+  point : Point,
+  threshold : Double,
+) -> (Anchor, Point, Double)? {
+  let mut nearest : (Anchor, Point, Double)? = None
+  for anchor_data in self.get_all_anchors() {
+    let (anchor, anchor_point) = anchor_data
+    let dx = point.x - anchor_point.x
+    let dy = point.y - anchor_point.y
+    let dist = (dx * dx + dy * dy).sqrt()
+    if dist <= threshold {
+      match nearest {
+        None => nearest = Some((anchor, anchor_point, dist))
+        Some((_, _, prev_dist)) =>
+          if dist < prev_dist {
+            nearest = Some((anchor, anchor_point, dist))
+          }
+      }
+    }
+  }
+  nearest
 }
 
 ///|

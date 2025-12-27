@@ -471,6 +471,21 @@ fn editor_app() -> @element.DomNode {
           let box_el = render_selection_box(box_state)
           append_child_ffi(svg, box_el)
         }
+        // 線の端点ドラッグ中はアンカーポイントを可視化
+        if state.resize_state.get() is Some(resize) {
+          // start_shape が Line ならアンカーポイントを表示
+          if resize.start_shape is @model.Line(_, _) {
+            let anchors = render_all_anchor_points(state.elements.get(), resize.element_id)
+            for anchor in anchors {
+              append_child_ffi(svg, anchor)
+            }
+          }
+        }
+        // 接続ポイントのハイライトを描画（スナップ先）
+        if state.pending_connection.get() is Some(pending) {
+          let highlight = render_connection_highlight(pending.point)
+          append_child_ffi(svg, highlight)
+        }
       }
     }
   }
@@ -485,6 +500,8 @@ fn editor_app() -> @element.DomNode {
     let _ = state.selected_ids.get()
     let _ = state.grid_enabled.get()
     let _ = state.box_select.get()
+    let _ = state.pending_connection.get()
+    let _ = state.resize_state.get()
     // 初回はスキップ（既に初期レンダリング済み）
     if is_first_run.val {
       is_first_run.val = false

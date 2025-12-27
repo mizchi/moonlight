@@ -1,6 +1,14 @@
 // Scene - Signal ベースの要素管理
 
 ///|
+/// 線のスナップ先プレビュー（ドラッグ中の視覚的フィードバック用）
+pub(all) struct PendingConnection {
+  target_id : String // 接続先の要素 ID
+  anchor : @model.Anchor // アンカー位置
+  point : @model.Point // 座標
+}
+
+///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // キャンバス幅
@@ -18,6 +26,7 @@ pub struct EditorState {
   is_panning : @luna.Signal[Bool] // パン中かどうか
   pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
   text_edit : @luna.Signal[@model.TextEditState?] // テキスト編集状態
+  pending_connection : @luna.Signal[PendingConnection?] // ドラッグ中の接続プレビュー
 }
 
 ///|
@@ -39,6 +48,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     is_panning: @luna.signal(false),
     pan_start: @luna.signal(None),
     text_edit: @luna.signal(None),
+    pending_connection: @luna.signal(None),
   }
 }
 
@@ -152,7 +162,7 @@ pub fn EditorState::update_element(
 }
 
 ///|
-/// 要素を移動（子要素も一緒に移動）
+/// 要素を移動（子要素も一緒に移動、接続ラインも更新）
 pub fn EditorState::move_element(
   self : EditorState,
   id : String,
@@ -170,6 +180,8 @@ pub fn EditorState::move_element(
   for child in children {
     self.update_element(child.id, fn(c) { { ..c, x: c.x + dx, y: c.y + dy } })
   }
+  // 接続されているラインを更新
+  self.update_connected_lines(id)
 }
 
 ///|
@@ -606,11 +618,31 @@ pub fn EditorState::resize_move(
     }
     @model.Line(x2, y2) => {
       // 線の端点をドラッグ
+      let snap_threshold = 20.0
       match state.handle {
         @model.LineStart => {
           // 始点を移動
-          let new_x = state.start_x + dx
-          let new_y = state.start_y + dy
+          let raw_x = state.start_x + dx
+          let raw_y = state.start_y + dy
+          // 近くのアンカーポイントを探す
+          let snap_result = self.find_nearest_connection_point(
+            { x: raw_x, y: raw_y },
+            [state.element_id],
+            snap_threshold,
+          )
+          let (new_x, new_y) = match snap_result {
+            Some((_, _, snap_point)) => {
+              // スナップ先を pending_connection に設定
+              (snap_point.x, snap_point.y)
+            }
+            None => (raw_x, raw_y)
+          }
+          // pending_connection を更新
+          match snap_result {
+            Some((target_el, anchor, snap_point)) =>
+              self.pending_connection.set(Some({ target_id: target_el.id, anchor, point: snap_point }))
+            None => self.pending_connection.set(None)
+          }
           self.elements.update(fn(els) {
             els.map(fn(el) {
               if el.id == state.element_id {
@@ -622,13 +654,30 @@ pub fn EditorState::resize_move(
           })
         }
         @model.LineEnd => {
-          // 終点を移動
-          let new_x2 = x2 + dx
-          let new_y2 = y2 + dy
+          // 終点を移動（Line の x2, y2 は絶対座標）
+          // 新しい終点の絶対座標を計算
+          let raw_end_x = x2 + dx
+          let raw_end_y = y2 + dy
+          // 近くのアンカーポイントを探す
+          let snap_result = self.find_nearest_connection_point(
+            { x: raw_end_x, y: raw_end_y },
+            [state.element_id],
+            snap_threshold,
+          )
+          let (final_x2, final_y2) = match snap_result {
+            Some((_, _, snap_point)) => (snap_point.x, snap_point.y)
+            None => (raw_end_x, raw_end_y)
+          }
+          // pending_connection を更新
+          match snap_result {
+            Some((target_el, anchor, snap_point)) =>
+              self.pending_connection.set(Some({ target_id: target_el.id, anchor, point: snap_point }))
+            None => self.pending_connection.set(None)
+          }
           self.elements.update(fn(els) {
             els.map(fn(el) {
               if el.id == state.element_id {
-                { ..el, shape: @model.Line(new_x2, new_y2) }
+                { ..el, shape: @model.Line(final_x2, final_y2) }
               } else {
                 el
               }
@@ -645,6 +694,53 @@ pub fn EditorState::resize_move(
 ///|
 /// リサイズ終了
 pub fn EditorState::end_resize(self : EditorState) -> Unit {
+  // Line の場合、pending_connection があれば接続情報を保存
+  if self.resize_state.get() is Some(resize) {
+    if self.find_element(resize.element_id) is Some(el) {
+      if el.shape is @model.Line(_, _) {
+        if self.pending_connection.get() is Some(pending) {
+          // 現在の接続情報を取得または新規作成
+          let current_conns = el.connections.unwrap_or(@model.LineConnections::none())
+          // ハンドル位置に応じて始点または終点の接続を更新
+          let new_conns = match resize.handle {
+            @model.LineStart => {
+              let conn : @model.Connection = { element_id: pending.target_id, anchor: pending.anchor }
+              { ..current_conns, start: Some(conn) }
+            }
+            @model.LineEnd => {
+              let conn : @model.Connection = { element_id: pending.target_id, anchor: pending.anchor }
+              { ..current_conns, end: Some(conn) }
+            }
+            _ => current_conns
+          }
+          self.update_line_connection(resize.element_id, new_conns)
+        } else {
+          // スナップしていない場合は接続を解除
+          let current_conns = el.connections.unwrap_or(@model.LineConnections::none())
+          let new_conns = match resize.handle {
+            @model.LineStart => { ..current_conns, start: None }
+            @model.LineEnd => { ..current_conns, end: None }
+            _ => current_conns
+          }
+          // 接続が両方なくなった場合は connections を None に
+          if new_conns.start is None && new_conns.end is None {
+            self.elements.update(fn(els) {
+              els.map(fn(e) {
+                if e.id == resize.element_id {
+                  { ..e, connections: None }
+                } else {
+                  e
+                }
+              })
+            })
+          } else {
+            self.update_line_connection(resize.element_id, new_conns)
+          }
+        }
+      }
+    }
+  }
+  self.pending_connection.set(None)
   self.resize_state.set(None)
 }
 
@@ -840,4 +936,101 @@ pub fn EditorState::end_multi_drag(self : EditorState) -> Unit {
 /// 複数要素ドラッグ中かどうか
 pub fn EditorState::is_multi_dragging(self : EditorState) -> Bool {
   self.multi_drag_state.get() is Some(_)
+}
+
+// ============================================================
+// 接続ライン管理
+// ============================================================
+
+///|
+/// 指定要素に接続されている全てのラインを更新
+pub fn EditorState::update_connected_lines(self : EditorState, element_id : String) -> Unit {
+  guard self.find_element(element_id) is Some(target)
+  // 接続されているラインを探して更新
+  self.elements.update(fn(elements) {
+    elements.map(fn(el) {
+      // Line 要素のみ処理
+      guard el.shape is @model.Line(x2, y2) else { return el }
+      guard el.connections is Some(conns) else { return el }
+      // 始点の接続を確認（el.x, el.y が始点の絶対座標）
+      let (new_x, new_y) = match conns.start {
+        Some(conn) if conn.element_id == element_id => {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          (anchor_point.x, anchor_point.y)
+        }
+        _ => (el.x, el.y)
+      }
+      // 終点の接続を確認（x2, y2 は終点の絶対座標）
+      let (new_x2, new_y2) = match conns.end {
+        Some(conn) if conn.element_id == element_id => {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          (anchor_point.x, anchor_point.y)
+        }
+        _ => (x2, y2)
+      }
+      // 変更があれば更新
+      if new_x != el.x || new_y != el.y || new_x2 != x2 || new_y2 != y2 {
+        { ..el, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 線の接続情報を更新
+pub fn EditorState::update_line_connection(
+  self : EditorState,
+  line_id : String,
+  connections : @model.LineConnections,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == line_id {
+        { ..el, connections: Some(connections) }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 指定座標から最も近い接続ポイントを探す（線を除く全要素から）
+pub fn EditorState::find_nearest_connection_point(
+  self : EditorState,
+  point : @model.Point,
+  exclude_ids : Array[String],
+  threshold : Double,
+) -> (@model.Element, @model.Anchor, @model.Point)? {
+  let mut nearest : (@model.Element, @model.Anchor, @model.Point, Double)? = None
+  for el in self.elements.get() {
+    // 除外リストに含まれる要素はスキップ
+    if exclude_ids.contains(el.id) {
+      continue
+    }
+    // Line 要素はスキップ（Lineには接続しない）
+    if el.shape is @model.Line(_, _) {
+      continue
+    }
+    // 子要素はスキップ
+    if el.parent_id is Some(_) {
+      continue
+    }
+    // 最寄りのアンカーを探す
+    if el.find_nearest_anchor(point, threshold) is Some((anchor, anchor_point, dist)) {
+      match nearest {
+        None => nearest = Some((el, anchor, anchor_point, dist))
+        Some((_, _, _, prev_dist)) =>
+          if dist < prev_dist {
+            nearest = Some((el, anchor, anchor_point, dist))
+          }
+      }
+    }
+  }
+  match nearest {
+    Some((el, anchor, point, _)) => Some((el, anchor, point))
+    None => None
+  }
 }

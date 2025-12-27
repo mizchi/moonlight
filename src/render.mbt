@@ -484,3 +484,54 @@ pub fn render_selection_box(box_state : @model.BoxSelectState) -> @js.Any {
   ]
   create_svg_element("rect", attrs, [])
 }
+
+///|
+/// 接続ポイントのハイライトを描画（スナップ先）
+pub fn render_connection_highlight(point : @model.Point) -> @js.Any {
+  // 接続ポイントを強調表示する円
+  let attrs : Array[(String, String)] = [
+    ("cx", num_str(point.x)),
+    ("cy", num_str(point.y)),
+    ("r", "10"),
+    ("fill", "rgba(0, 200, 100, 0.4)"),
+    ("stroke", "#00c864"),
+    ("stroke-width", "2"),
+    ("pointer-events", "none"),
+  ]
+  create_svg_element("circle", attrs, [])
+}
+
+///|
+/// 全てのアンカーポイントを描画（ドラッグ中の可視化用）
+pub fn render_all_anchor_points(elements : Array[@model.Element], exclude_id : String) -> Array[@js.Any] {
+  let result : Array[@js.Any] = []
+  for el in elements {
+    // 除外する要素はスキップ
+    if el.id == exclude_id {
+      continue
+    }
+    // Line 要素はスキップ（Line には接続しない）
+    if el.shape is @model.Line(_, _) {
+      continue
+    }
+    // 子要素はスキップ
+    if el.parent_id is Some(_) {
+      continue
+    }
+    // 全アンカーポイントを描画
+    for anchor_data in el.get_all_anchors() {
+      let (_, point) = anchor_data
+      let attrs : Array[(String, String)] = [
+        ("cx", num_str(point.x)),
+        ("cy", num_str(point.y)),
+        ("r", "4"),
+        ("fill", "rgba(0, 102, 255, 0.3)"),
+        ("stroke", "#0066ff"),
+        ("stroke-width", "1"),
+        ("pointer-events", "none"),
+      ]
+      result.push(create_svg_element("circle", attrs, []))
+    }
+  }
+  result
+}
