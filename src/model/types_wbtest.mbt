@@ -417,15 +417,29 @@ test "Element::get_anchor_point - Circle" {
   assert_eq(top.y, 50.0) // 100 - 50
 }
 
-test "Element::get_all_anchors" {
+test "Element::get_all_anchors - Rect has 9 anchors" {
   let el = Element::new("el-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
   let anchors = el.get_all_anchors()
   assert_eq(anchors.length(), 9)
   // Check that all anchors are present
   let has_center = anchors.iter().any(fn(a) { a.0 == Center })
   let has_top = anchors.iter().any(fn(a) { a.0 == Top })
+  let has_top_left = anchors.iter().any(fn(a) { a.0 == TopLeft })
   assert_true(has_center)
   assert_true(has_top)
+  assert_true(has_top_left)
+}
+
+test "Element::get_all_anchors - Circle has 5 anchors (no corners)" {
+  let el = Element::new("el-1", 100.0, 100.0, Circle(50.0))
+  let anchors = el.get_all_anchors()
+  assert_eq(anchors.length(), 5) // Center, Top, Bottom, Left, Right only
+  let has_center = anchors.iter().any(fn(a) { a.0 == Center })
+  let has_top = anchors.iter().any(fn(a) { a.0 == Top })
+  let has_top_left = anchors.iter().any(fn(a) { a.0 == TopLeft })
+  assert_true(has_center)
+  assert_true(has_top)
+  assert_false(has_top_left) // No corner anchors for circles
 }
 
 test "Element::find_nearest_anchor - within threshold" {

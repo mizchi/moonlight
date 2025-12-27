@@ -271,7 +271,11 @@ pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
 ///|
 /// 全てのアンカー位置を取得
 pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
-  let anchors : Array[Anchor] = [Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft, BottomRight]
+  // 円・楕円は四隅のアンカーを持たない（上下左右と中心のみ）
+  let anchors : Array[Anchor] = match self.shape {
+    Circle(_) | Ellipse(_, _) => [Center, Top, Bottom, Left, Right]
+    _ => [Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft, BottomRight]
+  }
   anchors.map(fn(a) { (a, self.get_anchor_point(a)) })
 }
 
