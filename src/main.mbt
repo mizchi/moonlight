@@ -109,23 +109,49 @@ fn editor_app() -> @element.DomNode {
 /// サンプル図形を追加
 fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
   let default_style = state.get_default_style()
+  let text_style = state.get_text_style()
+
+  // 矩形1（テキスト付き）
+  let rect1_id = new_id()
   let rect1 = @model.Element::new(
-    new_id(),
+    rect1_id,
     50.0,
     50.0,
-    @model.Rect(80.0, 60.0, None, None),
+    @model.Rect(120.0, 80.0, None, None),
   ).with_style(default_style)
+  let text1_id = new_id()
+  let text1 = @model.Element::new(
+    text1_id,
+    110.0, // rect1 の中央
+    90.0,
+    @model.Text("Hello", Some(16.0)),
+  ).with_style(text_style).with_parent(rect1_id)
+
+  // 矩形2（テキスト付き）
+  let rect2_id = new_id()
   let rect2 = @model.Element::new(
-    new_id(),
-    180.0,
-    120.0,
-    @model.Rect(70.0, 70.0, Some(8.0), Some(8.0)),
+    rect2_id,
+    220.0,
+    50.0,
+    @model.Rect(100.0, 80.0, None, None),
   ).with_style(default_style)
-  let circle1 = @model.Element::new(new_id(), 320.0, 80.0, @model.Circle(35.0)).with_style(
+  let text2_id = new_id()
+  let text2 = @model.Element::new(
+    text2_id,
+    270.0, // rect2 の中央
+    90.0,
+    @model.Text("World", Some(16.0)),
+  ).with_style(text_style).with_parent(rect2_id)
+
+  // 円
+  let circle1 = @model.Element::new(new_id(), 400.0, 90.0, @model.Circle(40.0)).with_style(
     default_style,
   )
+
   state.add_element_raw(rect1)
+  state.add_element_raw(text1)
   state.add_element_raw(rect2)
+  state.add_element_raw(text2)
   state.add_element_raw(circle1)
 }
 

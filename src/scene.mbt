@@ -1031,10 +1031,16 @@ pub fn EditorState::resize_move(
       let final_y = final_y1
       let final_w = final_x2 - final_x1
       let final_h = final_y2 - final_y1
+      // 子要素の新しい中央位置
+      let child_center_x = final_x + final_w / 2.0
+      let child_center_y = final_y + final_h / 2.0
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
             { ..el, x: final_x, y: final_y, shape: @model.Rect(final_w, final_h, rx, ry) }
+          } else if el.parent_id == Some(state.element_id) {
+            // 子要素を親の中央に配置
+            { ..el, x: child_center_x, y: child_center_y }
           } else {
             el
           }
@@ -1067,6 +1073,9 @@ pub fn EditorState::resize_move(
         els.map(fn(el) {
           if el.id == state.element_id {
             { ..el, shape: @model.Circle(final_r) }
+          } else if el.parent_id == Some(state.element_id) {
+            // 子要素を親の中央に配置（円の中心）
+            { ..el, x: cx, y: cy }
           } else {
             el
           }
@@ -1120,6 +1129,9 @@ pub fn EditorState::resize_move(
         els.map(fn(el) {
           if el.id == state.element_id {
             { ..el, x: new_cx, y: new_cy, shape: @model.Ellipse(final_rx, final_ry) }
+          } else if el.parent_id == Some(state.element_id) {
+            // 子要素を親の中央に配置（楕円の中心）
+            { ..el, x: new_cx, y: new_cy }
           } else {
             el
           }
@@ -1255,11 +1267,48 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
             self.update_line_connection(resize.element_id, new_conns)
           }
         }
+      } else {
+        // 親要素がリサイズされた場合、子テキストの位置を中央に調整
+        self.center_child_elements(resize.element_id)
       }
     }
   }
   self.pending_connection.set(None)
   self.resize_state.set(None)
+}
+
+///|
+/// 親要素の子テキストを中央に配置
+pub fn EditorState::center_child_elements(self : EditorState, parent_id : String) -> Unit {
+  let elements = self.elements.get()
+  // 親要素を検索
+  let parent_el : @model.Element? = {
+    let mut found : @model.Element? = None
+    for e in elements {
+      if e.id == parent_id {
+        found = Some(e)
+        break
+      }
+    }
+    found
+  }
+  guard parent_el is Some(parent) else { return }
+
+  // 親の中央座標を計算
+  let bbox = parent.bounding_box()
+  let center_x = bbox.x + bbox.width / 2.0
+  let center_y = bbox.y + bbox.height / 2.0
+
+  // 子要素の位置を更新
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.parent_id == Some(parent_id) {
+        { ..el, x: center_x, y: center_y }
+      } else {
+        el
+      }
+    })
+  })
 }
 
 ///|
