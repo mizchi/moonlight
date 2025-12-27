@@ -1251,16 +1251,8 @@ pub fn render_element_vnode(state : EditorState, id : String) -> @element.DomNod
     return @element.fragment([])
   }
 
-  // テキスト編集中は非表示
-  match state.text_edit.get() {
-    Some(edit_state) =>
-      if edit_state.editing_id == Some(id) {
-        return @element.fragment([])
-      }
-    None => ()
-  }
-
   // 要素の種類に応じて Effect ベースの VNode を作成
+  // テキスト編集中の visibility 制御は Effect 内で行う
   render_element_with_effect(state, id, el)
 }
 
@@ -1325,6 +1317,25 @@ fn render_element_with_effect(
     }
   })
 
+  // テキスト編集状態の変化を監視して visibility を制御
+  let _ = @luna.effect(fn() {
+    let text_edit = state.text_edit.get()
+    guard el_ref.val is Some(dom_el) else { return }
+
+    // テキスト編集中かどうかをチェック
+    let is_editing = match text_edit {
+      Some(edit_state) => edit_state.editing_id == Some(id)
+      None => false
+    }
+
+    // 編集中は非表示、それ以外は表示
+    if is_editing {
+      set_svg_attr_ffi(dom_el, "visibility", "hidden")
+    } else {
+      set_svg_attr_ffi(dom_el, "visibility", "visible")
+    }
+  })
+
   // 初期 VNode を作成（__ref で DOM 参照を取得）
   create_element_vnode_with_ref(initial_el, el_ref)
 }
@@ -1344,6 +1355,11 @@ fn update_element_position(dom_el : @js.Any, el : @model.Element) -> Unit {
     @model.Line(x2, y2) => {
       // Line はグループ内の子要素を更新
       update_line_children(dom_el, el.x, el.y, x2, y2)
+    }
+    @model.Text(content, font_size) => {
+      // Text はグループ内の子要素を更新
+      let size = font_size.unwrap_or(16.0)
+      update_text_children(dom_el, el.x, el.y, content, size)
     }
     _ => ()
   }
@@ -1367,6 +1383,42 @@ extern "js" fn update_line_children(
   #|       child.setAttribute('y1', y1);
   #|       child.setAttribute('x2', x2);
   #|       child.setAttribute('y2', y2);
+  #|     }
+  #|   }
+  #| }
+
+///|
+/// Text グループの子要素を更新
+extern "js" fn update_text_children(
+  group : @js.Any,
+  x : Double,
+  y : Double,
+  content : String,
+  font_size : Double,
+) =
+  #| (group, x, y, content, fontSize) => {
+  #|   const children = group.children;
+  #|   // ヒットエリアのサイズを計算
+  #|   const lines = content.split('\n');
+  #|   const lineCount = lines.length;
+  #|   const lineHeight = fontSize * 1.2;
+  #|   const totalHeight = lineCount * lineHeight;
+  #|   const maxLineLen = lines.reduce((max, line) => Math.max(max, line.length), 0);
+  #|   const estimatedWidth = maxLineLen * fontSize * 0.6;
+  #|   const hitWidth = Math.max(estimatedWidth, 40);
+  #|   const hitHeight = Math.max(totalHeight, 24);
+  #|   for (let i = 0; i < children.length; i++) {
+  #|     const child = children[i];
+  #|     if (child.tagName === 'rect') {
+  #|       // ヒットエリア
+  #|       child.setAttribute('x', x - hitWidth / 2);
+  #|       child.setAttribute('y', y - hitHeight / 2);
+  #|       child.setAttribute('width', hitWidth);
+  #|       child.setAttribute('height', hitHeight);
+  #|     } else if (child.tagName === 'text') {
+  #|       // テキスト要素
+  #|       child.setAttribute('x', x);
+  #|       child.setAttribute('y', y);
   #|     }
   #|   }
   #| }
@@ -1412,6 +1464,10 @@ fn create_element_vnode_with_ref(
     @model.Line(x2, y2) => {
       // Line はグループで __ref を取得
       create_line_vnode_with_ref(el, x2, y2, el_ref)
+    }
+    @model.Text(content, font_size) => {
+      // Text はグループで __ref を取得
+      create_text_vnode_with_ref(el, content, font_size, el_ref)
     }
     _ => {
       // 他の形状は既存の静的レンダリング
@@ -1460,6 +1516,93 @@ fn create_line_vnode_with_ref(
   let group_attrs : Array[(String, @element.AttrValue)] = [
     ("data-id", @element.Static(el.id)),
     ("data-element-type", @element.Static("line")),
+    ("cursor", @element.Static("move")),
+    ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
+}
+
+///|
+/// Text 用の __ref 付き VNode を作成
+fn create_text_vnode_with_ref(
+  el : @model.Element,
+  content : String,
+  font_size : Double?,
+  el_ref : Ref[@js.Any?],
+) -> @element.DomNode {
+  let size = font_size.unwrap_or(16.0)
+  let text_x = el.x
+  let text_y = el.y
+
+  // ヒットエリアサイズ計算
+  let (hit_width, hit_height) = if content.contains("\n") {
+    let lines : Array[String] = content
+      .split("\n")
+      .map(fn(sv) { sv.to_string() })
+      .collect()
+    let line_count = lines.length()
+    let line_height = size * 1.2
+    let total_height = line_count.to_double() * line_height
+    let max_line_len = lines.fold(init=0, fn(acc, line) {
+      let len = line.iter().count()
+      if len > acc { len } else { acc }
+    })
+    let estimated_width = max_line_len.to_double() * size * 0.6
+    let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+    let h = if total_height < 24.0 { 24.0 } else { total_height }
+    (w, h)
+  } else {
+    let char_count = content.iter().count()
+    let estimated_width = char_count.to_double() * size * 0.6
+    let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+    (w, size * 1.2)
+  }
+
+  // 子要素を作成
+  let children : Array[@element.DomNode] = []
+
+  // ヒットエリア
+  let hit_attrs : Array[(String, String)] = [
+    ("data-id", el.id),
+    ("x", num_str(text_x - hit_width / 2.0)),
+    ("y", num_str(text_y - hit_height / 2.0)),
+    ("width", num_str(hit_width)),
+    ("height", num_str(hit_height)),
+    ("fill", "transparent"),
+  ]
+  children.push(create_svg_node("rect", hit_attrs, [], []))
+
+  // テキスト要素
+  let text_attrs : Array[(String, String)] = [
+    ("x", num_str(text_x)),
+    ("y", num_str(text_y)),
+    ("font-size", num_str(size)),
+    ("text-anchor", "middle"),
+    ("dominant-baseline", "middle"),
+    ("pointer-events", "none"),
+  ]
+  add_style_attrs(text_attrs, el.style)
+
+  // テキスト内容を設定するために __ref callback を使用
+  let text_luna_attrs : Array[(String, @element.AttrValue)] = []
+  for attr in text_attrs {
+    text_luna_attrs.push((attr.0, @element.Static(attr.1)))
+  }
+  text_luna_attrs.push(("__ref", @element.Handler(fn(text_el) {
+    set_multiline_text_ffi(text_el, content, text_x, size)
+  })))
+  let text_node = @element.create_element_ns(
+    @element.svg_ns,
+    "text",
+    text_luna_attrs,
+    [],
+  )
+  children.push(text_node)
+
+  // グループを作成（__ref 付き）
+  let group_attrs : Array[(String, @element.AttrValue)] = [
+    ("data-id", @element.Static(el.id)),
+    ("data-element-type", @element.Static("text")),
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
