@@ -1266,18 +1266,8 @@ fn render_element_with_effect(
   // DOM 要素への参照
   let el_ref : Ref[@js.Any?] = { val: None }
 
-  // 前回の値を保持（差分検出用）
-  let prev_x : Ref[Double] = { val: initial_el.x }
-  let prev_y : Ref[Double] = { val: initial_el.y }
-  // Line の場合は端点も追跡
-  let (initial_x2, initial_y2) = match initial_el.shape {
-    @model.Line(x2, y2) => (x2, y2)
-    _ => (0.0, 0.0)
-  }
-  let prev_x2 : Ref[Double] = { val: initial_x2 }
-  let prev_y2 : Ref[Double] = { val: initial_y2 }
-
   // Effect で Signal 変更時に直接 DOM を更新
+  // 位置・サイズの変更を全て反映
   let _ = @luna.effect(fn() {
     let elements = state.elements.get()
     guard el_ref.val is Some(dom_el) else { return }
@@ -1295,26 +1285,8 @@ fn render_element_with_effect(
     }
     guard current_el is Some(el) else { return }
 
-    // Line の場合は端点も考慮
-    match el.shape {
-      @model.Line(x2, y2) => {
-        if el.x != prev_x.val || el.y != prev_y.val || x2 != prev_x2.val || y2 != prev_y2.val {
-          prev_x.val = el.x
-          prev_y.val = el.y
-          prev_x2.val = x2
-          prev_y2.val = y2
-          update_element_position(dom_el, el)
-        }
-      }
-      _ => {
-        // 位置が変わった場合のみ更新
-        if el.x != prev_x.val || el.y != prev_y.val {
-          prev_x.val = el.x
-          prev_y.val = el.y
-          update_element_position(dom_el, el)
-        }
-      }
-    }
+    // 要素の属性を更新（位置・サイズ両方）
+    update_element_attrs(dom_el, el)
   })
 
   // テキスト編集状態の変化を監視して visibility を制御
@@ -1341,16 +1313,25 @@ fn render_element_with_effect(
 }
 
 ///|
-/// 要素の位置を直接 DOM 更新
-fn update_element_position(dom_el : @js.Any, el : @model.Element) -> Unit {
+/// 要素の属性を直接 DOM 更新（位置・サイズ両方）
+fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
   match el.shape {
-    @model.Rect(_, _, _, _) => {
+    @model.Rect(w, h, _, _) => {
       set_svg_attr_ffi(dom_el, "x", num_str(el.x))
       set_svg_attr_ffi(dom_el, "y", num_str(el.y))
+      set_svg_attr_ffi(dom_el, "width", num_str(w))
+      set_svg_attr_ffi(dom_el, "height", num_str(h))
     }
-    @model.Circle(_) | @model.Ellipse(_, _) => {
+    @model.Circle(r) => {
       set_svg_attr_ffi(dom_el, "cx", num_str(el.x))
       set_svg_attr_ffi(dom_el, "cy", num_str(el.y))
+      set_svg_attr_ffi(dom_el, "r", num_str(r))
+    }
+    @model.Ellipse(rx, ry) => {
+      set_svg_attr_ffi(dom_el, "cx", num_str(el.x))
+      set_svg_attr_ffi(dom_el, "cy", num_str(el.y))
+      set_svg_attr_ffi(dom_el, "rx", num_str(rx))
+      set_svg_attr_ffi(dom_el, "ry", num_str(ry))
     }
     @model.Line(x2, y2) => {
       // Line はグループ内の子要素を更新
@@ -1635,7 +1616,7 @@ pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
 
   // Effect で選択要素の変更を監視して再描画
   let _ = @luna.effect(fn() {
-    let _ = state.elements.get() // 依存関係を登録
+    let elements = state.elements.get()
     let selected_ids = state.selected_ids.get()
 
     guard container_ref.val is Some(container) else { return }
@@ -1645,7 +1626,18 @@ pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
 
     // 選択された要素のオーバーレイを描画
     for sel_id in selected_ids {
-      if state.find_element(sel_id) is Some(el) {
+      // elements から直接検索（Effect 依存関係を正しく追跡）
+      let found_el : @model.Element? = {
+        let mut result : @model.Element? = None
+        for e in elements {
+          if e.id == sel_id {
+            result = Some(e)
+            break
+          }
+        }
+        result
+      }
+      if found_el is Some(el) {
         // アンカーポイント
         let anchors = render_element_anchors(el)
         for anchor in anchors {
