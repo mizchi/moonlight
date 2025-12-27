@@ -1313,29 +1313,36 @@ fn render_element_with_effect(
 }
 
 ///|
-/// 要素の属性を直接 DOM 更新（位置・サイズ両方）
+/// 要素の属性を直接 DOM 更新（位置・サイズ・スタイル）
 fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
+  // 位置・サイズの更新
   match el.shape {
     @model.Rect(w, h, _, _) => {
       set_svg_attr_ffi(dom_el, "x", num_str(el.x))
       set_svg_attr_ffi(dom_el, "y", num_str(el.y))
       set_svg_attr_ffi(dom_el, "width", num_str(w))
       set_svg_attr_ffi(dom_el, "height", num_str(h))
+      // スタイルの更新
+      update_style_attrs(dom_el, el.style)
     }
     @model.Circle(r) => {
       set_svg_attr_ffi(dom_el, "cx", num_str(el.x))
       set_svg_attr_ffi(dom_el, "cy", num_str(el.y))
       set_svg_attr_ffi(dom_el, "r", num_str(r))
+      // スタイルの更新
+      update_style_attrs(dom_el, el.style)
     }
     @model.Ellipse(rx, ry) => {
       set_svg_attr_ffi(dom_el, "cx", num_str(el.x))
       set_svg_attr_ffi(dom_el, "cy", num_str(el.y))
       set_svg_attr_ffi(dom_el, "rx", num_str(rx))
       set_svg_attr_ffi(dom_el, "ry", num_str(ry))
+      // スタイルの更新
+      update_style_attrs(dom_el, el.style)
     }
     @model.Line(x2, y2) => {
       // Line はグループ内の子要素を更新
-      update_line_children(dom_el, el.x, el.y, x2, y2)
+      update_line_children_with_style(dom_el, el.x, el.y, x2, y2, el.style)
     }
     @model.Text(content, font_size) => {
       // Text はグループ内の子要素を更新
@@ -1347,15 +1354,54 @@ fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
 }
 
 ///|
-/// Line グループの子要素を更新
-extern "js" fn update_line_children(
+/// スタイル属性を直接 DOM 更新
+fn update_style_attrs(dom_el : @js.Any, style : @model.Style) -> Unit {
+  // fill
+  match style.fill {
+    Some(v) => set_svg_attr_ffi(dom_el, "fill", v)
+    None => set_svg_attr_ffi(dom_el, "fill", "none")
+  }
+  // stroke
+  if style.stroke is Some(v) {
+    set_svg_attr_ffi(dom_el, "stroke", v)
+  }
+  // stroke-width
+  if style.stroke_width is Some(v) {
+    set_svg_attr_ffi(dom_el, "stroke-width", num_str(v))
+  }
+  // opacity
+  if style.opacity is Some(v) {
+    set_svg_attr_ffi(dom_el, "opacity", num_str(v))
+  }
+}
+
+///|
+/// Line グループの子要素を更新（スタイル含む）
+fn update_line_children_with_style(
   group : @js.Any,
   x1 : Double,
   y1 : Double,
   x2 : Double,
   y2 : Double,
+  style : @model.Style,
+) -> Unit {
+  let stroke = style.stroke.unwrap_or("#000000")
+  let stroke_width = style.stroke_width.unwrap_or(1.0)
+  update_line_children_ffi(group, x1, y1, x2, y2, stroke, stroke_width)
+}
+
+///|
+/// Line グループの子要素を更新（FFI）
+extern "js" fn update_line_children_ffi(
+  group : @js.Any,
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+  stroke : String,
+  stroke_width : Double,
 ) =
-  #| (group, x1, y1, x2, y2) => {
+  #| (group, x1, y1, x2, y2, stroke, strokeWidth) => {
   #|   const children = group.children;
   #|   for (let i = 0; i < children.length; i++) {
   #|     const child = children[i];
@@ -1364,6 +1410,11 @@ extern "js" fn update_line_children(
   #|       child.setAttribute('y1', y1);
   #|       child.setAttribute('x2', x2);
   #|       child.setAttribute('y2', y2);
+  #|       // 実際の線（pointer-events: none）のみスタイル更新
+  #|       if (child.getAttribute('pointer-events') === 'none') {
+  #|         child.setAttribute('stroke', stroke);
+  #|         child.setAttribute('stroke-width', strokeWidth);
+  #|       }
   #|     }
   #|   }
   #| }
