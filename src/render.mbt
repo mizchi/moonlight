@@ -1303,6 +1303,11 @@ pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
   let grid_size = state.grid_size.get()
   let viewport = state.viewport.get()
   let size = grid_size.to_double()
+  // テーマに応じたグリッド色
+  let grid_color = match state.theme_mode.get() {
+    @model.Dark => "#333333" // ダークモードは暗めのグリッド
+    @model.Light => "#e0e0e0" // ライトモードは明るめのグリッド
+  }
   // viewBox の範囲を計算
   let vb_width = state.canvas_width.get().to_double() / viewport.zoom
   let vb_height = state.canvas_height.get().to_double() / viewport.zoom
@@ -1321,7 +1326,7 @@ pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
       ("y1", start_y.to_string()),
       ("x2", x.to_string()),
       ("y2", end_y.to_string()),
-      ("stroke", "#e0e0e0"),
+      ("stroke", grid_color),
       ("stroke-width", "0.5"),
     ], [], []))
     x = x + size
@@ -1334,7 +1339,7 @@ pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
       ("y1", y.to_string()),
       ("x2", end_x.to_string()),
       ("y2", y.to_string()),
-      ("stroke", "#e0e0e0"),
+      ("stroke", grid_color),
       ("stroke-width", "0.5"),
     ], [], []))
     y = y + size
