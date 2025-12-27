@@ -110,7 +110,7 @@ pub fn EditorState::get_theme(self : EditorState) -> @model.Theme {
 
 ///|
 /// テーマに基づいたデフォルトスタイルを取得（CSS変数を使用）
-pub fn EditorState::get_default_style(self : EditorState) -> @model.Style {
+pub fn EditorState::get_default_style(_self : EditorState) -> @model.Style {
   {
     fill: Some(@model.css_var_fill),
     stroke: Some(@model.css_var_stroke),
@@ -124,7 +124,7 @@ pub fn EditorState::get_default_style(self : EditorState) -> @model.Style {
 
 ///|
 /// テーマに基づいたテキストスタイルを取得（CSS変数を使用）
-pub fn EditorState::get_text_style(self : EditorState) -> @model.Style {
+pub fn EditorState::get_text_style(_self : EditorState) -> @model.Style {
   {
     fill: Some(@model.css_var_text),
     stroke: None,
@@ -138,7 +138,7 @@ pub fn EditorState::get_text_style(self : EditorState) -> @model.Style {
 
 ///|
 /// Line用のスタイルを取得（CSS変数を使用）
-pub fn EditorState::get_line_style(self : EditorState) -> @model.Style {
+pub fn EditorState::get_line_style(_self : EditorState) -> @model.Style {
   {
     fill: None,
     stroke: Some(@model.css_var_stroke),
@@ -152,7 +152,7 @@ pub fn EditorState::get_line_style(self : EditorState) -> @model.Style {
 
 ///|
 /// Arrow用のスタイルを取得（CSS変数を使用）
-pub fn EditorState::get_arrow_style(self : EditorState) -> @model.Style {
+pub fn EditorState::get_arrow_style(_self : EditorState) -> @model.Style {
   {
     fill: None,
     stroke: Some(@model.css_var_stroke),
