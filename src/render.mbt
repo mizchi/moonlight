@@ -5,6 +5,16 @@
 let svg_ns : String = "http://www.w3.org/2000/svg"
 
 ///|
+/// XML エスケープ
+fn escape_xml(s : String) -> String {
+  s
+    .replace(old="&", new="&amp;")
+    .replace(old="<", new="&lt;")
+    .replace(old=">", new="&gt;")
+    .replace(old="\"", new="&quot;")
+}
+
+///|
 /// SVG 要素を createElementNS で作成（FFI）
 extern "js" fn create_svg_element_ffi(
   tag : String,
@@ -91,7 +101,12 @@ fn add_marker_attrs(attrs : Array[(String, String)], style : @model.Style, strok
 
 ///|
 /// 要素を SVG ノードに変換
-pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
+/// parent: テキスト子要素の場合、親要素を渡すと中央に配置
+pub fn render_element(
+  el : @model.Element,
+  is_selected : Bool,
+  parent~ : @model.Element? = None,
+) -> @js.Any {
   let attrs : Array[(String, String)] = []
   // data-id 属性（イベント処理用）
   attrs.push(("data-id", el.id))
@@ -166,7 +181,7 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
           ("x2", num_str(x2)),
           ("y2", num_str(y2)),
           ("stroke", "rgba(0, 102, 255, 0.3)"),
-          ("stroke-width", num_str(el.style.stroke_width.unwrap_or(2.0) + 6.0)),
+          ("stroke-width", num_str(el.style.stroke_width.unwrap_or(1.0) + 6.0)),
           ("stroke-linecap", "round"),
           ("pointer-events", "none"),
         ]
@@ -212,11 +227,18 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
       create_svg_element("path", attrs, [])
     }
     @model.Text(content, font_size) => {
-      attrs.push(("x", num_str(el.x)))
-      attrs.push(("y", num_str(el.y)))
-      if font_size is Some(size) {
-        attrs.push(("font-size", num_str(size)))
+      let size = font_size.unwrap_or(16.0)
+      // 親要素がある場合は親の中央に配置
+      let (text_x, text_y) = match parent {
+        Some(p) => {
+          let bbox = p.bounding_box()
+          (bbox.x + bbox.width / 2.0, bbox.y + bbox.height / 2.0)
+        }
+        None => (el.x, el.y)
       }
+      attrs.push(("x", num_str(text_x)))
+      attrs.push(("y", num_str(text_y)))
+      attrs.push(("font-size", num_str(size)))
       // テキストを中央寄せ
       attrs.push(("text-anchor", "middle"))
       attrs.push(("dominant-baseline", "middle"))
@@ -226,16 +248,12 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
       }
       attrs.push(("cursor", "move"))
       let text_el = create_svg_element("text", attrs, [])
-      set_text_content_ffi(text_el, content)
+      // tspan で複数行表示（1行でも動作）
+      set_multiline_text_ffi(text_el, content, text_x, size)
       text_el
     }
   }
 }
-
-///|
-/// テキストコンテンツを設定（FFI）
-extern "js" fn set_text_content_ffi(el : @js.Any, content : String) =
-  #| (el, content) => el.textContent = content
 
 ///|
 /// SVG コンテナを作成（イベントハンドラ付き）
@@ -264,19 +282,19 @@ pub fn render_svg_container(
 ///|
 /// 矢印マーカーを作成（シンプルな三角形）
 fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any {
-  // コンパクトな矢印マーカー
+  // 矢印マーカー（stroke-width: 1 でも見やすいサイズ）
   let marker_attrs : Array[(String, String)] = [
     ("id", id),
-    ("markerWidth", "6"),
-    ("markerHeight", "6"),
-    ("refX", if is_start { "0" } else { "6" }),
-    ("refY", "3"),
+    ("markerWidth", "10"),
+    ("markerHeight", "10"),
+    ("refX", if is_start { "0" } else { "10" }),
+    ("refY", "5"),
     ("orient", "auto"),
     ("markerUnits", "strokeWidth"),
   ]
   let marker = create_svg_element("marker", marker_attrs, [])
   // シンプルな三角形パス
-  let path_d = if is_start { "M6,0 L0,3 L6,6" } else { "M0,0 L6,3 L0,6" }
+  let path_d = if is_start { "M10,0 L0,5 L10,10" } else { "M0,0 L10,5 L0,10" }
   let path_attrs : Array[(String, String)] = [
     ("d", path_d),
     ("fill", color),
@@ -327,7 +345,7 @@ pub fn render_svg_container_with_viewport(
     ("width", width.to_string()),
     ("height", height.to_string()),
     ("viewBox", "\{vb_x} \{vb_y} \{vb_width} \{vb_height}"),
-    ("style", "border: 1px solid #ccc; background: #fafafa; user-select: none;"),
+    ("style", "border: 1px solid #ccc; background: #fafafa; user-select: none; --ml-stroke: #000000; --ml-fill: transparent; --ml-text: #000000;"),
   ]
   let handlers : Array[(String, (@js.Any) -> Unit)] = [
     ("mousedown", on_mousedown),
@@ -391,12 +409,29 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
     }
     @model.Path(d) => "<path d=\"\{d}\"\{style_str}/>"
     @model.Text(content, font_size) => {
-      let fs_attr = if font_size is Some(size) {
-        " font-size=\"\{size}\""
+      let size = font_size.unwrap_or(16.0)
+      let fs_attr = " font-size=\"\{size}\""
+      if content.contains("\n") {
+        // 複数行テキストは tspan で出力
+        let lines : Array[String] = content.split("\n").map(fn(sv) { sv.to_string() }).collect()
+        let line_height = size * 1.2
+        let total_height = (lines.length() - 1).to_double() * line_height
+        let start_offset = -total_height / 2.0
+        let tspans : Array[String] = []
+        for i, line in lines {
+          let dy = if i == 0 { start_offset } else { line_height }
+          let escaped = escape_xml(line)
+          let x_val = el.x
+          tspans.push(
+            "<tspan x=\"\{x_val}\" dy=\"\{dy}\">\{escaped}</tspan>",
+          )
+        }
+        let tspan_str = tspans.join("")
+        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{style_str}>\{tspan_str}</text>"
       } else {
-        ""
+        let escaped = escape_xml(content)
+        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{style_str}>\{escaped}</text>"
       }
-      "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{style_str}>\{content}</text>"
     }
   }
 }

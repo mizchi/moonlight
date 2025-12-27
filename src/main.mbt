@@ -91,7 +91,11 @@ fn editor_app() -> @element.DomNode {
   let initial_children : Array[@js.Any] = []
   let elements = state.elements.get()
   for el in elements {
-    initial_children.push(render_element(el, state.is_selected(el.id)))
+    let parent_el : @model.Element? = match el.parent_id {
+      Some(pid) => state.find_element(pid)
+      None => None
+    }
+    initial_children.push(render_element(el, state.is_selected(el.id), parent=parent_el))
   }
   let svg = render_svg_container_with_viewport(
     canvas_width,
@@ -117,6 +121,12 @@ fn editor_app() -> @element.DomNode {
   // Viewport の変更を監視して viewBox を更新
   setup_viewport_effect(state, svg_ref, canvas_width, canvas_height, redraw_svg)
 
+  // プレビュー背景の変更を監視
+  setup_preview_bg_effect(state, svg_ref)
+
+  // テーマ変更を監視してCSS変数を更新
+  setup_theme_effect(state, svg_ref)
+
   // キーボードショートカット
   setup_keyboard_shortcuts(state, history, new_id)
 
@@ -131,43 +141,22 @@ fn editor_app() -> @element.DomNode {
 ///|
 /// サンプル図形を追加
 fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
+  let default_style = state.get_default_style()
   let rect1 = @model.Element::new(
     new_id(),
     50.0,
     50.0,
     @model.Rect(80.0, 60.0, None, None),
-  ).with_style({
-    fill: Some("transparent"),
-    stroke: Some("#000000"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-  })
+  ).with_style(default_style)
   let rect2 = @model.Element::new(
     new_id(),
     180.0,
     120.0,
     @model.Rect(70.0, 70.0, Some(8.0), Some(8.0)),
-  ).with_style({
-    fill: Some("transparent"),
-    stroke: Some("#000000"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-  })
-  let circle1 = @model.Element::new(new_id(), 320.0, 80.0, @model.Circle(35.0)).with_style({
-    fill: Some("transparent"),
-    stroke: Some("#000000"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-  })
+  ).with_style(default_style)
+  let circle1 = @model.Element::new(new_id(), 320.0, 80.0, @model.Circle(35.0)).with_style(
+    default_style,
+  )
   state.add_element_raw(rect1)
   state.add_element_raw(rect2)
   state.add_element_raw(circle1)
@@ -233,9 +222,11 @@ fn create_mousedown_handler(
       return
     }
 
+    // data-id を直接取得、なければ親要素から取得（tspan 対応）
     let data_id_raw = dataset._get("id")
     let data_id : String? = if @js.is_nullish(data_id_raw) {
-      None
+      let closest_id = get_closest_data_id_ffi(target)
+      if @js.is_nullish(closest_id) { None } else { Some(closest_id.cast()) }
     } else {
       Some(data_id_raw.cast())
     }
@@ -287,15 +278,7 @@ fn handle_anchor_click(
     anchor_point.x,
     anchor_point.y,
     @model.Line(anchor_point.x, anchor_point.y),
-  ).with_style({
-    fill: None,
-    stroke: Some("#000000"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: Some(@model.Arrow),
-  })
+  ).with_style(state.get_arrow_style())
   let line_with_conn = {
     ..new_line,
     connections: Some({
@@ -390,12 +373,12 @@ fn handle_element_click(
 /// ダブルクリック時のテキスト編集開始
 fn handle_double_click(state : EditorState, element_id : String) -> Unit {
   guard state.find_element(element_id) is Some(el)
-  // テキスト子要素がクリックされた場合は、そのテキストを編集
+  // テキスト要素の場合は直接編集
   if el.shape is @model.Text(content, _) {
-    if el.parent_id is Some(parent_id) {
-      state.start_text_edit_existing(element_id, parent_id, el.x, el.y, content)
-      return
-    }
+    // parent_id がない場合は自分自身を親として扱う
+    let parent_id = el.parent_id.unwrap_or(element_id)
+    state.start_text_edit_existing(element_id, parent_id, el.x, el.y, content)
+    return
   }
   // 親要素の場合：既存のテキスト子要素があるかチェック
   let children = state.get_children(element_id)
@@ -418,7 +401,8 @@ fn handle_double_click(state : EditorState, element_id : String) -> Unit {
 fn handle_text_edit(state : EditorState, text_id : String) -> Unit {
   guard state.find_element(text_id) is Some(el)
   guard el.shape is @model.Text(content, _)
-  guard el.parent_id is Some(parent_id)
+  // parent_id がない場合は自分自身を親として扱う
+  let parent_id = el.parent_id.unwrap_or(text_id)
   state.start_text_edit_existing(text_id, parent_id, el.x, el.y, content)
 }
 
@@ -454,15 +438,7 @@ fn commit_text_edit(
           edit_state.x,
           edit_state.y,
           @model.Text(text_content, Some(16.0)),
-        ).with_style({
-          fill: Some("#333333"),
-          stroke: None,
-          stroke_width: None,
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        }).with_parent(edit_state.parent_id)
+        ).with_style(state.get_text_style()).with_parent(edit_state.parent_id)
         execute_command(history, state, @model.AddElement(text_el))
       }
     }
@@ -631,9 +607,11 @@ fn create_contextmenu_handler(
     let mouse_event : @js_dom.MouseEvent = e.cast()
     let (scene_x, scene_y) = get_scene_coords(e)
     let target = e._get("target")
+    // data-id を直接取得、なければ親要素から取得（tspan 対応）
     let data_id_raw = target._get("dataset")._get("id")
     let target_id : String? = if @js.is_nullish(data_id_raw) {
-      None
+      let closest_id = get_closest_data_id_ffi(target)
+      if @js.is_nullish(closest_id) { None } else { Some(closest_id.cast()) }
     } else {
       Some(data_id_raw.cast())
     }
@@ -694,7 +672,12 @@ fn redraw_svg_content(
       continue
     }
     let is_selected = state.is_selected(el.id)
-    let child = render_element(el, is_selected)
+    // テキスト子要素の場合は親要素を渡して中央配置
+    let parent_el : @model.Element? = match el.parent_id {
+      Some(pid) => state.find_element(pid)
+      None => None
+    }
+    let child = render_element(el, is_selected, parent=parent_el)
     append_child_ffi(svg, child)
   }
 
@@ -784,6 +767,28 @@ fn setup_viewport_effect(
 }
 
 ///|
+/// プレビュー背景の変更を監視
+fn setup_preview_bg_effect(state : EditorState, svg_ref : Ref[@js.Any?]) -> Unit {
+  let _ = @luna.effect(fn() {
+    let bg = state.preview_bg.get()
+    if svg_ref.val is Some(svg) {
+      update_svg_background_ffi(svg, bg)
+    }
+  })
+}
+
+///|
+/// テーマ変更を監視してCSS変数を更新
+fn setup_theme_effect(state : EditorState, svg_ref : Ref[@js.Any?]) -> Unit {
+  let _ = @luna.effect(fn() {
+    let theme = state.get_theme()
+    if svg_ref.val is Some(svg) {
+      update_svg_css_vars_ffi(svg, theme.stroke, theme.fill, theme.text)
+    }
+  })
+}
+
+///|
 /// キーボードショートカットを設定
 fn setup_keyboard_shortcuts(
   state : EditorState,
@@ -821,15 +826,7 @@ fn setup_keyboard_shortcuts(
           pos.x - 40.0,
           pos.y - 30.0,
           @model.Rect(80.0, 60.0, None, None),
-        ).with_style({
-          fill: Some("transparent"),
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_rect))
         state.select(Some(el_id))
       }
@@ -841,36 +838,20 @@ fn setup_keyboard_shortcuts(
           pos.x,
           pos.y,
           @model.Circle(40.0),
-        ).with_style({
-          fill: Some("transparent"),
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_circle))
         state.select(Some(el_id))
       }
-      // 3: Line をマウス位置に挿入
+      // 3: Arrow をマウス位置に挿入
       "3" => {
         let el_id = new_id()
-        let new_line = @model.Element::new(
+        let new_arrow = @model.Element::new(
           el_id,
           pos.x - 50.0,
           pos.y,
           @model.Line(pos.x + 50.0, pos.y),
-        ).with_style({
-          fill: None,
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: Some(@model.Arrow),
-        })
-        execute_command(history, state, @model.AddElement(new_line))
+        ).with_style(state.get_arrow_style())
+        execute_command(history, state, @model.AddElement(new_arrow))
         state.select(Some(el_id))
       }
       // 4: Text をマウス位置に挿入
@@ -881,15 +862,7 @@ fn setup_keyboard_shortcuts(
           pos.x,
           pos.y,
           @model.Text("Text", Some(16.0)),
-        ).with_style({
-          fill: Some("#000000"),
-          stroke: None,
-          stroke_width: None,
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_text_style())
         execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))
       }
@@ -999,15 +972,7 @@ fn render_embedded_toolbar(
           150.0 + offset,
           150.0 + offset,
           @model.Rect(80.0, 60.0, None, None),
-        ).with_style({
-          fill: Some("transparent"),
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_rect))
         state.select(Some(el_id))
       }),
@@ -1025,15 +990,7 @@ fn render_embedded_toolbar(
           200.0 + offset,
           200.0 + offset,
           @model.Circle(40.0),
-        ).with_style({
-          fill: Some("transparent"),
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_circle))
         state.select(Some(el_id))
       }),
@@ -1051,15 +1008,7 @@ fn render_embedded_toolbar(
           180.0 + offset,
           120.0 + offset,
           @model.Ellipse(60.0, 35.0),
-        ).with_style({
-          fill: Some("transparent"),
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_ellipse))
         state.select(Some(el_id))
       }),
@@ -1077,19 +1026,29 @@ fn render_embedded_toolbar(
           50.0 + offset,
           220.0,
           @model.Line(180.0 + offset, 260.0),
-        ).with_style({
-          fill: None,
-          stroke: Some("#000000"),
-          stroke_width: Some(2.0),
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: Some(@model.Arrow),
-        })
+        ).with_style(state.get_line_style())
         execute_command(history, state, @model.AddElement(new_line))
         state.select(Some(el_id))
       }),
-      [text("Line (3)")],
+      [text("Line")],
+    ),
+    button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Arrow"))],
+      on=events().click(fn(_) {
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
+        let new_arrow = @model.Element::new(
+          el_id,
+          50.0 + offset,
+          240.0,
+          @model.Line(180.0 + offset, 280.0),
+        ).with_style(state.get_arrow_style())
+        execute_command(history, state, @model.AddElement(new_arrow))
+        state.select(Some(el_id))
+      }),
+      [text("Arrow")],
     ),
     button(
       style=btn_style,
@@ -1103,15 +1062,7 @@ fn render_embedded_toolbar(
           100.0 + offset,
           200.0 + offset * 0.75,
           @model.Text("Hello", Some(24.0)),
-        ).with_style({
-          fill: Some("#000000"),
-          stroke: None,
-          stroke_width: None,
-          opacity: None,
-          stroke_dasharray: None,
-          marker_start: None,
-          marker_end: None,
-        })
+        ).with_style(state.get_text_style())
         execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))
       }),

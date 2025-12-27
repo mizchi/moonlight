@@ -75,9 +75,8 @@ pub fn render_sidebar(
   div(
     style=sidebar_style,
     [
-      div(style="font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px;", [
-        text("Element"),
-      ]),
+      // パンくずリスト（階層表示）
+      render_breadcrumb(state),
       // 選択中の要素の詳細を表示（単一選択の場合）
       show(
         fn() { state.selected_ids.get().length() == 1 },
@@ -92,17 +91,289 @@ pub fn render_sidebar(
           ])
         },
       ),
-      // 選択なしの場合
+      // 選択なしの場合：Canvas設定と要素ツリーを表示
       show(
         fn() { state.selected_ids.get().length() == 0 },
-        fn() {
-          div(style="color: #888; font-size: 14px;", [
-            text("Select an element to view details"),
-          ])
-        },
+        fn() { render_canvas_root(state) },
       ),
     ],
   )
+}
+
+///|
+/// パンくずリストをレンダリング
+fn render_breadcrumb(state : EditorState) -> @element.DomNode {
+  let breadcrumb_style =
+    "display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-size: 12px;"
+  let link_style =
+    "color: #0066cc; cursor: pointer; background: none; border: none; padding: 0; font-size: 12px;"
+  let current_style = "color: #333; font-weight: bold;"
+  // 選択なしの場合はパンくずを非表示
+  show(
+    fn() { state.selected_ids.get().length() > 0 },
+    fn() {
+      div(
+        style=breadcrumb_style,
+        [
+          // Canvas リンク
+          button(
+            style=link_style,
+            on=events().click(fn(_) { state.select(None) }),
+            [text("Canvas")],
+          ),
+          @element.span(style="color: #999;", [text(" > ")]),
+          // 選択中の要素名
+          show(
+            fn() { state.selected_ids.get().length() == 1 },
+            fn() {
+              @element.span(style=current_style, [
+                text_dyn(fn() {
+                  match state.get_selected_id() {
+                    Some(id) =>
+                      match state.find_element(id) {
+                        Some(el) => @model.shape_name(el.shape) + " #" + el.id
+                        None => "Unknown"
+                      }
+                    None => "Unknown"
+                  }
+                }),
+              ])
+            },
+          ),
+          // 複数選択の場合
+          show(
+            fn() { state.selected_ids.get().length() > 1 },
+            fn() {
+              @element.span(style=current_style, [
+                text_dyn(fn() { "\{state.selected_ids.get().length()} selected" }),
+              ])
+            },
+          ),
+        ],
+      )
+    },
+  )
+}
+
+///|
+/// アコーディオンヘッダーのスタイル
+let accordion_header_style : String = "display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #f0f0f0; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 4px; user-select: none;"
+
+///|
+/// Canvas ルート表示（設定 + 要素ツリー）
+fn render_canvas_root(state : EditorState) -> @element.DomNode {
+  let settings_open = @luna.signal(true)
+  let elements_open = @luna.signal(true)
+  div(
+    style="display: flex; flex-direction: column; gap: 8px;",
+    [
+      // Canvas Settings アコーディオン
+      div(style="", [
+        div(
+          style=accordion_header_style,
+          on=events().click(fn(_) { settings_open.update(fn(v) { not(v) }) }),
+          [
+            text("Canvas Settings"),
+            text_dyn(fn() { if settings_open.get() { "▼" } else { "▶" } }),
+          ],
+        ),
+        show(
+          fn() { settings_open.get() },
+          fn() { render_canvas_settings(state) },
+        ),
+      ]),
+      // Elements アコーディオン
+      div(style="", [
+        div(
+          style=accordion_header_style,
+          on=events().click(fn(_) { elements_open.update(fn(v) { not(v) }) }),
+          [
+            text_dyn(fn() {
+              let count = state.elements.get().filter(fn(el) { el.parent_id is None }).length()
+              "Elements (\{count})"
+            }),
+            text_dyn(fn() { if elements_open.get() { "▼" } else { "▶" } }),
+          ],
+        ),
+        show(fn() { elements_open.get() }, fn() { render_element_tree(state) }),
+      ]),
+    ],
+  )
+}
+
+///|
+/// Canvas 設定パネル
+fn render_canvas_settings(state : EditorState) -> @element.DomNode {
+  let row_style =
+    "display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; font-size: 11px;"
+  let label_style = "color: #666;"
+  let text_input_style =
+    "width: 70px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 10px;"
+  let theme_btn_style =
+    "flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
+  div(
+    style="padding: 8px; background: #fff; border: 1px solid #eee; border-radius: 4px;",
+    [
+      // テーマ切り替え
+      div(style="margin-bottom: 12px;", [
+        @element.span(style=label_style + " display: block; margin-bottom: 6px;", [
+          text("Theme"),
+        ]),
+        div(style="display: flex; gap: 4px;", [
+          button(
+            dyn_style=fn() {
+              let is_active = state.theme_mode.get() == @model.Light
+              if is_active {
+                theme_btn_style + " background: #000; color: #fff; border-color: #000;"
+              } else {
+                theme_btn_style + " background: #fff; color: #333;"
+              }
+            },
+            on=events().click(fn(_) {
+              state.theme_mode.set(@model.Light)
+              let theme = @model.Theme::light()
+              state.preview_bg.set(theme.background)
+            }),
+            [text("Light")],
+          ),
+          button(
+            dyn_style=fn() {
+              let is_active = state.theme_mode.get() == @model.Dark
+              if is_active {
+                theme_btn_style + " background: #000; color: #fff; border-color: #000;"
+              } else {
+                theme_btn_style + " background: #fff; color: #333;"
+              }
+            },
+            on=events().click(fn(_) {
+              state.theme_mode.set(@model.Dark)
+              let theme = @model.Theme::dark()
+              state.preview_bg.set(theme.background)
+            }),
+            [text("Dark")],
+          ),
+        ]),
+      ]),
+      // プリセットカラー
+      div(style="margin-bottom: 12px; border-top: 1px solid #eee; padding-top: 8px;", [
+        @element.span(style=label_style + " display: block; margin-bottom: 6px;", [
+          text("Preset Colors"),
+        ]),
+        render_preset_colors(state),
+      ]),
+      // 埋め込み背景色
+      div(style=row_style + " border-top: 1px solid #eee; padding-top: 8px;", [
+        @element.span(style=label_style, [text("Embed BG")]),
+        input(
+          type_="text",
+          style=text_input_style,
+          placeholder="transparent",
+          dyn_value=fn() {
+            let bg = state.embed_bg.get()
+            if bg == "transparent" { "" } else { bg }
+          },
+          on=events().input(fn(e) {
+            let value = get_event_target_value(e.as_any())
+            if value == "" {
+              state.embed_bg.set("transparent")
+            } else {
+              state.embed_bg.set(value)
+            }
+          }),
+        ),
+      ]),
+    ],
+  )
+}
+
+///|
+/// プリセットカラーを表示
+fn render_preset_colors(state : EditorState) -> @element.DomNode {
+  let colors = @model.preset_colors()
+  let children : Array[@element.DomNode] = []
+  for preset in colors {
+    let preset_name = preset.name
+    let light_color = preset.light
+    let dark_color = preset.dark
+    children.push(
+      div(
+        style="display: flex; flex-direction: column; align-items: center; gap: 2px;",
+        [
+          div(
+            dyn_style=fn() {
+              let color = match state.theme_mode.get() {
+                @model.Light => light_color
+                @model.Dark => dark_color
+              }
+              "width: 24px; height: 24px; border-radius: 4px; border: 2px solid #ccc; cursor: pointer; background: \{color};"
+            },
+            on=events().click(fn(_) {
+              // 選択中の要素があれば色を適用
+              let color = match state.theme_mode.get() {
+                @model.Light => light_color
+                @model.Dark => dark_color
+              }
+              if state.get_selected_id() is Some(id) {
+                state.update_element(id, fn(el) {
+                  { ..el, style: { ..el.style, stroke: Some(color) } }
+                })
+              }
+            }),
+            [],
+          ),
+          @element.span(style="font-size: 9px; color: #999;", [text(preset_name)]),
+        ],
+      ),
+    )
+  }
+  div(
+    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;",
+    [@element.fragment(children)],
+  )
+}
+
+///|
+/// 要素ツリーをレンダリング
+fn render_element_tree(state : EditorState) -> @element.DomNode {
+  let tree_style = "max-height: 300px; overflow-y: auto; padding: 4px;"
+  let item_style =
+    "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
+  // 親要素のみを表示（子要素は除外）
+  let elements = state.elements.get().filter(fn(el) { el.parent_id is None })
+  let children : Array[@element.DomNode] = []
+  for el in elements {
+    let shape_icon = match el.shape {
+      @model.Rect(_, _, _, _) => "▢"
+      @model.Circle(_) => "○"
+      @model.Ellipse(_, _) => "⬭"
+      @model.Line(_, _) => "╱"
+      @model.Polyline(_) => "⟋"
+      @model.Path(_) => "✎"
+      @model.Text(_, _) => "T"
+    }
+    let el_id = el.id
+    let shape_name = @model.shape_name(el.shape)
+    children.push(
+      div(
+        style=item_style,
+        on=events().click(fn(_) { state.select(Some(el_id)) }),
+        [
+          @element.span(style="font-size: 14px; width: 16px;", [text(shape_icon)]),
+          @element.span(style="color: #666;", [text(shape_name)]),
+          @element.span(style="color: #999; font-family: monospace;", [
+            text("#" + el_id),
+          ]),
+        ],
+      ),
+    )
+  }
+  if children.length() == 0 {
+    div(style="padding: 8px; color: #999; font-size: 11px; text-align: center;", [
+      text("No elements"),
+    ])
+  } else {
+    div(style=tree_style, [@element.fragment(children)])
+  }
 }
 
 ///|
@@ -592,22 +863,24 @@ pub fn render_text_input(
   commit : (String) -> Unit,
 ) -> @element.DomNode {
   guard state.text_edit.get() is Some(edit_state)
-  // シーン座標をスクリーン座標に変換
   let vp = state.viewport.get()
-  let screen_pos = vp.scene_to_screen(edit_state.x, edit_state.y)
-  // 親要素の幅を取得（スクリーン座標に変換）
-  let max_width : Double = match state.find_element(edit_state.parent_id) {
+  // 親要素がある場合は親の中央座標を使用
+  let (text_x, text_y, max_width) : (Double, Double, Double) = match state.find_element(edit_state.parent_id) {
     Some(parent) => {
       let bbox = parent.bounding_box()
-      // 親要素の幅をズームに合わせてスケール、パディング分を引く
-      (bbox.width * vp.zoom) - 16.0
+      let center_x = bbox.x + bbox.width / 2.0
+      let center_y = bbox.y + bbox.height / 2.0
+      (center_x, center_y, (bbox.width * vp.zoom) - 16.0)
     }
-    None => 200.0
+    None => (edit_state.x, edit_state.y, 200.0)
   }
+  // シーン座標をスクリーン座標に変換
+  let screen_pos = vp.scene_to_screen(text_x, text_y)
   let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
   // テキストエリア（複数行対応、親要素の幅に合わせる）
+  // line-height: 1.2 は SVG tspan の lineHeight = fontSize * 1.2 と一致
   let style =
-    "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 24px; max-height: 100px; padding: 2px 4px; border: none; border-bottom: 1px solid #333; background: rgba(255,255,255,0.9); font-family: sans-serif; font-size: 16px; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden;"
+    "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
   // FFIでtextareaを作成
   let textarea = create_textarea_ffi(
     style,
@@ -710,15 +983,7 @@ fn render_insert_menu(
             insert_x,
             insert_y,
             @model.Rect(80.0, 60.0, None, None),
-          ).with_style({
-            fill: Some("transparent"),
-            stroke: Some("#000000"),
-            stroke_width: Some(2.0),
-            opacity: None,
-            stroke_dasharray: None,
-            marker_start: None,
-            marker_end: None,
-          })
+          ).with_style(state.get_default_style())
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
@@ -735,15 +1000,7 @@ fn render_insert_menu(
             insert_x,
             insert_y,
             @model.Circle(40.0),
-          ).with_style({
-            fill: Some("transparent"),
-            stroke: Some("#000000"),
-            stroke_width: Some(2.0),
-            opacity: None,
-            stroke_dasharray: None,
-            marker_start: None,
-            marker_end: None,
-          })
+          ).with_style(state.get_default_style())
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
@@ -760,15 +1017,7 @@ fn render_insert_menu(
             insert_x,
             insert_y,
             @model.Ellipse(60.0, 35.0),
-          ).with_style({
-            fill: Some("transparent"),
-            stroke: Some("#000000"),
-            stroke_width: Some(2.0),
-            opacity: None,
-            stroke_dasharray: None,
-            marker_start: None,
-            marker_end: None,
-          })
+          ).with_style(state.get_default_style())
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
@@ -785,19 +1034,28 @@ fn render_insert_menu(
             insert_x,
             insert_y,
             @model.Line(insert_x + 100.0, insert_y + 50.0),
-          ).with_style({
-            fill: None,
-            stroke: Some("#000000"),
-            stroke_width: Some(2.0),
-            opacity: None,
-            stroke_dasharray: None,
-            marker_start: None,
-            marker_end: Some(@model.Arrow),
-          })
+          ).with_style(state.get_line_style())
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Line")],
+      ),
+    ]),
+    // Arrow
+    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+      button(
+        style=menu_button_style,
+        on=events().click(fn(_) {
+          let el = @model.Element::new(
+            new_id(),
+            insert_x,
+            insert_y,
+            @model.Line(insert_x + 100.0, insert_y + 50.0),
+          ).with_style(state.get_arrow_style())
+          execute_command(history, state, @model.AddElement(el))
+          state.hide_context_menu()
+        }),
+        [text("Arrow")],
       ),
     ]),
     // Text
@@ -810,15 +1068,7 @@ fn render_insert_menu(
             insert_x,
             insert_y,
             @model.Text("Text", Some(24.0)),
-          ).with_style({
-            fill: Some("#000000"),
-            stroke: None,
-            stroke_width: None,
-            opacity: None,
-            stroke_dasharray: None,
-            marker_start: None,
-            marker_end: None,
-          })
+          ).with_style(state.get_text_style())
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),

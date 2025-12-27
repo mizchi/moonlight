@@ -28,6 +28,9 @@ pub struct EditorState {
   text_edit : @luna.Signal[@model.TextEditState?] // テキスト編集状態
   pending_connection : @luna.Signal[PendingConnection?] // ドラッグ中の接続プレビュー
   mouse_scene_pos : @luna.Signal[@model.Point] // マウス位置（シーン座標）
+  preview_bg : @luna.Signal[String] // プレビュー背景色
+  embed_bg : @luna.Signal[String] // 埋め込み時の背景色（デフォルト: transparent）
+  theme_mode : @luna.Signal[@model.ThemeMode] // テーマモード
 }
 
 ///|
@@ -51,6 +54,74 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     text_edit: @luna.signal(None),
     pending_connection: @luna.signal(None),
     mouse_scene_pos: @luna.signal({ x: 0.0, y: 0.0 }),
+    preview_bg: @luna.signal("#ffffff"),
+    embed_bg: @luna.signal("transparent"),
+    theme_mode: @luna.signal(@model.Light),
+  }
+}
+
+///|
+/// 現在のテーマを取得
+pub fn EditorState::get_theme(self : EditorState) -> @model.Theme {
+  match self.theme_mode.get() {
+    @model.Light => @model.Theme::light()
+    @model.Dark => @model.Theme::dark()
+  }
+}
+
+///|
+/// テーマに基づいたデフォルトスタイルを取得（CSS変数を使用）
+pub fn EditorState::get_default_style(self : EditorState) -> @model.Style {
+  {
+    fill: Some(@model.css_var_fill),
+    stroke: Some(@model.css_var_stroke),
+    stroke_width: Some(1.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+}
+
+///|
+/// テーマに基づいたテキストスタイルを取得（CSS変数を使用）
+pub fn EditorState::get_text_style(self : EditorState) -> @model.Style {
+  {
+    fill: Some(@model.css_var_text),
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+}
+
+///|
+/// Line用のスタイルを取得（CSS変数を使用）
+pub fn EditorState::get_line_style(self : EditorState) -> @model.Style {
+  {
+    fill: None,
+    stroke: Some(@model.css_var_stroke),
+    stroke_width: Some(1.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+}
+
+///|
+/// Arrow用のスタイルを取得（CSS変数を使用）
+pub fn EditorState::get_arrow_style(self : EditorState) -> @model.Style {
+  {
+    fill: None,
+    stroke: Some(@model.css_var_stroke),
+    stroke_width: Some(1.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: Some(@model.Arrow),
   }
 }
 

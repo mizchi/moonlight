@@ -50,6 +50,65 @@ pub(all) enum ArrowType {
 } derive(Show, Eq)
 
 ///|
+/// テーマモード
+pub(all) enum ThemeMode {
+  Light
+  Dark
+} derive(Show, Eq)
+
+///|
+/// テーマ設定
+pub(all) struct Theme {
+  background : String // 背景色
+  stroke : String // デフォルト線色（実際の値）
+  fill : String // デフォルト塗りつぶし色（実際の値）
+  text : String // テキスト色（実際の値）
+} derive(Show, Eq)
+
+///|
+/// CSS変数名
+pub let css_var_stroke : String = "var(--ml-stroke)"
+
+pub let css_var_fill : String = "var(--ml-fill)"
+
+pub let css_var_text : String = "var(--ml-text)"
+
+///|
+/// ライトテーマのデフォルト
+pub fn Theme::light() -> Theme {
+  { background: "#ffffff", stroke: "#000000", fill: "transparent", text: "#000000" }
+}
+
+///|
+/// ダークテーマのデフォルト
+pub fn Theme::dark() -> Theme {
+  { background: "#1a1a1a", stroke: "#ffffff", fill: "transparent", text: "#ffffff" }
+}
+
+///|
+/// プリセットカラー
+pub(all) struct PresetColor {
+  name : String
+  light : String // ライトモード用
+  dark : String // ダークモード用
+} derive(Show, Eq)
+
+///|
+/// プリセットカラー一覧
+pub fn preset_colors() -> Array[PresetColor] {
+  [
+    { name: "Black", light: "#000000", dark: "#ffffff" },
+    { name: "Gray", light: "#6b7280", dark: "#9ca3af" },
+    { name: "Red", light: "#dc2626", dark: "#f87171" },
+    { name: "Orange", light: "#ea580c", dark: "#fb923c" },
+    { name: "Yellow", light: "#ca8a04", dark: "#facc15" },
+    { name: "Green", light: "#16a34a", dark: "#4ade80" },
+    { name: "Blue", light: "#2563eb", dark: "#60a5fa" },
+    { name: "Purple", light: "#9333ea", dark: "#c084fc" },
+  ]
+}
+
+///|
 /// 共通スタイル属性
 pub(all) struct Style {
   fill : String? // 塗りつぶし色 (e.g., "#ff0000", "none")

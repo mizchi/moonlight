@@ -16,6 +16,14 @@ pub extern "js" fn add_keyup_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keyup', handler)
 
 ///|
+/// 要素から data-id を持つ最も近い親要素の data-id を取得
+pub extern "js" fn get_closest_data_id_ffi(el : @js.Any) -> @js.Any =
+  #| (el) => {
+  #|   const closest = el.closest('[data-id]');
+  #|   return closest ? closest.dataset.id : null;
+  #| }
+
+///|
 /// SVG の viewBox を更新
 pub extern "js" fn update_viewbox_ffi(svg : @js.Any, viewbox : String) =
   #| (svg, viewbox) => svg.setAttribute('viewBox', viewbox)
@@ -136,6 +144,48 @@ pub fn parse_double(s : String) -> Double? {
 }
 
 ///|
+/// SVG text 要素に複数行テキストを設定（tspan使用）
+pub extern "js" fn set_multiline_text_ffi(
+  text_el : @js.Any,
+  content : String,
+  x : Double,
+  font_size : Double,
+) =
+  #| (textEl, content, x, fontSize) => {
+  #|   const lines = content.split('\n');
+  #|   const lineHeight = fontSize * 1.2;
+  #|   // 全体を中央に配置するためのオフセット
+  #|   const totalHeight = (lines.length - 1) * lineHeight;
+  #|   const startOffset = -totalHeight / 2;
+  #|   lines.forEach((line, i) => {
+  #|     const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+  #|     tspan.setAttribute('x', x);
+  #|     tspan.setAttribute('dy', i === 0 ? startOffset : lineHeight);
+  #|     tspan.textContent = line || ' '; // 空行は空白で
+  #|     textEl.appendChild(tspan);
+  #|   });
+  #| }
+
+///|
 /// SVG コンテナの子要素をクリア
 pub extern "js" fn clear_children_ffi(el : @js.Any) =
   #| (el) => { while (el.firstChild) el.removeChild(el.firstChild); }
+
+///|
+/// SVG の背景スタイルを更新
+pub extern "js" fn update_svg_background_ffi(svg : @js.Any, background : String) =
+  #| (svg, background) => svg.style.background = background
+
+///|
+/// SVG の CSS 変数を更新
+pub extern "js" fn update_svg_css_vars_ffi(
+  svg : @js.Any,
+  stroke : String,
+  fill : String,
+  text_color : String,
+) =
+  #| (svg, stroke, fill, textColor) => {
+  #|   svg.style.setProperty('--ml-stroke', stroke);
+  #|   svg.style.setProperty('--ml-fill', fill);
+  #|   svg.style.setProperty('--ml-text', textColor);
+  #| }
