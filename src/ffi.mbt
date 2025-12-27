@@ -152,16 +152,21 @@ pub extern "js" fn set_multiline_text_ffi(
   font_size : Double,
 ) =
   #| (textEl, content, x, fontSize) => {
+  #|   // 単一行の場合は textContent を直接設定（高速）
+  #|   if (!content.includes('\n')) {
+  #|     textEl.textContent = content;
+  #|     return;
+  #|   }
+  #|   // 複数行の場合は tspan を使用
   #|   const lines = content.split('\n');
   #|   const lineHeight = fontSize * 1.2;
-  #|   // 全体を中央に配置するためのオフセット
   #|   const totalHeight = (lines.length - 1) * lineHeight;
   #|   const startOffset = -totalHeight / 2;
   #|   lines.forEach((line, i) => {
   #|     const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
   #|     tspan.setAttribute('x', x);
   #|     tspan.setAttribute('dy', i === 0 ? startOffset : lineHeight);
-  #|     tspan.textContent = line || ' '; // 空行は空白で
+  #|     tspan.textContent = line || ' ';
   #|     textEl.appendChild(tspan);
   #|   });
   #| }

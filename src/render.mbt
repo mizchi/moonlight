@@ -236,21 +236,62 @@ pub fn render_element(
         }
         None => (el.x, el.y)
       }
+      // グループ要素でラップ（ヒットエリア + テキスト）
+      let group = create_svg_element(
+        "g",
+        [("data-id", el.id), ("data-element-type", "text"), ("cursor", "move")],
+        [],
+      )
+      // ヒットエリアのサイズを計算（単一行の場合は split を省略）
+      let (hit_width, hit_height) = if content.contains("\n") {
+        let lines : Array[String] = content
+          .split("\n")
+          .map(fn(sv) { sv.to_string() })
+          .collect()
+        let line_count = lines.length()
+        let line_height = size * 1.2
+        let total_height = line_count.to_double() * line_height
+        let max_line_len = lines.fold(init=0, fn(acc, line) {
+          let len = line.iter().count()
+          if len > acc { len } else { acc }
+        })
+        let estimated_width = max_line_len.to_double() * size * 0.6
+        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+        let h = if total_height < 24.0 { 24.0 } else { total_height }
+        (w, h)
+      } else {
+        // 単一行: 文字数から幅を推定
+        let char_count = content.iter().count()
+        let estimated_width = char_count.to_double() * size * 0.6
+        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+        (w, size * 1.2)
+      }
+      // 透明なヒットエリア
+      let hit_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("x", num_str(text_x - hit_width / 2.0)),
+        ("y", num_str(text_y - hit_height / 2.0)),
+        ("width", num_str(hit_width)),
+        ("height", num_str(hit_height)),
+        ("fill", "transparent"),
+      ]
+      let hit_area = create_svg_element("rect", hit_attrs, [])
+      append_child_ffi(group, hit_area)
+      // テキスト要素
       attrs.push(("x", num_str(text_x)))
       attrs.push(("y", num_str(text_y)))
       attrs.push(("font-size", num_str(size)))
-      // テキストを中央寄せ
       attrs.push(("text-anchor", "middle"))
       attrs.push(("dominant-baseline", "middle"))
+      attrs.push(("pointer-events", "none"))
       add_style_attrs(attrs, style)
       if el.transform is Some(t) {
         attrs.push(("transform", t))
       }
-      attrs.push(("cursor", "move"))
       let text_el = create_svg_element("text", attrs, [])
-      // tspan で複数行表示（1行でも動作）
       set_multiline_text_ffi(text_el, content, text_x, size)
-      text_el
+      append_child_ffi(group, text_el)
+      group
     }
   }
 }

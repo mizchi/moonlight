@@ -280,6 +280,7 @@ pub fn EditorState::update_element(
 
 ///|
 /// 要素を移動（子要素も一緒に移動、接続ラインも更新）
+/// 全ての更新を1回の elements.update でバッチ処理してパフォーマンスを最適化
 pub fn EditorState::move_element(
   self : EditorState,
   id : String,
@@ -293,7 +294,7 @@ pub fn EditorState::move_element(
   // Line の場合は両端点を同時に移動し、接続された要素も一緒に移動
   match el.shape {
     @model.Line(x2, y2) => {
-      // まず接続されている要素のIDを収集（重複を避ける）
+      // 接続されている要素のIDを収集（重複を避ける）
       let connected_ids : Array[String] = []
       match el.connections {
         Some(conns) => {
@@ -314,41 +315,149 @@ pub fn EditorState::move_element(
         }
         None => ()
       }
-      // 移動量をローカル変数に保存（クロージャ用）
-      let move_dx = dx
-      let move_dy = dy
-      // ライン自体の両端点を移動（接続は維持）
-      self.update_element(id, fn(e) {
-        { ..e, x: new_x, y: new_y, shape: @model.Line(x2 + move_dx, y2 + move_dy) }
-      })
-      // 接続されている要素も一緒に移動
+      // 現在の要素リストから子要素を事前に収集
+      let elements = self.elements.get()
+      let connected_children_ids : Array[String] = []
       for connected_id in connected_ids {
-        if self.find_element(connected_id) is Some(_) {
-          self.update_element(connected_id, fn(c) {
-            { ..c, x: c.x + move_dx, y: c.y + move_dy }
-          })
-          // 子要素も移動
-          let connected_children = self.get_children(connected_id)
-          for child in connected_children {
-            self.update_element(child.id, fn(c) {
-              { ..c, x: c.x + move_dx, y: c.y + move_dy }
-            })
+        for e in elements {
+          if e.parent_id == Some(connected_id) {
+            connected_children_ids.push(e.id)
           }
-          // 接続要素に繋がっている他のラインも更新（自分自身を除く）
-          self.update_connected_lines_except(connected_id, id)
         }
       }
+      // 全ての更新を1回で実行
+      let line_id = id
+      let new_x2 = x2 + dx
+      let new_y2 = y2 + dy
+      self.elements.update(fn(els) {
+        els.map(fn(e) {
+          // ドラッグ中のライン自体を更新
+          if e.id == line_id {
+            return { ..e, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
+          }
+          // 接続された要素を移動
+          if connected_ids.contains(e.id) {
+            return { ..e, x: e.x + dx, y: e.y + dy }
+          }
+          // 接続要素の子要素を移動
+          if connected_children_ids.contains(e.id) {
+            return { ..e, x: e.x + dx, y: e.y + dy }
+          }
+          // 接続要素に繋がっている他のライン（自分自身を除く）を更新
+          guard e.shape is @model.Line(e_x2, e_y2) else { return e }
+          guard e.connections is Some(conns) else { return e }
+          let mut new_ex = e.x
+          let mut new_ey = e.y
+          let mut new_ex2 = e_x2
+          let mut new_ey2 = e_y2
+          // 始点の接続を確認
+          match conns.start {
+            Some(conn) =>
+              if connected_ids.contains(conn.element_id) {
+                // 接続先の要素を探して新しいアンカー位置を計算
+                for target in els {
+                  if target.id == conn.element_id {
+                    let moved_target = { ..target, x: target.x + dx, y: target.y + dy }
+                    let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                    new_ex = anchor_point.x
+                    new_ey = anchor_point.y
+                    break
+                  }
+                }
+              }
+            None => ()
+          }
+          // 終点の接続を確認
+          match conns.end {
+            Some(conn) =>
+              if connected_ids.contains(conn.element_id) {
+                for target in els {
+                  if target.id == conn.element_id {
+                    let moved_target = { ..target, x: target.x + dx, y: target.y + dy }
+                    let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                    new_ex2 = anchor_point.x
+                    new_ey2 = anchor_point.y
+                    break
+                  }
+                }
+              }
+            None => ()
+          }
+          if new_ex != e.x || new_ey != e.y || new_ex2 != e_x2 || new_ey2 != e_y2 {
+            { ..e, x: new_ex, y: new_ey, shape: @model.Line(new_ex2, new_ey2) }
+          } else {
+            e
+          }
+        })
+      })
     }
     _ => {
-      // 親要素を移動
-      self.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
-      // 子要素も移動
-      let children = self.get_children(id)
-      for child in children {
-        self.update_element(child.id, fn(c) { { ..c, x: c.x + dx, y: c.y + dy } })
+      // 現在の要素リストから子要素を事前に収集
+      let elements = self.elements.get()
+      let child_ids : Array[String] = []
+      for e in elements {
+        if e.parent_id == Some(id) {
+          child_ids.push(e.id)
+        }
       }
-      // 接続されているラインを更新
-      self.update_connected_lines(id)
+      // 移動対象のIDとその子要素ID
+      let target_id = id
+      // 全ての更新を1回で実行
+      self.elements.update(fn(els) {
+        els.map(fn(e) {
+          // 対象要素を移動
+          if e.id == target_id {
+            return { ..e, x: new_x, y: new_y }
+          }
+          // 子要素を移動
+          if child_ids.contains(e.id) {
+            return { ..e, x: e.x + dx, y: e.y + dy }
+          }
+          // 接続されているラインを更新
+          guard e.shape is @model.Line(x2, y2) else { return e }
+          guard e.connections is Some(conns) else { return e }
+          let mut new_ex = e.x
+          let mut new_ey = e.y
+          let mut new_ex2 = x2
+          let mut new_ey2 = y2
+          // 始点の接続を確認
+          match conns.start {
+            Some(conn) if conn.element_id == target_id => {
+              // 移動後のターゲット要素でアンカー位置を計算
+              for target in els {
+                if target.id == target_id {
+                  let moved_target = { ..target, x: new_x, y: new_y }
+                  let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                  new_ex = anchor_point.x
+                  new_ey = anchor_point.y
+                  break
+                }
+              }
+            }
+            _ => ()
+          }
+          // 終点の接続を確認
+          match conns.end {
+            Some(conn) if conn.element_id == target_id => {
+              for target in els {
+                if target.id == target_id {
+                  let moved_target = { ..target, x: new_x, y: new_y }
+                  let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                  new_ex2 = anchor_point.x
+                  new_ey2 = anchor_point.y
+                  break
+                }
+              }
+            }
+            _ => ()
+          }
+          if new_ex != e.x || new_ey != e.y || new_ex2 != x2 || new_ey2 != y2 {
+            { ..e, x: new_ex, y: new_ey, shape: @model.Line(new_ex2, new_ey2) }
+          } else {
+            e
+          }
+        })
+      })
     }
   }
 }
