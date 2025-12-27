@@ -41,6 +41,11 @@ fn editor_app() -> @element.DomNode {
   // サンプルの図形を追加
   add_sample_shapes(state, new_id)
 
+  // ウィンドウサイズを監視してモバイル判定を更新
+  observe_window_resize_ffi(fn(width, _height) {
+    state.is_mobile.set(width < 768)
+  })
+
   // Space キーが押されているか
   let space_pressed : Ref[Bool] = { val: false }
 
@@ -143,8 +148,8 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
     @model.Text("World", Some(16.0)),
   ).with_style(text_style).with_parent(rect2_id)
 
-  // 円
-  let circle1 = @model.Element::new(new_id(), 400.0, 90.0, @model.Circle(40.0)).with_style(
+  // 円（2つのボックスの下に配置）
+  let circle1 = @model.Element::new(new_id(), 200.0, 200.0, @model.Circle(40.0)).with_style(
     default_style,
   )
 
@@ -159,7 +164,7 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
 /// キーボードリスナーを設定（Space + Arrow）
 fn setup_keyboard_listener(state : EditorState, space_pressed : Ref[Bool]) -> Unit {
   // パン移動量（ピクセル）
-  let pan_step = 50.0
+  let pan_step = 12.0
   let _ = add_keydown_listener(fn(e) {
     // 入力要素にフォーカスがある場合はショートカットを無視
     if is_input_focused_ffi() {
@@ -785,29 +790,60 @@ fn render_editor_ui_vnode(
   svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
-  // メインレイアウト（flex で全画面）
-  div(style="display: flex; height: 100vh; overflow: hidden;", [
-    // サイドバー
-    render_sidebar(state, history, 0), // height は CSS で制御
-    // キャンバスエリア（flex: 1 で残り領域を使用）
-    div(style="flex: 1; display: flex; flex-direction: column; min-width: 0;", [
-      // ツールバー（SVG上部）
-      div(style="display: flex; gap: 4px; align-items: center; background: #f8f8f8; padding: 4px 6px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; font-size: 11px;", [
-        render_embedded_toolbar(state, history, new_id),
-      ]),
-      // SVG コンテナ（flex: 1 で残り領域を使用）
-      div(style="flex: 1; position: relative; min-height: 0;", [
-        svg_canvas,
-        // コンテキストメニュー
-        show(
-          fn() { state.context_menu.get() is Some(_) },
-          fn() { render_context_menu(state, history, new_id) },
-        ),
-        // テキスト入力（FFI 要素は show の cleanup と相性が悪いため、別 div で管理）
-        render_text_input_container(state, commit_text_input),
-      ]),
+  // メインレイアウト（全画面キャンバス + フローティングUI）
+  div(style="position: relative; width: 100vw; height: 100vh; overflow: hidden;", [
+    // キャンバス（画面全体）
+    div(style="position: absolute; inset: 0;", [
+      svg_canvas,
+      // テキスト入力
+      render_text_input_container(state, commit_text_input),
     ]),
+    // フローティングツールバー（上部中央）
+    div(
+      dyn_style=fn() {
+        let is_mobile = state.is_mobile.get()
+        if is_mobile {
+          "position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;"
+        } else {
+          "position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;"
+        }
+      },
+      [render_embedded_toolbar(state, history, new_id)],
+    ),
+    // フローティングパネル（デスクトップ: 右端、モバイル: 下部）
+    show(
+      fn() { state.panel_visible.get() },
+      fn() { render_floating_panel(state, history) },
+    ),
+    // パネル表示/非表示トグル
+    render_panel_toggle(state),
+    // コンテキストメニュー
+    show(
+      fn() { state.context_menu.get() is Some(_) },
+      fn() { render_context_menu(state, history, new_id) },
+    ),
   ])
+}
+
+///|
+/// パネル表示/非表示トグルボタン
+fn render_panel_toggle(state : EditorState) -> @element.DomNode {
+  button(
+    dyn_style=fn() {
+      let is_mobile = state.is_mobile.get()
+      let visible = state.panel_visible.get()
+      let icon_transform = if visible { "" } else { "transform: rotate(180deg);" }
+      if is_mobile {
+        "position: fixed; bottom: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.95); border: 1px solid #ddd; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 101; " + icon_transform
+      } else {
+        "position: fixed; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.95); border: 1px solid #ddd; cursor: pointer; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 101; " + icon_transform
+      }
+    },
+    on=events().click(fn(_) {
+      state.panel_visible.update(fn(v) { not(v) })
+    }),
+    [text_dyn(fn() { if state.panel_visible.get() { "×" } else { "☰" } })],
+  )
 }
 
 ///|
@@ -1161,14 +1197,20 @@ fn render_svg_canvas_node(
     ("mouseup", @element.Handler(on_mouseup)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
-    // ResizeObserver で canvas サイズを更新
+    // ResizeObserver で canvas サイズを更新し、初回はドキュメントを中央に配置
     ("__ref", @element.Handler(fn(svg_el) {
+      let is_first_resize : Ref[Bool] = { val: true }
       observe_resize_ffi(svg_el, fn(width : Double, height : Double) {
         let w = width.to_int()
         let h = height.to_int()
         if w > 0 && h > 0 {
           state.canvas_width.set(w)
           state.canvas_height.set(h)
+          // 初回のみドキュメントを中央に配置
+          if is_first_resize.val {
+            is_first_resize.val = false
+            state.fit_to_canvas()
+          }
         }
       })
     })),

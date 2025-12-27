@@ -35,6 +35,8 @@ pub struct EditorState {
   preview_bg : @luna.Signal[String] // プレビュー背景色
   embed_bg : @luna.Signal[String] // 埋め込み時の背景色（デフォルト: transparent）
   theme_mode : @luna.Signal[@model.ThemeMode] // テーマモード
+  is_mobile : @luna.Signal[Bool] // モバイル表示かどうか
+  panel_visible : @luna.Signal[Bool] // パネル表示/非表示
 }
 
 ///|
@@ -70,6 +72,8 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     preview_bg: @luna.signal("#ffffff"),
     embed_bg: @luna.signal("transparent"),
     theme_mode: @luna.signal(@model.Light),
+    is_mobile: @luna.signal(width < 768),
+    panel_visible: @luna.signal(true),
   }
 }
 

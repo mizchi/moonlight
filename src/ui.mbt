@@ -76,16 +76,32 @@ fn render_color_swatches(
 }
 
 ///|
-/// サイドバーをレンダリング
+/// サイドバーをレンダリング（後方互換性のため残す）
 pub fn render_sidebar(
   state : EditorState,
   history : @model.History,
   _canvas_height : Int,
 ) -> @element.DomNode {
-  let sidebar_style =
-    "width: \{sidebar_width}px; height: 100%; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box; overflow-y: auto;"
+  render_floating_panel(state, history)
+}
+
+///|
+/// フローティングパネルをレンダリング
+pub fn render_floating_panel(
+  state : EditorState,
+  history : @model.History,
+) -> @element.DomNode {
   div(
-    style=sidebar_style,
+    dyn_style=fn() {
+      let is_mobile = state.is_mobile.get()
+      if is_mobile {
+        // モバイル: 画面下部にスライド表示
+        "position: fixed; bottom: 0; left: 0; right: 0; max-height: 50vh; background: rgba(255,255,255,0.98); border-top: 1px solid #ccc; border-radius: 12px 12px 0 0; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); z-index: 100;"
+      } else {
+        // デスクトップ: 右端にフローティング表示
+        "position: fixed; top: 56px; right: 12px; width: \{sidebar_width}px; max-height: calc(100vh - 80px); background: rgba(255,255,255,0.98); border: 1px solid #ccc; border-radius: 8px; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 2px 12px rgba(0,0,0,0.15); z-index: 100;"
+      }
+    },
     [
       // パンくずリスト（階層表示）
       render_breadcrumb(state),

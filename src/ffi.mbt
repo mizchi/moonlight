@@ -216,6 +216,16 @@ pub extern "js" fn is_input_focused_ffi() -> Bool =
   #| }
 
 ///|
+/// ウィンドウサイズを監視
+pub extern "js" fn observe_window_resize_ffi(callback : (Int, Int) -> Unit) =
+  #| (callback) => {
+  #|   callback(window.innerWidth, window.innerHeight);
+  #|   window.addEventListener('resize', () => {
+  #|     callback(window.innerWidth, window.innerHeight);
+  #|   });
+  #| }
+
+///|
 /// 子要素を取得
 pub extern "js" fn get_child_at_ffi(parent : @js.Any, index : Int) -> @js.Any =
   #| (parent, index) => parent.children[index] || null
