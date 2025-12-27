@@ -17,9 +17,39 @@ fn create_id_counter() -> @luna.Signal[Int] {
 }
 
 ///|
+/// URL パラメータからモードを取得
+fn get_mode_from_url() -> EditorMode {
+  let search = get_url_search_ffi()
+  if search.contains("mode=embed") {
+    Embedded
+  } else {
+    Full
+  }
+}
+
+///|
 fn main {
   guard @js_dom.document().getElementById("app") is Some(el)
-  @element.render(el |> @element.DomElement::from_dom, editor_app())
+  let mode = get_mode_from_url()
+  match mode {
+    Full => @element.render(el |> @element.DomElement::from_dom, editor_app())
+    Embedded => @element.render(el |> @element.DomElement::from_dom, create_embedded_app())
+  }
+}
+
+///|
+/// 埋め込みモード用のアプリを作成
+fn create_embedded_app() -> @element.DomNode {
+  let id_counter = create_id_counter()
+  let new_id = fn() -> String {
+    let current = id_counter.get()
+    id_counter.set(current + 1)
+    "el-\{current + 1}"
+  }
+  let state = EditorState::new_with_mode(canvas_width, canvas_height, Embedded)
+  let history = @model.History::new()
+  add_sample_shapes(state, new_id)
+  embedded_editor_app(state, history, new_id)
 }
 
 ///|
@@ -843,6 +873,213 @@ fn render_panel_toggle(state : EditorState) -> @element.DomNode {
       state.panel_visible.update(fn(v) { not(v) })
     }),
     [text_dyn(fn() { if state.panel_visible.get() { "×" } else { "☰" } })],
+  )
+}
+
+// ============================================================
+// 埋め込みモード
+// ============================================================
+
+///|
+/// 埋め込みビューをレンダリング（簡易モード）
+fn render_embedded_view(
+  state : EditorState,
+  svg_canvas : @element.DomNode,
+  commit_text_input : (String) -> Unit,
+) -> @element.DomNode {
+  div(
+    style="position: relative; width: 100%;",
+    [
+      // SVG コンテナ（アスペクト比維持）
+      div(
+        dyn_style=fn() {
+          let doc_w = state.doc_width.get()
+          let doc_h = state.doc_height.get()
+          let ratio = doc_h / doc_w * 100.0
+          "width: 100%; padding-bottom: \{ratio}%; position: relative;"
+        },
+        [
+          // SVG キャンバス（絶対位置で配置）
+          div(
+            style="position: absolute; inset: 0;",
+            [
+              svg_canvas,
+              // テキスト入力
+              render_text_input_container(state, commit_text_input),
+            ],
+          ),
+        ],
+      ),
+      // 編集ボタン（右上固定）
+      button(
+        style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);",
+        on=events().click(fn(_) { state.modal_open.set(true) }),
+        [text("編集")],
+      ),
+    ],
+  )
+}
+
+///|
+/// エディタモーダルをレンダリング（フルエディタを別ウィンドウ風に表示）
+pub fn render_editor_modal(
+  state : EditorState,
+  history : @model.History,
+  new_id : () -> String,
+) -> @element.DomNode {
+  // フルエディタ用の SVG を作成
+  let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let svg = e._get("currentTarget")
+    let rect = svg._call("getBoundingClientRect", [])
+    let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+    let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    (screen_x, screen_y)
+  }
+
+  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+    let (screen_x, screen_y) = get_screen_coords(e)
+    let vp = state.viewport.get()
+    let scene = vp.screen_to_scene(screen_x, screen_y)
+    (scene.x, scene.y)
+  }
+
+  let space_pressed : Ref[Bool] = { val: false }
+  let last_click_time : Ref[Double] = { val: 0.0 }
+  let last_click_element : Ref[String] = { val: "" }
+  let double_click_threshold : Double = 300.0
+
+  let commit_text_input = fn(text_content : String) {
+    commit_text_edit(state, history, new_id, text_content)
+  }
+
+  let on_mousedown = create_mousedown_handler(
+    state, history, new_id, get_screen_coords, get_scene_coords,
+    space_pressed, last_click_time, last_click_element, double_click_threshold,
+  )
+  let on_mousemove = create_mousemove_handler(state, get_screen_coords, get_scene_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_wheel = create_wheel_handler(state, get_screen_coords)
+  let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
+
+  let modal_svg = render_svg_canvas_node(
+    state,
+    on_mousedown,
+    on_mousemove,
+    on_mouseup,
+    on_contextmenu,
+    on_wheel,
+  )
+
+  // モーダルオーバーレイ
+  div(
+    style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;",
+    [
+      // モーダルウィンドウ
+      div(
+        style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
+        [
+          // ヘッダー
+          div(
+            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; background: #f8f8f8;",
+            [
+              div(style="font-weight: 500;", [text("Moonlight Editor")]),
+              button(
+                style="padding: 4px 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;",
+                on=events().click(fn(_) { state.modal_open.set(false) }),
+                [text("閉じる")],
+              ),
+            ],
+          ),
+          // エディタ本体
+          div(
+            style="flex: 1; display: flex; overflow: hidden;",
+            [
+              // キャンバス領域
+              div(
+                style="flex: 1; position: relative; min-width: 0;",
+                [
+                  modal_svg,
+                  render_text_input_container(state, commit_text_input),
+                ],
+              ),
+              // サイドパネル
+              div(
+                style="width: 240px; border-left: 1px solid #ddd; overflow-y: auto;",
+                [render_floating_panel(state, history)],
+              ),
+            ],
+          ),
+          // ツールバー（下部）
+          div(
+            style="display: flex; gap: 4px; align-items: center; padding: 8px 12px; border-top: 1px solid #ddd; background: #f8f8f8;",
+            [render_embedded_toolbar(state, history, new_id)],
+          ),
+        ],
+      ),
+    ],
+  )
+}
+
+///|
+/// 埋め込みエディタアプリをレンダリング
+fn embedded_editor_app(state : EditorState, history : @model.History, new_id : () -> String) -> @element.DomNode {
+  // 埋め込み用の簡易イベントハンドラ（選択・ドラッグ・テキスト編集のみ）
+  let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let svg = e._get("currentTarget")
+    let rect = svg._call("getBoundingClientRect", [])
+    let screen_x = mouse_event.clientX - (rect._get("left").cast() : Double)
+    let screen_y = mouse_event.clientY - (rect._get("top").cast() : Double)
+    (screen_x, screen_y)
+  }
+
+  let get_scene_coords = fn(e : @js.Any) -> (Double, Double) {
+    let (screen_x, screen_y) = get_screen_coords(e)
+    let vp = state.viewport.get()
+    let scene = vp.screen_to_scene(screen_x, screen_y)
+    (scene.x, scene.y)
+  }
+
+  let space_pressed : Ref[Bool] = { val: false }
+  let last_click_time : Ref[Double] = { val: 0.0 }
+  let last_click_element : Ref[String] = { val: "" }
+  let double_click_threshold : Double = 300.0
+
+  let commit_text_input = fn(text_content : String) {
+    commit_text_edit(state, history, new_id, text_content)
+  }
+
+  // 簡易ハンドラ（選択・移動・テキスト編集のみ）
+  let on_mousedown = create_mousedown_handler(
+    state, history, new_id, get_screen_coords, get_scene_coords,
+    space_pressed, last_click_time, last_click_element, double_click_threshold,
+  )
+  let on_mousemove = create_mousemove_handler(state, get_screen_coords, get_scene_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_wheel = create_wheel_handler(state, get_screen_coords)
+  let on_contextmenu = fn(_e : @js.Any) { () } // コンテキストメニュー無効
+
+  let svg_canvas = render_svg_canvas_node(
+    state,
+    on_mousedown,
+    on_mousemove,
+    on_mouseup,
+    on_contextmenu,
+    on_wheel,
+  )
+
+  div(
+    style="width: 100%;",
+    [
+      // 埋め込みビュー
+      render_embedded_view(state, svg_canvas, commit_text_input),
+      // モーダル（表示時のみ）
+      show(
+        fn() { state.modal_open.get() },
+        fn() { render_editor_modal(state, history, new_id) },
+      ),
+    ],
   )
 }
 

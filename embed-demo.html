@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight Embedded Editor Demo</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .editor-container {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>Moonlight Embedded Editor Demo</h1>
+
+  <div class="container">
+    <h2>Embedded Mode</h2>
+    <p>
+      以下は埋め込みモードのエディタです。右上の「編集」ボタンをクリックすると、
+      フルエディタがモーダルで開きます。
+    </p>
+    <div class="editor-container">
+      <iframe
+        src="/?mode=embed"
+        style="width: 100%; height: 300px; border: none;"
+        title="Embedded Moonlight Editor"
+      ></iframe>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>About Embedded Mode</h2>
+    <ul>
+      <li>横幅 100% でコンテナにフィット</li>
+      <li>高さはドキュメントのアスペクト比から自動計算</li>
+      <li>最小限の操作（選択・移動・テキスト編集）</li>
+      <li>右上の「編集」ボタンでフルエディタをモーダル表示</li>
+    </ul>
+  </div>
+
+  <div class="container">
+    <h2>Links</h2>
+    <ul>
+      <li><a href="/">Full Editor</a> - フルモードのエディタを開く</li>
+      <li><a href="/?mode=embed">Embedded Mode</a> - 埋め込みモードを直接開く</li>
+    </ul>
+  </div>
+</body>
+</html>

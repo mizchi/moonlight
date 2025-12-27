@@ -1,6 +1,13 @@
 // Scene - Signal ベースの要素管理
 
 ///|
+/// エディタモード
+pub enum EditorMode {
+  Full // フル機能モード
+  Embedded // 埋め込み簡易モード
+}
+
+///|
 /// 線のスナップ先プレビュー（ドラッグ中の視覚的フィードバック用）
 pub(all) struct PendingConnection {
   target_id : String // 接続先の要素 ID
@@ -37,6 +44,8 @@ pub struct EditorState {
   theme_mode : @luna.Signal[@model.ThemeMode] // テーマモード
   is_mobile : @luna.Signal[Bool] // モバイル表示かどうか
   panel_visible : @luna.Signal[Bool] // パネル表示/非表示
+  mode : EditorMode // エディタモード
+  modal_open : @luna.Signal[Bool] // モーダル表示状態（埋め込みモード用）
 }
 
 ///|
@@ -74,7 +83,20 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     theme_mode: @luna.signal(@model.Light),
     is_mobile: @luna.signal(width < 768),
     panel_visible: @luna.signal(true),
+    mode: Full,
+    modal_open: @luna.signal(false),
   }
+}
+
+///|
+/// 指定モードでエディタ状態を作成
+pub fn EditorState::new_with_mode(
+  width : Int,
+  height : Int,
+  mode : EditorMode,
+) -> EditorState {
+  let state = EditorState::new(width, height)
+  { ..state, mode }
 }
 
 ///|

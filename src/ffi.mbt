@@ -236,6 +236,11 @@ pub extern "js" fn update_svg_background_ffi(svg : @js.Any, background : String)
   #| (svg, background) => svg.style.background = background
 
 ///|
+/// URL の search パラメータを取得
+pub extern "js" fn get_url_search_ffi() -> String =
+  #| () => window.location.search
+
+///|
 /// SVG の CSS 変数を更新
 pub extern "js" fn update_svg_css_vars_ffi(
   svg : @js.Any,
