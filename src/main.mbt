@@ -885,7 +885,7 @@ fn render_editor_ui(
     // メインエリア
     div(style="display: flex; gap: 12px;", [
       // サイドバー
-      render_sidebar(state, canvas_height),
+      render_sidebar(state, history, canvas_height),
       // キャンバスエリア
       div([
         // ツールバー（SVG上部）

@@ -478,6 +478,68 @@ pub fn EditorState::reorder_element_raw(
 }
 
 ///|
+/// 要素のスタイルを更新（履歴なし）
+pub fn EditorState::update_style_raw(
+  self : EditorState,
+  id : String,
+  new_style : @model.Style,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, style: new_style }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 要素のIDを変更（履歴なし、衝突チェックなし）
+pub fn EditorState::rename_element_raw(
+  self : EditorState,
+  old_id : String,
+  new_id : String,
+) -> Unit {
+  // IDを更新
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == old_id {
+        { ..el, id: new_id }
+      } else {
+        el
+      }
+    })
+  })
+  // 選択状態も更新
+  self.selected_ids.update(fn(ids) {
+    ids.map(fn(id) { if id == old_id { new_id } else { id } })
+  })
+}
+
+///|
+/// テキスト要素の内容を更新（履歴なし）
+pub fn EditorState::update_text_raw(
+  self : EditorState,
+  id : String,
+  new_content : String,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        match el.shape {
+          @model.Text(_, font_size) => { ..el, shape: @model.Text(new_content, font_size) }
+          _ => el
+        }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
 /// 要素を最前面に移動
 pub fn EditorState::bring_to_front(self : EditorState, id : String) -> (Int, Int)? {
   let els = self.elements.get()
@@ -1002,6 +1064,9 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.MoveElement(id, _, _, to_x, to_y) => state.move_element_raw(id, to_x, to_y)
     @model.ResizeElement(id, _, new_shape) => state.update_shape_raw(id, new_shape)
     @model.ReorderElement(id, _, to_idx) => state.reorder_element_raw(id, to_idx)
+    @model.UpdateStyle(id, _, new_style) => state.update_style_raw(id, new_style)
+    @model.RenameElement(old_id, new_id) => state.rename_element_raw(old_id, new_id)
+    @model.UpdateText(id, _, new_content) => state.update_text_raw(id, new_content)
   }
 }
 
@@ -1015,6 +1080,9 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
       state.move_element_raw(id, from_x, from_y)
     @model.ResizeElement(id, old_shape, _) => state.update_shape_raw(id, old_shape)
     @model.ReorderElement(id, from_idx, _) => state.reorder_element_raw(id, from_idx)
+    @model.UpdateStyle(id, old_style, _) => state.update_style_raw(id, old_style)
+    @model.RenameElement(old_id, new_id) => state.rename_element_raw(new_id, old_id)
+    @model.UpdateText(id, old_content, _) => state.update_text_raw(id, old_content)
   }
 }
 

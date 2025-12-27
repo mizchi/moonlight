@@ -729,3 +729,150 @@ test "TextEditState - construction" {
   assert_eq(state.editing_id, Some("text-1"))
   assert_eq(state.initial_text, "Hello")
 }
+
+// ============================================================
+// Element::hit_test tests
+// ============================================================
+
+test "Element::hit_test - point inside rect" {
+  let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  assert_true(el.hit_test({ x: 120.0, y: 120.0 }))
+}
+
+test "Element::hit_test - point outside rect" {
+  let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
+  assert_false(el.hit_test({ x: 50.0, y: 50.0 }))
+}
+
+test "Element::hit_test - point inside circle" {
+  let el = Element::new("el-1", 100.0, 100.0, Circle(50.0))
+  // Circle bbox is (50, 50, 100, 100)
+  assert_true(el.hit_test({ x: 100.0, y: 100.0 }))
+  assert_true(el.hit_test({ x: 60.0, y: 100.0 }))
+}
+
+test "Element::hit_test - point outside circle" {
+  let el = Element::new("el-1", 100.0, 100.0, Circle(50.0))
+  // Circle bbox is (50, 50, 100, 100)
+  assert_false(el.hit_test({ x: 160.0, y: 160.0 }))
+}
+
+// ============================================================
+// Style comparison tests
+// ============================================================
+
+test "Style equality - same styles" {
+  let style1 : Style = {
+    fill: Some("#ff0000"),
+    stroke: Some("#000000"),
+    stroke_width: Some(2.0),
+    opacity: Some(0.8),
+    stroke_dasharray: Some("5,5"),
+    marker_start: Some(Arrow),
+    marker_end: None,
+  }
+  let style2 : Style = {
+    fill: Some("#ff0000"),
+    stroke: Some("#000000"),
+    stroke_width: Some(2.0),
+    opacity: Some(0.8),
+    stroke_dasharray: Some("5,5"),
+    marker_start: Some(Arrow),
+    marker_end: None,
+  }
+  assert_eq(style1, style2)
+}
+
+test "Style equality - different fill" {
+  let style1 = Style::default()
+  let style2 = { ..Style::default(), fill: Some("#ff0000") }
+  assert_true(style1 != style2)
+}
+
+test "Style equality - different stroke_dasharray" {
+  let style1 = Style::default()
+  let style2 = { ..Style::default(), stroke_dasharray: Some("5,5") }
+  assert_true(style1 != style2)
+}
+
+test "Style equality - different marker" {
+  let style1 = Style::default()
+  let style2 = { ..Style::default(), marker_end: Some(Arrow) }
+  assert_true(style1 != style2)
+}
+
+// ============================================================
+// ArrowType tests
+// ============================================================
+
+test "ArrowType equality" {
+  assert_eq(Arrow, Arrow)
+  assert_eq(NoArrow, NoArrow)
+  assert_true(Arrow != NoArrow)
+}
+
+// ============================================================
+// Anchor tests
+// ============================================================
+
+test "Anchor equality" {
+  assert_eq(Center, Center)
+  assert_eq(Top, Top)
+  assert_true(Center != Top)
+  assert_true(TopLeft != BottomRight)
+}
+
+// ============================================================
+// Line bounding box edge cases
+// ============================================================
+
+test "Element::bounding_box - Line reversed direction" {
+  // Line from (150, 50) to (50, 100) - end point is to the left and below start
+  let el = Element::new("el-1", 150.0, 50.0, Line(50.0, 100.0))
+  let bbox = el.bounding_box()
+  assert_eq(bbox.x, 50.0) // min(150, 50)
+  assert_eq(bbox.y, 50.0) // min(50, 100)
+  assert_eq(bbox.width, 100.0) // 150 - 50
+  assert_eq(bbox.height, 50.0) // 100 - 50
+}
+
+test "Element::bounding_box - horizontal Line" {
+  let el = Element::new("el-1", 50.0, 100.0, Line(150.0, 100.0))
+  let bbox = el.bounding_box()
+  assert_eq(bbox.y, 100.0)
+  assert_eq(bbox.height, 0.0) // same y
+}
+
+test "Element::bounding_box - vertical Line" {
+  let el = Element::new("el-1", 100.0, 50.0, Line(100.0, 150.0))
+  let bbox = el.bounding_box()
+  assert_eq(bbox.x, 100.0)
+  assert_eq(bbox.width, 0.0) // same x
+}
+
+// ============================================================
+// Polyline bounding box tests
+// ============================================================
+
+test "Element::bounding_box - Polyline empty" {
+  let el = Element::new("el-1", 100.0, 100.0, Polyline([]))
+  let bbox = el.bounding_box()
+  assert_eq(bbox.x, 100.0)
+  assert_eq(bbox.y, 100.0)
+  assert_eq(bbox.width, 0.0)
+  assert_eq(bbox.height, 0.0)
+}
+
+test "Element::bounding_box - Polyline with points" {
+  let points : Array[Point] = [
+    { x: 50.0, y: 50.0 },
+    { x: 150.0, y: 50.0 },
+    { x: 100.0, y: 150.0 },
+  ]
+  let el = Element::new("el-1", 100.0, 100.0, Polyline(points))
+  let bbox = el.bounding_box()
+  assert_eq(bbox.x, 50.0) // min of all x
+  assert_eq(bbox.y, 50.0) // min of all y
+  assert_eq(bbox.width, 100.0) // 150 - 50
+  assert_eq(bbox.height, 100.0) // 150 - 50
+}

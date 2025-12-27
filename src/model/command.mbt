@@ -14,6 +14,12 @@ pub(all) enum Command {
   ResizeElement(String, ShapeType, ShapeType)
   /// 要素の順序を変更 (id, from_index, to_index)
   ReorderElement(String, Int, Int)
+  /// スタイルを更新 (id, old_style, new_style)
+  UpdateStyle(String, Style, Style)
+  /// 要素のIDを変更 (old_id, new_id)
+  RenameElement(String, String)
+  /// テキスト内容を更新 (id, old_content, new_content)
+  UpdateText(String, String, String)
 } derive(Show, Eq)
 
 ///|

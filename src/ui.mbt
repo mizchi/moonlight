@@ -28,6 +28,7 @@ let menu_button_style : String = "width: 100%; text-align: left; background: non
 /// カラースウォッチを描画
 fn render_color_swatches(
   state : EditorState,
+  history : @model.History,
   colors : Array[String],
   is_fill : Bool,
 ) -> @element.DomNode {
@@ -43,15 +44,15 @@ fn render_color_swatches(
       style=swatch_style + " " + bg_style,
       on=events().click(fn(_) {
         if state.get_selected_id() is Some(id) {
-          let value = if color == "transparent" { "transparent" } else { color }
-          if is_fill {
-            state.update_element(id, fn(el) {
-              { ..el, style: { ..el.style, fill: Some(value) } }
-            })
-          } else {
-            state.update_element(id, fn(el) {
-              { ..el, style: { ..el.style, stroke: Some(value) } }
-            })
+          if state.find_element(id) is Some(el) {
+            let value = if color == "transparent" { "transparent" } else { color }
+            let old_style = el.style
+            let new_style = if is_fill {
+              { ..old_style, fill: Some(value) }
+            } else {
+              { ..old_style, stroke: Some(value) }
+            }
+            execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
           }
         }
       }),
@@ -64,7 +65,11 @@ fn render_color_swatches(
 
 ///|
 /// サイドバーをレンダリング
-pub fn render_sidebar(state : EditorState, canvas_height : Int) -> @element.DomNode {
+pub fn render_sidebar(
+  state : EditorState,
+  history : @model.History,
+  canvas_height : Int,
+) -> @element.DomNode {
   let sidebar_style =
     "width: \{sidebar_width}px; min-height: \{canvas_height}px; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box;"
   div(
@@ -76,7 +81,7 @@ pub fn render_sidebar(state : EditorState, canvas_height : Int) -> @element.DomN
       // 選択中の要素の詳細を表示（単一選択の場合）
       show(
         fn() { state.selected_ids.get().length() == 1 },
-        fn() { render_element_details(state) },
+        fn() { render_element_details(state, history) },
       ),
       // 複数選択の場合
       show(
@@ -122,7 +127,10 @@ let row_style : String = "display: flex; align-items: center; gap: 4px; margin-b
 
 ///|
 /// 要素の詳細を表示・編集（コンパクト版）
-fn render_element_details(state : EditorState) -> @element.DomNode {
+fn render_element_details(
+  state : EditorState,
+  history : @model.History,
+) -> @element.DomNode {
   // ID編集用のローカル状態（衝突エラー表示用）
   let id_error = @luna.signal(false)
   div([
@@ -155,9 +163,14 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         on=events().change(fn(e) {
           if state.get_selected_id() is Some(old_id) {
             let new_id = get_event_target_value(e.as_any())
-            if new_id != "" {
-              let success = state.rename_element_id(old_id, new_id)
-              id_error.set(not(success))
+            if new_id != "" && new_id != old_id {
+              // 衝突チェック
+              if state.has_element_with_id(new_id) {
+                id_error.set(true)
+              } else {
+                execute_command(history, state, @model.RenameElement(old_id, new_id))
+                id_error.set(false)
+              }
             }
           }
         }),
@@ -181,9 +194,11 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         },
         on=events().change(fn(e) {
           if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(x) {
-              state.update_element(id, fn(el) { { ..el, x } })
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              if parse_double(value) is Some(new_x) {
+                execute_command(history, state, @model.MoveElement(id, el.x, el.y, new_x, el.y))
+              }
             }
           }
         }),
@@ -204,9 +219,11 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         },
         on=events().change(fn(e) {
           if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(y) {
-              state.update_element(id, fn(el) { { ..el, y } })
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              if parse_double(value) is Some(new_y) {
+                execute_command(history, state, @model.MoveElement(id, el.x, el.y, el.x, new_y))
+              }
             }
           }
         }),
@@ -265,10 +282,12 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         },
         on=events().input(fn(e) {
           if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            state.update_element(id, fn(el) {
-              { ..el, style: { ..el.style, stroke: Some(value) } }
-            })
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              let old_style = el.style
+              let new_style = { ..old_style, stroke: Some(value) }
+              execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+            }
           }
         }),
       ),
@@ -301,7 +320,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
     ]),
     // Stroke プリセット（1行）
     div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
-      render_color_swatches(state, stroke_presets, false),
+      render_color_swatches(state, history, stroke_presets, false),
     ]),
     // stroke-width を一行に
     div(style=row_style, [
@@ -321,11 +340,13 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         },
         on=events().change(fn(e) {
           if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            if parse_double(value) is Some(w) {
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, stroke_width: Some(w) } }
-              })
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              if parse_double(value) is Some(w) {
+                let old_style = el.style
+                let new_style = { ..old_style, stroke_width: Some(w) }
+                execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+              }
             }
           }
         }),
@@ -352,10 +373,12 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         },
         on=events().input(fn(e) {
           if state.get_selected_id() is Some(id) {
-            let value = get_event_target_value(e.as_any())
-            state.update_element(id, fn(el) {
-              { ..el, style: { ..el.style, fill: Some(value) } }
-            })
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              let old_style = el.style
+              let new_style = { ..old_style, fill: Some(value) }
+              execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+            }
           }
         }),
       ),
@@ -397,7 +420,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
     ]),
     // Fill プリセット（1行）
     div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
-      render_color_swatches(state, fill_presets, true),
+      render_color_swatches(state, history, fill_presets, true),
     ]),
     // Line 専用オプション（破線、矢印）
     show(
@@ -411,7 +434,7 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           None => false
         }
       },
-      fn() { render_line_options(state) },
+      fn() { render_line_options(state, history) },
     ),
   ])
 }
@@ -431,12 +454,15 @@ let dasharray_presets : Array[(String, String?)] = [
 
 ///|
 /// Line 専用オプション（破線、矢印）- コンパクト版
-fn render_line_options(state : EditorState) -> @element.DomNode {
+fn render_line_options(
+  state : EditorState,
+  history : @model.History,
+) -> @element.DomNode {
   // Style と Arrows を一行に
   div(style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;", [
     // 破線パターン選択
     div(style="display: flex; gap: 2px;", [
-      render_dasharray_buttons(state),
+      render_dasharray_buttons(state, history),
     ]),
     // セパレータ
     @element.span(style="color: #ccc;", [text("|")]),
@@ -459,14 +485,16 @@ fn render_line_options(state : EditorState) -> @element.DomNode {
           },
           on=events().change(fn(_) {
             if state.get_selected_id() is Some(id) {
-              state.update_element(id, fn(el) {
-                let new_marker = if el.style.marker_start is Some(@model.Arrow) {
+              if state.find_element(id) is Some(el) {
+                let old_style = el.style
+                let new_marker = if old_style.marker_start is Some(@model.Arrow) {
                   None
                 } else {
                   Some(@model.Arrow)
                 }
-                { ..el, style: { ..el.style, marker_start: new_marker } }
-              })
+                let new_style = { ..old_style, marker_start: new_marker }
+                execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+              }
             }
           }),
         ),
@@ -489,14 +517,16 @@ fn render_line_options(state : EditorState) -> @element.DomNode {
           },
           on=events().change(fn(_) {
             if state.get_selected_id() is Some(id) {
-              state.update_element(id, fn(el) {
-                let new_marker = if el.style.marker_end is Some(@model.Arrow) {
+              if state.find_element(id) is Some(el) {
+                let old_style = el.style
+                let new_marker = if old_style.marker_end is Some(@model.Arrow) {
                   None
                 } else {
                   Some(@model.Arrow)
                 }
-                { ..el, style: { ..el.style, marker_end: new_marker } }
-              })
+                let new_style = { ..old_style, marker_end: new_marker }
+                execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+              }
             }
           }),
         ),
@@ -508,7 +538,10 @@ fn render_line_options(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 破線パターンボタン群
-fn render_dasharray_buttons(state : EditorState) -> @element.DomNode {
+fn render_dasharray_buttons(
+  state : EditorState,
+  history : @model.History,
+) -> @element.DomNode {
   let children : Array[@element.DomNode] = []
   for preset in dasharray_presets {
     let (label, pattern) = preset
@@ -538,9 +571,11 @@ fn render_dasharray_buttons(state : EditorState) -> @element.DomNode {
       },
       on=events().click(fn(_) {
         if state.get_selected_id() is Some(id) {
-          state.update_element(id, fn(el) {
-            { ..el, style: { ..el.style, stroke_dasharray: pattern } }
-          })
+          if state.find_element(id) is Some(el) {
+            let old_style = el.style
+            let new_style = { ..old_style, stroke_dasharray: pattern }
+            execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+          }
         }
       }),
       [text(label)],
