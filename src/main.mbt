@@ -778,6 +778,11 @@ fn render_text_input_container(
     // 新しい textarea を作成
     if text_edit is Some(edit_state) {
       let vp = state.viewport.get()
+      let theme = state.theme_mode.get()
+      let text_color = match theme {
+        @model.Dark => "#ffffff"
+        @model.Light => "#000000"
+      }
       let (text_x, text_y, max_width) : (Double, Double, Double) = match state.find_element(edit_state.parent_id) {
         Some(parent) => {
           let bbox = parent.bounding_box()
@@ -790,7 +795,7 @@ fn render_text_input_container(
       let screen_pos = vp.scene_to_screen(text_x, text_y)
       let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
       let style =
-        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
+        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
 
       let textarea = create_textarea_ffi(
         style,
