@@ -27,35 +27,35 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should have initial shapes (2 rects, 1 circle)', async ({ page }) => {
-    const rects = page.locator('svg rect');
-    const circles = page.locator('svg circle');
+    const rects = page.locator('svg rect[data-id]');
+    const circles = page.locator('svg circle[data-id]');
 
     await expect(rects).toHaveCount(2);
     await expect(circles).toHaveCount(1);
   });
 
   test('should select a shape on click', async ({ page }) => {
-    const rect = page.locator('svg rect').first();
+    const rect = page.locator('svg rect[data-id]').first();
     await rect.click();
 
-    // Check that sidebar shows the element ID
-    await expect(page.getByText('el-1')).toBeVisible();
+    // Check that sidebar shows the element type
+    await expect(page.getByText('rect', { exact: true })).toBeVisible();
   });
 
   test('should add a rectangle when clicking Add Rectangle', async ({ page }) => {
-    const initialCount = await page.locator('svg rect').count();
+    const initialCount = await page.locator('svg rect[data-id]').count();
 
     await page.getByRole('button', { name: 'Add Rectangle' }).click();
 
-    await expect(page.locator('svg rect')).toHaveCount(initialCount + 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialCount + 1);
   });
 
   test('should add a circle when clicking Add Circle', async ({ page }) => {
-    const initialCount = await page.locator('svg circle').count();
+    const initialCount = await page.locator('svg circle[data-id]').count();
 
     await page.getByRole('button', { name: 'Add Circle' }).click();
 
-    await expect(page.locator('svg circle')).toHaveCount(initialCount + 1);
+    await expect(page.locator('svg circle[data-id]')).toHaveCount(initialCount + 1);
   });
 
   test('should add an ellipse when clicking Add Ellipse', async ({ page }) => {
@@ -67,11 +67,12 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should add a line when clicking Add Line', async ({ page }) => {
-    const initialCount = await page.locator('svg line').count();
+    // Line is wrapped in a group with data-element-type="line"
+    const initialCount = await page.locator('svg g[data-element-type="line"]').count();
 
     await page.getByRole('button', { name: 'Add Line' }).click();
 
-    await expect(page.locator('svg line')).toHaveCount(initialCount + 1);
+    await expect(page.locator('svg g[data-element-type="line"]')).toHaveCount(initialCount + 1);
   });
 
   test('should add text when clicking Add Text', async ({ page }) => {
@@ -85,7 +86,7 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should drag a shape to move it', async ({ page }) => {
-    const rect = page.locator('svg rect').first();
+    const rect = page.locator('svg rect[data-id]').first();
 
     // Get initial position
     const initialX = await rect.getAttribute('x');
@@ -101,7 +102,7 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should show context menu on right-click', async ({ page }) => {
-    const rect = page.locator('svg rect').first();
+    const rect = page.locator('svg rect[data-id]').first();
 
     // Right-click on shape
     await rect.click({ button: 'right' });
@@ -112,7 +113,7 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should hide context menu on left-click', async ({ page }) => {
-    const rect = page.locator('svg rect').first();
+    const rect = page.locator('svg rect[data-id]').first();
 
     // Right-click to show menu
     await rect.click({ button: 'right' });
@@ -126,16 +127,16 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should delete shape via context menu', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Right-click on first rect
-    await page.locator('svg rect').first().click({ button: 'right' });
+    await page.locator('svg rect[data-id]').first().click({ button: 'right' });
 
     // Click Delete
     await page.locator('button:has-text("Delete")').click();
 
     // Check shape was deleted
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount - 1);
   });
 
   test('should show insert menu when right-clicking empty area', async ({ page }) => {
@@ -190,29 +191,29 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should have zoom controls', async ({ page }) => {
-    await expect(page.getByRole('button', { name: '-' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '+' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reset' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Zoom Out' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Zoom In' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reset Zoom' })).toBeVisible();
     await expect(page.getByText('100%')).toBeVisible();
   });
 
   test('should zoom in when clicking + button', async ({ page }) => {
-    await page.getByRole('button', { name: '+' }).click();
+    await page.getByRole('button', { name: 'Zoom In' }).click();
     await expect(page.getByText('125%')).toBeVisible();
   });
 
   test('should zoom out when clicking - button', async ({ page }) => {
-    await page.getByRole('button', { name: '-' }).click();
+    await page.getByRole('button', { name: 'Zoom Out' }).click();
     await expect(page.getByText('80%')).toBeVisible();
   });
 
   test('should reset zoom when clicking Reset button', async ({ page }) => {
     // Zoom in first
-    await page.getByRole('button', { name: '+' }).click();
+    await page.getByRole('button', { name: 'Zoom In' }).click();
     await expect(page.getByText('125%')).toBeVisible();
 
     // Reset
-    await page.getByRole('button', { name: 'Reset' }).click();
+    await page.getByRole('button', { name: 'Reset Zoom' }).click();
     await expect(page.getByText('100%')).toBeVisible();
   });
 
@@ -222,48 +223,48 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should undo adding a shape', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Add a rectangle
     await page.getByRole('button', { name: 'Add Rectangle' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount + 1);
 
     // Undo
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount);
   });
 
   test('should redo after undo', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Add a rectangle
     await page.getByRole('button', { name: 'Add Rectangle' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount + 1);
 
     // Undo
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount);
 
     // Redo
     await page.getByRole('button', { name: 'Redo' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount + 1);
   });
 
   test('should undo deleting a shape', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Delete first rect via context menu
-    await page.locator('svg rect').first().click({ button: 'right' });
+    await page.locator('svg rect[data-id]').first().click({ button: 'right' });
     await page.locator('button:has-text("Delete")').click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount - 1);
 
     // Undo
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount);
   });
 
   test('should undo moving a shape', async ({ page }) => {
-    const rect = page.locator('svg rect').first();
+    const rect = page.locator('svg rect[data-id]').first();
     const initialX = await rect.getAttribute('x');
 
     // Drag the shape
@@ -285,7 +286,7 @@ test.describe('Moonlight SVG Editor', () => {
 
   test('should show resize handles when shape is selected', async ({ page }) => {
     // Click on a rect to select it
-    await page.locator('svg rect').first().click();
+    await page.locator('svg rect[data-id]').first().click();
 
     // Check that 4 resize handles are visible (small rects with data-handle attribute)
     const handles = page.locator('svg rect[data-handle]');
@@ -340,23 +341,23 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should delete shape with Delete key', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Select a shape
-    await page.locator('svg rect').first().click();
-    await expect(page.getByText('el-1')).toBeVisible();
+    await page.locator('svg rect[data-id]').first().click();
+    await expect(page.getByText('rect', { exact: true })).toBeVisible();
 
     // Press Delete key
     await page.keyboard.press('Delete');
 
     // Verify shape was deleted
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount - 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount - 1);
   });
 
   test('should deselect shape with Escape key', async ({ page }) => {
     // Select a shape
-    await page.locator('svg rect').first().click();
-    await expect(page.getByText('el-1')).toBeVisible();
+    await page.locator('svg rect[data-id]').first().click();
+    await expect(page.getByText('rect', { exact: true })).toBeVisible();
 
     // Press Escape key
     await page.keyboard.press('Escape');
@@ -383,17 +384,17 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should undo with Ctrl+Z', async ({ page }) => {
-    const initialRectCount = await page.locator('svg rect').count();
+    const initialRectCount = await page.locator('svg rect[data-id]').count();
 
     // Add a shape
     await page.getByRole('button', { name: 'Add Rectangle' }).click();
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount + 1);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount + 1);
 
     // Press Ctrl+Z
     await page.keyboard.press('Control+z');
 
     // Verify shape was removed
-    await expect(page.locator('svg rect')).toHaveCount(initialRectCount);
+    await expect(page.locator('svg rect[data-id]')).toHaveCount(initialRectCount);
   });
 
   test('should snap resize to grid when grid is enabled', async ({ page }) => {

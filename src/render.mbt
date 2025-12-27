@@ -71,6 +71,22 @@ fn add_style_attrs(attrs : Array[(String, String)], style : @model.Style) -> Uni
   if style.opacity is Some(v) {
     attrs.push(("opacity", num_str(v)))
   }
+  if style.stroke_dasharray is Some(v) {
+    attrs.push(("stroke-dasharray", v))
+  }
+}
+
+///|
+/// 矢印マーカー属性を追加（Line 用）
+fn add_marker_attrs(attrs : Array[(String, String)], style : @model.Style, stroke_color : String) -> Unit {
+  // 色に基づいたマーカー ID を使用
+  let color_suffix = stroke_color.replace(old="#", new="")
+  if style.marker_start is Some(@model.Arrow) {
+    attrs.push(("marker-start", "url(#arrow-start-\{color_suffix})"))
+  }
+  if style.marker_end is Some(@model.Arrow) {
+    attrs.push(("marker-end", "url(#arrow-end-\{color_suffix})"))
+  }
 }
 
 ///|
@@ -79,16 +95,8 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
   let attrs : Array[(String, String)] = []
   // data-id 属性（イベント処理用）
   attrs.push(("data-id", el.id))
-  // 選択状態のスタイル
-  let style = if is_selected {
-    {
-      ..el.style,
-      stroke: Some("#0066ff"),
-      stroke_width: Some(el.style.stroke_width.unwrap_or(1.0) + 1.0),
-    }
-  } else {
-    el.style
-  }
+  let style = el.style
+  let _ = is_selected // Line以外では未使用（Lineは別途ハイライト処理）
   match el.shape {
     @model.Rect(w, h, rx, ry) => {
       attrs.push(("x", num_str(el.x)))
@@ -132,16 +140,57 @@ pub fn render_element(el : @model.Element, is_selected : Bool) -> @js.Any {
       create_svg_element("ellipse", attrs, [])
     }
     @model.Line(x2, y2) => {
-      attrs.push(("x1", num_str(el.x)))
-      attrs.push(("y1", num_str(el.y)))
-      attrs.push(("x2", num_str(x2)))
-      attrs.push(("y2", num_str(y2)))
-      add_style_attrs(attrs, style)
-      if el.transform is Some(t) {
-        attrs.push(("transform", t))
+      // グループ要素でラップ（ヒットエリア + 線）
+      let group = create_svg_element(
+        "g",
+        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
+        [],
+      )
+      // 透明なヒットエリア（クリックしやすくするため、24px幅）
+      let hit_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("x1", num_str(el.x)),
+        ("y1", num_str(el.y)),
+        ("x2", num_str(x2)),
+        ("y2", num_str(y2)),
+        ("stroke", "transparent"),
+        ("stroke-width", "24"),
+      ]
+      let hit_area = create_svg_element("line", hit_attrs, [])
+      append_child_ffi(group, hit_area)
+      // 選択時はハイライト用の線を追加（矢印サイズに影響しないよう別の線として描画）
+      if is_selected {
+        let highlight_attrs : Array[(String, String)] = [
+          ("x1", num_str(el.x)),
+          ("y1", num_str(el.y)),
+          ("x2", num_str(x2)),
+          ("y2", num_str(y2)),
+          ("stroke", "rgba(0, 102, 255, 0.3)"),
+          ("stroke-width", num_str(el.style.stroke_width.unwrap_or(2.0) + 6.0)),
+          ("stroke-linecap", "round"),
+          ("pointer-events", "none"),
+        ]
+        let highlight_el = create_svg_element("line", highlight_attrs, [])
+        append_child_ffi(group, highlight_el)
       }
-      attrs.push(("cursor", "move"))
-      create_svg_element("line", attrs, [])
+      // 実際の線（元のスタイルをそのまま使用、矢印サイズが変わらないように）
+      let line_attrs : Array[(String, String)] = [
+        ("x1", num_str(el.x)),
+        ("y1", num_str(el.y)),
+        ("x2", num_str(x2)),
+        ("y2", num_str(y2)),
+        ("pointer-events", "none"),
+      ]
+      add_style_attrs(line_attrs, el.style)
+      // 矢印マーカーを追加
+      let stroke_color = el.style.stroke.unwrap_or("#000000")
+      add_marker_attrs(line_attrs, el.style, stroke_color)
+      if el.transform is Some(t) {
+        line_attrs.push(("transform", t))
+      }
+      let line_el = create_svg_element("line", line_attrs, [])
+      append_child_ffi(group, line_el)
+      group
     }
     @model.Polyline(points) => {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
@@ -213,6 +262,50 @@ pub fn render_svg_container(
 }
 
 ///|
+/// 矢印マーカーを作成（シンプルな三角形）
+fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any {
+  // コンパクトな矢印マーカー
+  let marker_attrs : Array[(String, String)] = [
+    ("id", id),
+    ("markerWidth", "6"),
+    ("markerHeight", "6"),
+    ("refX", if is_start { "0" } else { "6" }),
+    ("refY", "3"),
+    ("orient", "auto"),
+    ("markerUnits", "strokeWidth"),
+  ]
+  let marker = create_svg_element("marker", marker_attrs, [])
+  // シンプルな三角形パス
+  let path_d = if is_start { "M6,0 L0,3 L6,6" } else { "M0,0 L6,3 L0,6" }
+  let path_attrs : Array[(String, String)] = [
+    ("d", path_d),
+    ("fill", color),
+  ]
+  let path = create_svg_element("path", path_attrs, [])
+  append_child_ffi(marker, path)
+  marker
+}
+
+///|
+/// SVG 定義（マーカー）を作成
+pub fn create_arrow_defs() -> @js.Any {
+  let defs = create_svg_element("defs", [], [])
+  // よく使う色のマーカーを事前定義
+  let colors = [
+    "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
+    "#ffff00", "#ff00ff", "#00ffff", "#808080", "#c0c0c0",
+  ]
+  for color in colors {
+    let suffix = color.replace(old="#", new="")
+    let start_marker = create_arrow_marker("arrow-start-\{suffix}", color, true)
+    let end_marker = create_arrow_marker("arrow-end-\{suffix}", color, false)
+    append_child_ffi(defs, start_marker)
+    append_child_ffi(defs, end_marker)
+  }
+  defs
+}
+
+///|
 /// SVG コンテナを作成（ビューポート対応）
 pub fn render_svg_container_with_viewport(
   width : Int,
@@ -244,6 +337,9 @@ pub fn render_svg_container_with_viewport(
     ("wheel", on_wheel),
   ]
   let svg = create_svg_element("svg", attrs, handlers)
+  // 矢印マーカーの defs を追加
+  let defs = create_arrow_defs()
+  append_child_ffi(svg, defs)
   for child in children {
     append_child_ffi(svg, child)
   }

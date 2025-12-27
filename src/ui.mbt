@@ -5,16 +5,62 @@
 let sidebar_width : Int = 220
 
 ///|
-/// 入力フィールドのスタイル
-let input_style : String = "width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
+/// カラープリセット（背景用）- 8色に圧縮
+let fill_presets : Array[String] = [
+  "transparent", "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff",
+]
 
 ///|
-/// カラー入力のスタイル
-let color_input_style : String = "width: 60px; height: 24px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;"
+/// カラープリセット（線用）- 8色に圧縮
+let stroke_presets : Array[String] = [
+  "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff",
+]
+
+///|
+/// カラースウォッチのスタイル
+let swatch_style : String = "width: 20px; height: 20px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0;"
 
 ///|
 /// メニューボタンのスタイル
 let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
+
+///|
+/// カラースウォッチを描画
+fn render_color_swatches(
+  state : EditorState,
+  colors : Array[String],
+  is_fill : Bool,
+) -> @element.DomNode {
+  let children : Array[@element.DomNode] = []
+  for color in colors {
+    // transparent の場合は斜線パターンで表示
+    let bg_style = if color == "transparent" {
+      "background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px;"
+    } else {
+      "background: \{color};"
+    }
+    let swatch = button(
+      style=swatch_style + " " + bg_style,
+      on=events().click(fn(_) {
+        if state.get_selected_id() is Some(id) {
+          let value = if color == "transparent" { "transparent" } else { color }
+          if is_fill {
+            state.update_element(id, fn(el) {
+              { ..el, style: { ..el.style, fill: Some(value) } }
+            })
+          } else {
+            state.update_element(id, fn(el) {
+              { ..el, style: { ..el.style, stroke: Some(value) } }
+            })
+          }
+        }
+      }),
+      [],
+    )
+    children.push(swatch)
+  }
+  @element.fragment(children)
+}
 
 ///|
 /// サイドバーをレンダリング
@@ -55,22 +101,74 @@ pub fn render_sidebar(state : EditorState, canvas_height : Int) -> @element.DomN
 }
 
 ///|
-/// 要素の詳細を表示・編集
+/// 小さい入力フィールドのスタイル（コンパクト版）
+let small_input_style : String = "width: 50px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
+
+///|
+/// 読み取り専用フィールドのスタイル
+let readonly_field_style : String = "font-family: monospace; font-size: 11px; padding: 2px 4px; background: #f0f0f0; border-radius: 3px; min-width: 30px;"
+
+///|
+/// ID入力フィールドのスタイル
+let id_input_style : String = "width: 80px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
+
+///|
+/// ラベルのスタイル
+let label_style : String = "font-size: 10px; color: #666; min-width: 14px;"
+
+///|
+/// 行のスタイル
+let row_style : String = "display: flex; align-items: center; gap: 4px; margin-bottom: 4px;"
+
+///|
+/// 要素の詳細を表示・編集（コンパクト版）
 fn render_element_details(state : EditorState) -> @element.DomNode {
+  // ID編集用のローカル状態（衝突エラー表示用）
+  let id_error = @luna.signal(false)
   div([
-    // ID (読み取り専用)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("ID")]),
-      div(style="font-family: monospace; font-size: 14px; color: #333;", [
-        text_dyn(fn() { state.get_selected_id().unwrap_or("-") }),
+    // ID: rect #id 形式、id部分は編集可能
+    div(style=row_style, [
+      @element.span(style="font-size: 11px; color: #333;", [
+        text_dyn(fn() {
+          match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => @model.shape_name(el.shape)
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
       ]),
+      @element.span(style="font-size: 11px; color: #666;", [text("#")]),
+      input(
+        type_="text",
+        style=id_input_style,
+        dyn_style=fn() {
+          if id_error.get() {
+            id_input_style + " border-color: #c53030; background: #fff5f5;"
+          } else {
+            id_input_style
+          }
+        },
+        dyn_value=fn() { state.get_selected_id().unwrap_or("") },
+        on=events().change(fn(e) {
+          if state.get_selected_id() is Some(old_id) {
+            let new_id = get_event_target_value(e.as_any())
+            if new_id != "" {
+              let success = state.rename_element_id(old_id, new_id)
+              id_error.set(not(success))
+            }
+          }
+        }),
+      ),
     ]),
-    // Position X
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("X")]),
+    // x: [] y: [] を一行に
+    div(style=row_style, [
+      @element.span(style=label_style, [text("x:")]),
       input(
         type_="number",
-        style=input_style,
+        style=small_input_style,
         dyn_value=fn() {
           match state.get_selected_id() {
             Some(id) =>
@@ -90,13 +188,10 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
           }
         }),
       ),
-    ]),
-    // Position Y
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Y")]),
+      @element.span(style=label_style, [text("y:")]),
       input(
         type_="number",
-        style=input_style,
+        style=small_input_style,
         dyn_value=fn() {
           match state.get_selected_id() {
             Some(id) =>
@@ -117,15 +212,34 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         }),
       ),
     ]),
-    // Shape (読み取り専用)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Shape")]),
-      div(style="font-family: monospace; font-size: 14px;", [
+    // w: [] h: [] を一行に
+    div(style=row_style, [
+      @element.span(style=label_style, [text("w:")]),
+      @element.span(style=readonly_field_style, [
         text_dyn(fn() {
           match state.get_selected_id() {
             Some(id) =>
               match state.find_element(id) {
-                Some(el) => @model.format_shape(el.shape)
+                Some(el) => {
+                  let bbox = el.bounding_box()
+                  bbox.width.to_int().to_string()
+                }
+                None => "-"
+              }
+            None => "-"
+          }
+        }),
+      ]),
+      @element.span(style=label_style, [text("h:")]),
+      @element.span(style=readonly_field_style, [
+        text_dyn(fn() {
+          match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => {
+                  let bbox = el.bounding_box()
+                  bbox.height.to_int().to_string()
+                }
                 None => "-"
               }
             None => "-"
@@ -133,73 +247,45 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         }),
       ]),
     ]),
-    // Fill (カラーピッカー)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Fill")]),
-      div(style="display: flex; gap: 8px; align-items: center;", [
-        input(
-          type_="color",
-          style=color_input_style,
-          dyn_value=fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.fill.unwrap_or("#000000")
-                  None => "#000000"
-                }
-              None => "#000000"
-            }
-          },
-          on=events().input(fn(e) {
-            if state.get_selected_id() is Some(id) {
-              let value = get_event_target_value(e.as_any())
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, fill: Some(value) } }
-              })
-            }
-          }),
-        ),
-        @element.span(style="font-family: monospace; font-size: 12px;", [
-          text_dyn(fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.fill.unwrap_or("none")
-                  None => "-"
-                }
-              None => "-"
-            }
-          }),
-        ]),
-      ]),
-    ]),
-    // Stroke (カラーピッカー)
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke")]),
-      div(style="display: flex; gap: 8px; align-items: center;", [
-        input(
-          type_="color",
-          style=color_input_style,
-          dyn_value=fn() {
-            match state.get_selected_id() {
-              Some(id) =>
-                match state.find_element(id) {
-                  Some(el) => el.style.stroke.unwrap_or("#000000")
-                  None => "#000000"
-                }
-              None => "#000000"
-            }
-          },
-          on=events().input(fn(e) {
-            if state.get_selected_id() is Some(id) {
-              let value = get_event_target_value(e.as_any())
-              state.update_element(id, fn(el) {
-                { ..el, style: { ..el.style, stroke: Some(value) } }
-              })
-            }
-          }),
-        ),
-        @element.span(style="font-family: monospace; font-size: 12px;", [
+    // Stroke: カラーピッカー + カラーコード（背景色付き）
+    div(style=row_style + " margin-top: 6px;", [
+      @element.span(style=label_style + " min-width: 38px;", [text("Stroke")]),
+      input(
+        type_="color",
+        style="width: 24px; height: 20px; padding: 0; border: 1px solid #ccc; border-radius: 2px; cursor: pointer;",
+        dyn_value=fn() {
+          match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.stroke.unwrap_or("#000000")
+                None => "#000000"
+              }
+            None => "#000000"
+          }
+        },
+        on=events().input(fn(e) {
+          if state.get_selected_id() is Some(id) {
+            let value = get_event_target_value(e.as_any())
+            state.update_element(id, fn(el) {
+              { ..el, style: { ..el.style, stroke: Some(value) } }
+            })
+          }
+        }),
+      ),
+      @element.span(
+        style="font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: #fff;",
+        dyn_style=fn() {
+          let color = match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.stroke.unwrap_or("#000000")
+                None => "#000000"
+              }
+            None => "#000000"
+          }
+          "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: #fff; background: \{color};"
+        },
+        [
           text_dyn(fn() {
             match state.get_selected_id() {
               Some(id) =>
@@ -210,15 +296,19 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
               None => "-"
             }
           }),
-        ]),
-      ]),
+        ],
+      ),
     ]),
-    // Stroke Width
-    div(style="margin-bottom: 10px;", [
-      div(style="font-size: 12px; color: #666; margin-bottom: 4px;", [text("Stroke Width")]),
+    // Stroke プリセット（1行）
+    div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
+      render_color_swatches(state, stroke_presets, false),
+    ]),
+    // stroke-width を一行に
+    div(style=row_style, [
+      @element.span(style=label_style + " min-width: 64px;", [text("stroke-width:")]),
       input(
         type_="number",
-        style=input_style,
+        style=small_input_style,
         dyn_value=fn() {
           match state.get_selected_id() {
             Some(id) =>
@@ -241,7 +331,223 @@ fn render_element_details(state : EditorState) -> @element.DomNode {
         }),
       ),
     ]),
+    // Fill: カラーピッカー + カラーコード（背景色付き）
+    div(style=row_style + " margin-top: 6px;", [
+      @element.span(style=label_style + " min-width: 38px;", [text("Fill")]),
+      input(
+        type_="color",
+        style="width: 24px; height: 20px; padding: 0; border: 1px solid #ccc; border-radius: 2px; cursor: pointer;",
+        dyn_value=fn() {
+          match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => {
+                  let fill = el.style.fill.unwrap_or("transparent")
+                  if fill == "transparent" { "#ffffff" } else { fill }
+                }
+                None => "#ffffff"
+              }
+            None => "#ffffff"
+          }
+        },
+        on=events().input(fn(e) {
+          if state.get_selected_id() is Some(id) {
+            let value = get_event_target_value(e.as_any())
+            state.update_element(id, fn(el) {
+              { ..el, style: { ..el.style, fill: Some(value) } }
+            })
+          }
+        }),
+      ),
+      @element.span(
+        style="font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px;",
+        dyn_style=fn() {
+          let fill = match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.fill.unwrap_or("transparent")
+                None => "transparent"
+              }
+            None => "transparent"
+          }
+          if fill == "transparent" {
+            "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px;"
+          } else {
+            let text_color = if fill == "#ffffff" || fill == "#ffff00" || fill == "#00ff00" {
+              "#000"
+            } else {
+              "#fff"
+            }
+            "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; background: \{fill}; color: \{text_color};"
+          }
+        },
+        [
+          text_dyn(fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.fill.unwrap_or("transparent")
+                  None => "-"
+                }
+              None => "-"
+            }
+          }),
+        ],
+      ),
+    ]),
+    // Fill プリセット（1行）
+    div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
+      render_color_swatches(state, fill_presets, true),
+    ]),
+    // Line 専用オプション（破線、矢印）
+    show(
+      fn() {
+        match state.get_selected_id() {
+          Some(id) =>
+            match state.find_element(id) {
+              Some(el) => el.shape is @model.Line(_, _)
+              None => false
+            }
+          None => false
+        }
+      },
+      fn() { render_line_options(state) },
+    ),
   ])
+}
+
+///|
+/// トグルボタンのスタイル
+let toggle_button_style : String = "padding: 2px 6px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px;"
+
+///|
+/// 破線パターンのプリセット（短いラベル）
+let dasharray_presets : Array[(String, String?)] = [
+  ("―", None),
+  ("--", Some("8,4")),
+  ("··", Some("2,4")),
+  ("-·", Some("8,4,2,4")),
+]
+
+///|
+/// Line 専用オプション（破線、矢印）- コンパクト版
+fn render_line_options(state : EditorState) -> @element.DomNode {
+  // Style と Arrows を一行に
+  div(style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;", [
+    // 破線パターン選択
+    div(style="display: flex; gap: 2px;", [
+      render_dasharray_buttons(state),
+    ]),
+    // セパレータ
+    @element.span(style="color: #ccc;", [text("|")]),
+    // Arrow チェックボックス
+    div(style="display: flex; gap: 6px; align-items: center;", [
+      // Start Arrow
+      @element.label(style="display: flex; align-items: center; gap: 2px; font-size: 11px; cursor: pointer;", [
+        input(
+          type_="checkbox",
+          style="cursor: pointer; margin: 0;",
+          dyn_checked=fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.marker_start is Some(@model.Arrow)
+                  None => false
+                }
+              None => false
+            }
+          },
+          on=events().change(fn(_) {
+            if state.get_selected_id() is Some(id) {
+              state.update_element(id, fn(el) {
+                let new_marker = if el.style.marker_start is Some(@model.Arrow) {
+                  None
+                } else {
+                  Some(@model.Arrow)
+                }
+                { ..el, style: { ..el.style, marker_start: new_marker } }
+              })
+            }
+          }),
+        ),
+        text("<"),
+      ]),
+      // End Arrow
+      @element.label(style="display: flex; align-items: center; gap: 2px; font-size: 11px; cursor: pointer;", [
+        input(
+          type_="checkbox",
+          style="cursor: pointer; margin: 0;",
+          dyn_checked=fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.marker_end is Some(@model.Arrow)
+                  None => false
+                }
+              None => false
+            }
+          },
+          on=events().change(fn(_) {
+            if state.get_selected_id() is Some(id) {
+              state.update_element(id, fn(el) {
+                let new_marker = if el.style.marker_end is Some(@model.Arrow) {
+                  None
+                } else {
+                  Some(@model.Arrow)
+                }
+                { ..el, style: { ..el.style, marker_end: new_marker } }
+              })
+            }
+          }),
+        ),
+        text(">"),
+      ]),
+    ]),
+  ])
+}
+
+///|
+/// 破線パターンボタン群
+fn render_dasharray_buttons(state : EditorState) -> @element.DomNode {
+  let children : Array[@element.DomNode] = []
+  for preset in dasharray_presets {
+    let (label, pattern) = preset
+    let btn = button(
+      style=toggle_button_style,
+      dyn_style=fn() {
+        match state.get_selected_id() {
+          Some(id) =>
+            match state.find_element(id) {
+              Some(el) => {
+                let current = el.style.stroke_dasharray
+                let is_active = match (current, pattern) {
+                  (None, None) => true
+                  (Some(a), Some(b)) => a == b
+                  _ => false
+                }
+                if is_active {
+                  toggle_button_style + " background: #e0e0ff; border-color: #6666ff;"
+                } else {
+                  toggle_button_style + " background: #fff;"
+                }
+              }
+              None => toggle_button_style + " background: #fff;"
+            }
+          None => toggle_button_style + " background: #fff;"
+        }
+      },
+      on=events().click(fn(_) {
+        if state.get_selected_id() is Some(id) {
+          state.update_element(id, fn(el) {
+            { ..el, style: { ..el.style, stroke_dasharray: pattern } }
+          })
+        }
+      }),
+      [text(label)],
+    )
+    children.push(btn)
+  }
+  @element.fragment(children)
 }
 
 ///|
@@ -254,14 +560,9 @@ pub fn render_text_input(
   // シーン座標をスクリーン座標に変換
   let vp = state.viewport.get()
   let screen_pos = vp.scene_to_screen(edit_state.x, edit_state.y)
-  // 入力フィールドの幅と高さ
-  let input_width = 150
-  let input_height = 28
-  // 中央に配置（入力フィールドの半分をオフセット）
-  let left = screen_pos.x - input_width.to_double() / 2.0
-  let top = screen_pos.y - input_height.to_double() / 2.0
+  // シンプルなインライン入力（コンテンツ幅に合わせる）
   let style =
-    "position: absolute; left: \{left}px; top: \{top}px; width: \{input_width}px; height: \{input_height}px; padding: 4px 8px; border: 2px solid #0066ff; border-radius: 4px; font-size: 14px; text-align: center; box-sizing: border-box; outline: none;"
+    "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 4px; border: none; border-bottom: 1px solid #333; background: transparent; font-size: 14px; text-align: center; outline: none;"
   // 自動フォーカス（初期値付き）
   let _ = schedule_focus_with_value_ffi("input[type=text]", edit_state.initial_text)
   input(
@@ -376,10 +677,13 @@ fn render_insert_menu(
             insert_y,
             @model.Rect(80.0, 60.0, None, None),
           ).with_style({
-            fill: Some("#9f7aea"),
-            stroke: Some("#6b46c1"),
+            fill: Some("transparent"),
+            stroke: Some("#000000"),
             stroke_width: Some(2.0),
             opacity: None,
+            stroke_dasharray: None,
+            marker_start: None,
+            marker_end: None,
           })
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
@@ -398,10 +702,13 @@ fn render_insert_menu(
             insert_y,
             @model.Circle(40.0),
           ).with_style({
-            fill: Some("#f56565"),
-            stroke: Some("#c53030"),
+            fill: Some("transparent"),
+            stroke: Some("#000000"),
             stroke_width: Some(2.0),
             opacity: None,
+            stroke_dasharray: None,
+            marker_start: None,
+            marker_end: None,
           })
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
@@ -420,10 +727,13 @@ fn render_insert_menu(
             insert_y,
             @model.Ellipse(60.0, 35.0),
           ).with_style({
-            fill: Some("#38b2ac"),
-            stroke: Some("#234e52"),
+            fill: Some("transparent"),
+            stroke: Some("#000000"),
             stroke_width: Some(2.0),
             opacity: None,
+            stroke_dasharray: None,
+            marker_start: None,
+            marker_end: None,
           })
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
@@ -443,9 +753,12 @@ fn render_insert_menu(
             @model.Line(insert_x + 100.0, insert_y + 50.0),
           ).with_style({
             fill: None,
-            stroke: Some("#805ad5"),
-            stroke_width: Some(3.0),
+            stroke: Some("#000000"),
+            stroke_width: Some(2.0),
             opacity: None,
+            stroke_dasharray: None,
+            marker_start: None,
+            marker_end: Some(@model.Arrow),
           })
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
@@ -464,10 +777,13 @@ fn render_insert_menu(
             insert_y,
             @model.Text("Text", Some(24.0)),
           ).with_style({
-            fill: Some("#2d3748"),
+            fill: Some("#000000"),
             stroke: None,
             stroke_width: None,
             opacity: None,
+            stroke_dasharray: None,
+            marker_start: None,
+            marker_end: None,
           })
           execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()

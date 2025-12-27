@@ -1,7 +1,7 @@
 // Moonlight - 軽量 SVG エディタ
 
 ///|
-using @element {div, h1, button, text, text_dyn, events, show, input}
+using @element {div, button, text, text_dyn, events, show, input}
 
 ///|
 /// キャンバスサイズ
@@ -84,7 +84,7 @@ fn editor_app() -> @element.DomNode {
   )
   let on_mousemove = create_mousemove_handler(state, get_screen_coords, get_scene_coords)
   let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
-  let on_wheel = create_wheel_handler(state)
+  let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
 
   // 初期 SVG を作成
@@ -137,10 +137,13 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
     50.0,
     @model.Rect(80.0, 60.0, None, None),
   ).with_style({
-    fill: Some("#4a90d9"),
-    stroke: Some("#2c5282"),
+    fill: Some("transparent"),
+    stroke: Some("#000000"),
     stroke_width: Some(2.0),
     opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
   })
   let rect2 = @model.Element::new(
     new_id(),
@@ -148,16 +151,22 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
     120.0,
     @model.Rect(70.0, 70.0, Some(8.0), Some(8.0)),
   ).with_style({
-    fill: Some("#48bb78"),
-    stroke: Some("#276749"),
+    fill: Some("transparent"),
+    stroke: Some("#000000"),
     stroke_width: Some(2.0),
     opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
   })
   let circle1 = @model.Element::new(new_id(), 320.0, 80.0, @model.Circle(35.0)).with_style({
-    fill: Some("#ed8936"),
-    stroke: Some("#c05621"),
+    fill: Some("transparent"),
+    stroke: Some("#000000"),
     stroke_width: Some(2.0),
     opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
   })
   state.add_element_raw(rect1)
   state.add_element_raw(rect2)
@@ -280,9 +289,12 @@ fn handle_anchor_click(
     @model.Line(anchor_point.x, anchor_point.y),
   ).with_style({
     fill: None,
-    stroke: Some("#666666"),
+    stroke: Some("#000000"),
     stroke_width: Some(2.0),
     opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: Some(@model.Arrow),
   })
   let line_with_conn = {
     ..new_line,
@@ -430,6 +442,9 @@ fn commit_text_edit(
           stroke: None,
           stroke_width: None,
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
         }).with_parent(edit_state.parent_id)
         execute_command(history, state, @model.AddElement(text_el))
       }
@@ -446,12 +461,15 @@ fn create_mousemove_handler(
   get_scene_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
   fn(e) {
+    // マウス位置を更新（キーバインドでの挿入用）
+    let (scene_x, scene_y) = get_scene_coords(e)
+    state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
+
     if state.is_panning.get() {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.pan_move(screen_x, screen_y)
       return
     }
-    let (scene_x, scene_y) = get_scene_coords(e)
     if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
     } else if state.is_multi_dragging() {
@@ -533,16 +551,17 @@ fn create_mouseup_handler(
 }
 
 ///|
-/// wheel ハンドラを作成
-fn create_wheel_handler(state : EditorState) -> (@js.Any) -> Unit {
+/// wheel ハンドラを作成（マウス位置を基準にズーム）
+fn create_wheel_handler(
+  state : EditorState,
+  get_screen_coords : (@js.Any) -> (Double, Double),
+) -> (@js.Any) -> Unit {
   fn(e) {
     let _ = e._call("preventDefault", [])
     let delta_y : Double = e._get("deltaY").cast()
-    if delta_y < 0.0 {
-      state.zoom_in()
-    } else {
-      state.zoom_out()
-    }
+    let (screen_x, screen_y) = get_screen_coords(e)
+    let zoom_in = delta_y < 0.0
+    state.zoom_at(screen_x, screen_y, zoom_in)
   }
 }
 
@@ -590,6 +609,10 @@ fn redraw_svg_content(
 ) -> Unit {
   guard svg_ref.val is Some(svg)
   clear_children_ffi(svg)
+
+  // 矢印マーカーの defs を追加
+  let defs = create_arrow_defs()
+  append_child_ffi(svg, defs)
 
   // グリッド線を描画
   if state.grid_enabled.get() {
@@ -714,6 +737,9 @@ fn setup_keyboard_shortcuts(
     let meta_key : Bool = e._get("metaKey").cast()
     let is_cmd = ctrl_key || meta_key
 
+    // マウス位置を取得
+    let pos = state.mouse_scene_pos.get()
+
     match key {
       "Delete" | "Backspace" => {
         let selected_ids = state.selected_ids.get()
@@ -724,6 +750,86 @@ fn setup_keyboard_shortcuts(
         }
       }
       "Escape" => state.select(None)
+      // 1: Rectangle をマウス位置に挿入
+      "1" => {
+        let el_id = new_id()
+        let new_rect = @model.Element::new(
+          el_id,
+          pos.x - 40.0,
+          pos.y - 30.0,
+          @model.Rect(80.0, 60.0, None, None),
+        ).with_style({
+          fill: Some("transparent"),
+          stroke: Some("#000000"),
+          stroke_width: Some(2.0),
+          opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
+        })
+        execute_command(history, state, @model.AddElement(new_rect))
+        state.select(Some(el_id))
+      }
+      // 2: Circle をマウス位置に挿入
+      "2" => {
+        let el_id = new_id()
+        let new_circle = @model.Element::new(
+          el_id,
+          pos.x,
+          pos.y,
+          @model.Circle(40.0),
+        ).with_style({
+          fill: Some("transparent"),
+          stroke: Some("#000000"),
+          stroke_width: Some(2.0),
+          opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
+        })
+        execute_command(history, state, @model.AddElement(new_circle))
+        state.select(Some(el_id))
+      }
+      // 3: Line をマウス位置に挿入
+      "3" => {
+        let el_id = new_id()
+        let new_line = @model.Element::new(
+          el_id,
+          pos.x - 50.0,
+          pos.y,
+          @model.Line(pos.x + 50.0, pos.y),
+        ).with_style({
+          fill: None,
+          stroke: Some("#000000"),
+          stroke_width: Some(2.0),
+          opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: Some(@model.Arrow),
+        })
+        execute_command(history, state, @model.AddElement(new_line))
+        state.select(Some(el_id))
+      }
+      // 4: Text をマウス位置に挿入
+      "4" => {
+        let el_id = new_id()
+        let new_text = @model.Element::new(
+          el_id,
+          pos.x,
+          pos.y,
+          @model.Text("Text", Some(16.0)),
+        ).with_style({
+          fill: Some("#000000"),
+          stroke: None,
+          stroke_width: None,
+          opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
+        })
+        execute_command(history, state, @model.AddElement(new_text))
+        state.select(Some(el_id))
+      }
       "d" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
@@ -773,148 +879,240 @@ fn render_editor_ui(
   svg : @js.Any,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
-  let id_counter = @luna.signal(0)
-
   div([
-    // ヘッダー
-    div(style="margin-bottom: 10px;", [
-      h1(style="margin: 0 0 8px 0;", [text("Moonlight SVG Editor")]),
-      render_toolbar(state, history, new_id, id_counter),
-    ]),
+    // タイトル
+    @element.h1(style="margin: 0 0 8px 0; font-size: 18px;", [text("Moonlight SVG Editor")]),
     // メインエリア
-    div(style="display: flex; gap: 16px;", [
-      div(style="position: relative;", [
-        svg_to_dom_node(svg),
-        show(
-          fn() { state.context_menu.get() is Some(_) },
-          fn() { render_context_menu(state, history, new_id) },
-        ),
-        show(
-          fn() { state.text_edit.get() is Some(_) },
-          fn() { render_text_input(state, commit_text_input) },
-        ),
-      ]),
+    div(style="display: flex; gap: 12px;", [
+      // サイドバー
       render_sidebar(state, canvas_height),
+      // キャンバスエリア
+      div([
+        // ツールバー（SVG上部）
+        div(style="display: flex; gap: 4px; align-items: center; background: #f8f8f8; padding: 4px 6px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; font-size: 11px;", [
+          render_embedded_toolbar(state, history, new_id),
+        ]),
+        // SVG コンテナ
+        div(style="position: relative;", [
+          svg_to_dom_node(svg),
+          // コンテキストメニュー
+          show(
+            fn() { state.context_menu.get() is Some(_) },
+            fn() { render_context_menu(state, history, new_id) },
+          ),
+          // テキスト入力
+          show(
+            fn() { state.text_edit.get() is Some(_) },
+            fn() { render_text_input(state, commit_text_input) },
+          ),
+        ]),
+      ]),
     ]),
   ])
 }
 
 ///|
-/// ツールバーをレンダリング
-fn render_toolbar(
+/// 埋め込みツールバー（コンパクト版）
+fn render_embedded_toolbar(
   state : EditorState,
   history : @model.History,
   new_id : () -> String,
-  id_counter : @luna.Signal[Int],
 ) -> @element.DomNode {
-  div([
+  let btn_style = "padding: 2px 6px; font-size: 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;"
+  let sep_style = "width: 1px; height: 16px; background: #ddd; margin: 0 4px;"
+  let id_counter : Ref[Int] = { val: 0 }
+
+  div(style="display: flex; gap: 4px; align-items: center;", [
     // 図形追加ボタン
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Rectangle"))],
       on=events().click(fn(_) {
-        let current = id_counter.get()
-        id_counter.set(current + 1)
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
         let new_rect = @model.Element::new(
-          new_id(),
-          150.0 + current.to_double() * 20.0,
-          150.0 + current.to_double() * 20.0,
+          el_id,
+          150.0 + offset,
+          150.0 + offset,
           @model.Rect(80.0, 60.0, None, None),
         ).with_style({
-          fill: Some("#9f7aea"),
-          stroke: Some("#6b46c1"),
+          fill: Some("transparent"),
+          stroke: Some("#000000"),
           stroke_width: Some(2.0),
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
         })
         execute_command(history, state, @model.AddElement(new_rect))
+        state.select(Some(el_id))
       }),
-      [text("Add Rectangle")],
+      [text("Rect (1)")],
     ),
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Circle"))],
       on=events().click(fn(_) {
-        let current = id_counter.get()
-        id_counter.set(current + 1)
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
         let new_circle = @model.Element::new(
-          new_id(),
-          200.0 + current.to_double() * 20.0,
-          200.0 + current.to_double() * 20.0,
+          el_id,
+          200.0 + offset,
+          200.0 + offset,
           @model.Circle(40.0),
         ).with_style({
-          fill: Some("#f56565"),
-          stroke: Some("#c53030"),
+          fill: Some("transparent"),
+          stroke: Some("#000000"),
           stroke_width: Some(2.0),
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
         })
         execute_command(history, state, @model.AddElement(new_circle))
+        state.select(Some(el_id))
       }),
-      [text("Add Circle")],
+      [text("Circle (2)")],
     ),
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Ellipse"))],
       on=events().click(fn(_) {
-        let current = id_counter.get()
-        id_counter.set(current + 1)
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
         let new_ellipse = @model.Element::new(
-          new_id(),
-          180.0 + current.to_double() * 20.0,
-          120.0 + current.to_double() * 20.0,
+          el_id,
+          180.0 + offset,
+          120.0 + offset,
           @model.Ellipse(60.0, 35.0),
         ).with_style({
-          fill: Some("#38b2ac"),
-          stroke: Some("#234e52"),
+          fill: Some("transparent"),
+          stroke: Some("#000000"),
           stroke_width: Some(2.0),
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
         })
         execute_command(history, state, @model.AddElement(new_ellipse))
+        state.select(Some(el_id))
       }),
-      [text("Add Ellipse")],
+      [text("Ellipse")],
     ),
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Line"))],
       on=events().click(fn(_) {
-        let current = id_counter.get()
-        id_counter.set(current + 1)
-        let offset = current.to_double() * 20.0
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
         let new_line = @model.Element::new(
-          new_id(),
+          el_id,
           50.0 + offset,
-          50.0 + offset,
-          @model.Line(150.0 + offset, 100.0 + offset),
+          220.0,
+          @model.Line(180.0 + offset, 260.0),
         ).with_style({
           fill: None,
-          stroke: Some("#805ad5"),
-          stroke_width: Some(3.0),
+          stroke: Some("#000000"),
+          stroke_width: Some(2.0),
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: Some(@model.Arrow),
         })
         execute_command(history, state, @model.AddElement(new_line))
+        state.select(Some(el_id))
       }),
-      [text("Add Line")],
+      [text("Line (3)")],
     ),
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Add Text"))],
       on=events().click(fn(_) {
-        let current = id_counter.get()
-        id_counter.set(current + 1)
+        id_counter.val = id_counter.val + 1
+        let el_id = new_id()
+        let offset = id_counter.val.to_double() * 20.0
         let new_text = @model.Element::new(
-          new_id(),
-          100.0 + current.to_double() * 20.0,
-          200.0 + current.to_double() * 15.0,
+          el_id,
+          100.0 + offset,
+          200.0 + offset * 0.75,
           @model.Text("Hello", Some(24.0)),
         ).with_style({
-          fill: Some("#2d3748"),
+          fill: Some("#000000"),
           stroke: None,
           stroke_width: None,
           opacity: None,
+          stroke_dasharray: None,
+          marker_start: None,
+          marker_end: None,
         })
         execute_command(history, state, @model.AddElement(new_text))
+        state.select(Some(el_id))
       }),
-      [text("Add Text")],
+      [text("Text (4)")],
     ),
+    // セパレータ
+    @element.span(style=sep_style, []),
+    // Undo/Redo
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Undo"))],
       on=events().click(fn(_) { let _ = undo_command(history, state) }),
       [text("Undo")],
     ),
     button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Redo"))],
       on=events().click(fn(_) { let _ = redo_command(history, state) }),
       [text("Redo")],
     ),
+    // セパレータ
+    @element.span(style=sep_style, []),
+    // ズームコントロール
     button(
-      style="margin-left: 16px;",
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Zoom Out"))],
+      on=events().click(fn(_) { state.zoom_out() }),
+      [text("-")],
+    ),
+    @element.span(style="min-width: 36px; text-align: center;", [
+      text_dyn(fn() {
+        let zoom = state.viewport.get().zoom
+        "\{(zoom * 100.0).to_int()}%"
+      }),
+    ]),
+    button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Zoom In"))],
+      on=events().click(fn(_) { state.zoom_in() }),
+      [text("+")],
+    ),
+    button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Reset Zoom"))],
+      on=events().click(fn(_) { state.reset_viewport() }),
+      [text("Reset")],
+    ),
+    // セパレータ
+    @element.span(style=sep_style, []),
+    // グリッドスナップ
+    @element.label(style="display: inline-flex; align-items: center; gap: 2px; cursor: pointer;", [
+      input(
+        type_="checkbox",
+        attrs=[("aria-label", @element.AttrString("Grid Snap"))],
+        on=events().change(fn(_) { state.toggle_grid() }),
+      ),
+      text("Grid Snap"),
+    ]),
+    // セパレータ
+    @element.span(style=sep_style, []),
+    // エクスポート
+    button(
+      style=btn_style,
+      attrs=[("aria-label", @element.AttrString("Export SVG"))],
       on=events().click(fn(_) {
         let svg_str = elements_to_svg(
           state.elements.get(),
@@ -923,39 +1121,8 @@ fn render_toolbar(
         )
         download_file(svg_str, "drawing.svg", "image/svg+xml")
       }),
-      [text("Export SVG")],
+      [text("Export")],
     ),
-    // ズームコントロール
-    @element.span(style="margin-left: 16px; display: inline-flex; align-items: center; gap: 4px;", [
-      button(
-        on=events().click(fn(_) { state.zoom_out() }),
-        [text("-")],
-      ),
-      @element.span(style="min-width: 50px; text-align: center;", [
-        text_dyn(fn() {
-          let zoom = state.viewport.get().zoom
-          "\{(zoom * 100.0).to_int()}%"
-        }),
-      ]),
-      button(
-        on=events().click(fn(_) { state.zoom_in() }),
-        [text("+")],
-      ),
-      button(
-        style="margin-left: 4px;",
-        on=events().click(fn(_) { state.reset_viewport() }),
-        [text("Reset")],
-      ),
-    ]),
-    // グリッドスナップ
-    @element.span(style="margin-left: 16px;", [
-      @element.label(style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer;", [
-        input(
-          type_="checkbox",
-          on=events().change(fn(_) { state.toggle_grid() }),
-        ),
-        text("Grid Snap"),
-      ]),
-    ]),
   ])
 }
+

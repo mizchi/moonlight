@@ -8,12 +8,12 @@ test.describe('Line Connections', () => {
   });
 
   test('should add a line with Add Line button', async ({ page }) => {
-    const initialLineCount = await page.locator('svg line[data-id]').count();
+    const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
 
     await page.getByRole('button', { name: 'Add Line' }).click();
     await page.waitForTimeout(100);
 
-    const afterLineCount = await page.locator('svg line[data-id]').count();
+    const afterLineCount = await page.locator('svg g[data-element-type="line"]').count();
     expect(afterLineCount).toBe(initialLineCount + 1);
   });
 
@@ -22,9 +22,9 @@ test.describe('Line Connections', () => {
     await page.getByRole('button', { name: 'Add Line' }).click();
     await page.waitForTimeout(100);
 
-    // Select the line
-    const line = page.locator('svg line[data-id]').first();
-    await line.click();
+    // Select the line (Line is wrapped in a group with data-element-type="line")
+    const lineGroup = page.locator('svg g[data-element-type="line"]').first();
+    await lineGroup.click();
     await page.waitForTimeout(100);
 
     // Check that circular handles appear (line uses circles, not rects)
@@ -41,10 +41,13 @@ test.describe('Line Connections', () => {
     await page.getByRole('button', { name: 'Add Line' }).click();
     await page.waitForTimeout(100);
 
-    // Select the line
-    const line = page.locator('svg line[data-id]').first();
-    await line.click();
+    // Select the line (Line is wrapped in a group with data-element-type="line")
+    const lineGroup = page.locator('svg g[data-element-type="line"]').first();
+    await lineGroup.click();
     await page.waitForTimeout(100);
+
+    // Get the actual line element (the visible one, not the hit area)
+    const line = lineGroup.locator('line').last();
 
     // Get initial position of the line end
     const initialX2 = await line.getAttribute('x2');
@@ -87,7 +90,7 @@ test.describe('Line Connections', () => {
   });
 
   test('should create line by dragging from anchor point', async ({ page }) => {
-    const initialLineCount = await page.locator('svg line[data-id]').count();
+    const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
 
     // Select the first rect
     const rect = page.locator('svg rect[data-id]').first();
@@ -107,7 +110,7 @@ test.describe('Line Connections', () => {
     await page.waitForTimeout(100);
 
     // Check that a new line was created
-    const afterLineCount = await page.locator('svg line[data-id]').count();
+    const afterLineCount = await page.locator('svg g[data-element-type="line"]').count();
     expect(afterLineCount).toBe(initialLineCount + 1);
   });
 
@@ -117,10 +120,9 @@ test.describe('Line Connections', () => {
     await rect.click();
     await page.waitForTimeout(100);
 
-    // Get rect's right edge position for verification
-    const rectBox = await rect.boundingBox();
-    expect(rectBox).not.toBeNull();
-    const rightEdgeX = rectBox!.x + rectBox!.width;
+    // Get rect's SVG attributes for verification
+    const rectX = parseFloat(await rect.getAttribute('x') || '0');
+    const rectWidth = parseFloat(await rect.getAttribute('width') || '0');
 
     // Create line from right anchor
     const rightAnchor = page.locator('svg circle[data-anchor="right"]');
@@ -133,13 +135,14 @@ test.describe('Line Connections', () => {
     await page.mouse.up();
     await page.waitForTimeout(100);
 
-    // Get the line and verify it starts near the anchor point
-    const line = page.locator('svg line[data-id]').first();
+    // Get the line group and the actual line element
+    const lineGroup = page.locator('svg g[data-element-type="line"]').first();
+    const line = lineGroup.locator('line').last();
     const x1 = parseFloat(await line.getAttribute('x1') || '0');
 
-    // The line's start point should be near the rect's right edge
-    // (within some tolerance due to SVG coordinate differences)
-    expect(Math.abs(x1 - (rectBox!.x + rectBox!.width - 10))).toBeLessThan(50);
+    // The line's start point should be near the rect's right edge (in SVG coordinates)
+    const expectedX1 = rectX + rectWidth;
+    expect(Math.abs(x1 - expectedX1)).toBeLessThan(10);
   });
 
   test('should show connection highlight when dragging line endpoint near anchor', async ({ page }) => {
@@ -147,9 +150,9 @@ test.describe('Line Connections', () => {
     await page.getByRole('button', { name: 'Add Line' }).click();
     await page.waitForTimeout(100);
 
-    // Select the line
-    const line = page.locator('svg line[data-id]').first();
-    await line.click();
+    // Select the line (Line is wrapped in a group with data-element-type="line")
+    const lineGroup = page.locator('svg g[data-element-type="line"]').first();
+    await lineGroup.click();
     await page.waitForTimeout(100);
 
     // Get rect position for targeting
@@ -215,9 +218,12 @@ test.describe('Multi-select with Lines', () => {
 
     // Box select to include all elements
     const svg = page.locator('svg');
-    await svg.hover({ position: { x: 10, y: 10 } });
+    const svgBox = await svg.boundingBox();
+    expect(svgBox).not.toBeNull();
+
+    await page.mouse.move(svgBox!.x + 10, svgBox!.y + 10);
     await page.mouse.down();
-    await page.mouse.move(390, 280);
+    await page.mouse.move(svgBox!.x + 390, svgBox!.y + 280);
     await page.mouse.up();
     await page.waitForTimeout(100);
 
@@ -229,9 +235,12 @@ test.describe('Multi-select with Lines', () => {
   test('should move multiple selected elements together', async ({ page }) => {
     // Box select all initial elements
     const svg = page.locator('svg');
-    await svg.hover({ position: { x: 10, y: 10 } });
+    const svgBox = await svg.boundingBox();
+    expect(svgBox).not.toBeNull();
+
+    await page.mouse.move(svgBox!.x + 10, svgBox!.y + 10);
     await page.mouse.down();
-    await page.mouse.move(390, 280);
+    await page.mouse.move(svgBox!.x + 390, svgBox!.y + 280);
     await page.mouse.up();
     await page.waitForTimeout(100);
 
@@ -245,9 +254,11 @@ test.describe('Multi-select with Lines', () => {
     const initialCx = await circle.getAttribute('cx');
 
     // Drag to move all selected elements
-    await rect1.hover();
+    const rect1Box = await rect1.boundingBox();
+    expect(rect1Box).not.toBeNull();
+    await page.mouse.move(rect1Box!.x + rect1Box!.width / 2, rect1Box!.y + rect1Box!.height / 2);
     await page.mouse.down();
-    await page.mouse.move(200, 200);
+    await page.mouse.move(svgBox!.x + 200, svgBox!.y + 200);
     await page.mouse.up();
     await page.waitForTimeout(100);
 

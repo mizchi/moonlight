@@ -43,12 +43,22 @@ pub fn LineConnections::none() -> LineConnections {
 }
 
 ///|
+/// 矢印の種類
+pub(all) enum ArrowType {
+  NoArrow // 矢印なし
+  Arrow // 標準の矢印
+} derive(Show, Eq)
+
+///|
 /// 共通スタイル属性
 pub(all) struct Style {
   fill : String? // 塗りつぶし色 (e.g., "#ff0000", "none")
   stroke : String? // 線の色
   stroke_width : Double? // 線の太さ
   opacity : Double? // 不透明度 (0.0 - 1.0)
+  stroke_dasharray : String? // 破線パターン (e.g., "5,5", "10,5,2,5")
+  marker_start : ArrowType? // 始点の矢印
+  marker_end : ArrowType? // 終点の矢印
 } derive(Show, Eq)
 
 ///|
@@ -59,6 +69,9 @@ pub fn Style::default() -> Style {
     stroke: Some("#000000"),
     stroke_width: Some(1.0),
     opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
   }
 }
 
@@ -508,6 +521,20 @@ pub fn snap_to_grid(
   let snapped_x = (x / size).round() * size
   let snapped_y = (y / size).round() * size
   (snapped_x, snapped_y)
+}
+
+///|
+/// ShapeType の名前を小文字で取得
+pub fn shape_name(shape : ShapeType) -> String {
+  match shape {
+    Rect(_, _, _, _) => "rect"
+    Circle(_) => "circle"
+    Ellipse(_, _) => "ellipse"
+    Line(_, _) => "line"
+    Polyline(_) => "polyline"
+    Path(_) => "path"
+    Text(_, _) => "text"
+  }
 }
 
 ///|

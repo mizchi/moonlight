@@ -650,10 +650,15 @@ test "Element::with_style" {
     stroke: Some("#00ff00"),
     stroke_width: Some(3.0),
     opacity: Some(0.5),
+    stroke_dasharray: Some("5,5"),
+    marker_start: Some(Arrow),
+    marker_end: Some(Arrow),
   }
   let el = Element::new("el-1", 0.0, 0.0, Circle(10.0)).with_style(style)
   assert_eq(el.style.fill, Some("#ff0000"))
   assert_eq(el.style.opacity, Some(0.5))
+  assert_eq(el.style.stroke_dasharray, Some("5,5"))
+  assert_eq(el.style.marker_start, Some(Arrow))
 }
 
 // ============================================================

@@ -27,6 +27,7 @@ pub struct EditorState {
   pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
   text_edit : @luna.Signal[@model.TextEditState?] // テキスト編集状態
   pending_connection : @luna.Signal[PendingConnection?] // ドラッグ中の接続プレビュー
+  mouse_scene_pos : @luna.Signal[@model.Point] // マウス位置（シーン座標）
 }
 
 ///|
@@ -49,6 +50,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     pan_start: @luna.signal(None),
     text_edit: @luna.signal(None),
     pending_connection: @luna.signal(None),
+    mouse_scene_pos: @luna.signal({ x: 0.0, y: 0.0 }),
   }
 }
 
@@ -115,6 +117,50 @@ pub fn EditorState::find_element(self : EditorState, id : String) -> @model.Elem
     }
   }
   None
+}
+
+///|
+/// 指定IDの要素が存在するかチェック
+pub fn EditorState::has_element_with_id(self : EditorState, id : String) -> Bool {
+  for el in self.elements.get() {
+    if el.id == id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// 要素のIDを変更（衝突チェック付き）
+/// 成功時は true、ID衝突時は false を返す
+pub fn EditorState::rename_element_id(
+  self : EditorState,
+  old_id : String,
+  new_id : String,
+) -> Bool {
+  // 同じIDなら何もしない
+  if old_id == new_id {
+    return true
+  }
+  // 新しいIDが既に存在する場合は失敗
+  if self.has_element_with_id(new_id) {
+    return false
+  }
+  // IDを更新
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == old_id {
+        { ..el, id: new_id }
+      } else {
+        el
+      }
+    })
+  })
+  // 選択状態も更新
+  self.selected_ids.update(fn(ids) {
+    ids.map(fn(id) { if id == old_id { new_id } else { id } })
+  })
+  true
 }
 
 ///|
@@ -480,6 +526,37 @@ pub fn EditorState::zoom_out(self : EditorState) -> Unit {
     // 最小 25%
     let clamped = if new_zoom < 0.25 { 0.25 } else { new_zoom }
     { ..vp, zoom: clamped }
+  })
+}
+
+///|
+/// 指定位置を基準にズーム（マウス位置中心）
+pub fn EditorState::zoom_at(
+  self : EditorState,
+  screen_x : Double,
+  screen_y : Double,
+  zoom_in : Bool,
+) -> Unit {
+  self.viewport.update(fn(vp) {
+    // 現在のマウス位置のシーン座標を取得
+    let scene = vp.screen_to_scene(screen_x, screen_y)
+    // 新しいズーム値を計算
+    let factor = if zoom_in { 1.25 } else { 1.0 / 1.25 }
+    let new_zoom = vp.zoom * factor
+    // 範囲制限
+    let clamped = if new_zoom > 4.0 {
+      4.0
+    } else if new_zoom < 0.25 {
+      0.25
+    } else {
+      new_zoom
+    }
+    // ズーム後も同じシーン座標がマウス位置に来るようにスクロール調整
+    // scene.x = screen_x / clamped + new_scroll_x
+    // new_scroll_x = scene.x - screen_x / clamped
+    let new_scroll_x = scene.x - screen_x / clamped
+    let new_scroll_y = scene.y - screen_y / clamped
+    { zoom: clamped, scroll_x: new_scroll_x, scroll_y: new_scroll_y }
   })
 }
 
