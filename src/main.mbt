@@ -45,7 +45,7 @@ fn editor_app() -> @element.DomNode {
   let space_pressed : Ref[Bool] = { val: false }
 
   // Space キーの監視を設定
-  setup_space_key_listener(state, space_pressed)
+  setup_keyboard_listener(state, space_pressed)
 
   // 座標取得ヘルパー
   let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
@@ -156,12 +156,42 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
 }
 
 ///|
-/// Space キーリスナーを設定
-fn setup_space_key_listener(state : EditorState, space_pressed : Ref[Bool]) -> Unit {
+/// キーボードリスナーを設定（Space + Arrow）
+fn setup_keyboard_listener(state : EditorState, space_pressed : Ref[Bool]) -> Unit {
+  // パン移動量（ピクセル）
+  let pan_step = 50.0
   let _ = add_keydown_listener(fn(e) {
+    // 入力要素にフォーカスがある場合はショートカットを無視
+    if is_input_focused_ffi() {
+      return
+    }
     let key : String = e._get("key").cast()
+    let keyboard_event : @js_dom.KeyboardEvent = e.cast()
+    // Space キーでパンモード
     if key == " " {
       space_pressed.val = true
+      return
+    }
+    // Arrow キーでパン（選択なし時）または要素移動（選択あり時）
+    let has_selection = state.selected_ids.get().length() > 0
+    match key {
+      "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+        if has_selection {
+          // 選択要素がある場合は要素移動（既存の動作に任せる）
+          return
+        }
+        // 選択なしの場合はパン
+        let zoom = state.viewport.get().zoom
+        match key {
+          "ArrowUp" => state.pan(0.0, -pan_step / zoom)
+          "ArrowDown" => state.pan(0.0, pan_step / zoom)
+          "ArrowLeft" => state.pan(-pan_step / zoom, 0.0)
+          "ArrowRight" => state.pan(pan_step / zoom, 0.0)
+          _ => ()
+        }
+        keyboard_event.preventDefault()
+      }
+      _ => ()
     }
   })
   let _ = add_keyup_listener(fn(e) {
@@ -195,8 +225,12 @@ fn create_mousedown_handler(
   fn(e) {
     state.hide_context_menu()
 
-    // Space キーが押されていればパンを開始
-    if space_pressed.val {
+    // マウスボタンをチェック
+    let mouse_event : @js_dom.MouseEvent = e.cast()
+    let button = mouse_event.button
+
+    // 中クリック（button === 1）または Space キーでパン開始
+    if button == 1 || space_pressed.val {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.start_pan(screen_x, screen_y)
       return
@@ -628,7 +662,11 @@ fn setup_keyboard_shortcuts(
   new_id : () -> String,
 ) -> Unit {
   let handler : (@js.Any) -> Unit = fn(e) {
+    // テキスト編集中または入力要素にフォーカスがある場合は無視
     if state.text_edit.get() is Some(_) {
+      return
+    }
+    if is_input_focused_ffi() {
       return
     }
 
@@ -747,30 +785,26 @@ fn render_editor_ui_vnode(
   svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
-  div([
-    // タイトル
-    @element.h1(style="margin: 0 0 8px 0; font-size: 18px;", [text("Moonlight SVG Editor")]),
-    // メインエリア
-    div(style="display: flex; gap: 12px;", [
-      // サイドバー
-      render_sidebar(state, history, canvas_height),
-      // キャンバスエリア
-      div([
-        // ツールバー（SVG上部）
-        div(style="display: flex; gap: 4px; align-items: center; background: #f8f8f8; padding: 4px 6px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; font-size: 11px;", [
-          render_embedded_toolbar(state, history, new_id),
-        ]),
-        // SVG コンテナ（Luna VNode として直接使用）
-        div(style="position: relative;", [
-          svg_canvas,
-          // コンテキストメニュー
-          show(
-            fn() { state.context_menu.get() is Some(_) },
-            fn() { render_context_menu(state, history, new_id) },
-          ),
-          // テキスト入力（FFI 要素は show の cleanup と相性が悪いため、別 div で管理）
-          render_text_input_container(state, commit_text_input),
-        ]),
+  // メインレイアウト（flex で全画面）
+  div(style="display: flex; height: 100vh; overflow: hidden;", [
+    // サイドバー
+    render_sidebar(state, history, 0), // height は CSS で制御
+    // キャンバスエリア（flex: 1 で残り領域を使用）
+    div(style="flex: 1; display: flex; flex-direction: column; min-width: 0;", [
+      // ツールバー（SVG上部）
+      div(style="display: flex; gap: 4px; align-items: center; background: #f8f8f8; padding: 4px 6px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; font-size: 11px;", [
+        render_embedded_toolbar(state, history, new_id),
+      ]),
+      // SVG コンテナ（flex: 1 で残り領域を使用）
+      div(style="flex: 1; position: relative; min-height: 0;", [
+        svg_canvas,
+        // コンテキストメニュー
+        show(
+          fn() { state.context_menu.get() is Some(_) },
+          fn() { render_context_menu(state, history, new_id) },
+        ),
+        // テキスト入力（FFI 要素は show の cleanup と相性が悪いため、別 div で管理）
+        render_text_input_container(state, commit_text_input),
       ]),
     ]),
   ])
@@ -1059,9 +1093,14 @@ fn render_svg_canvas_node(
   // SVG 子要素
   let children : Array[@element.DomNode] = []
 
-  // 矢印マーカーの defs（静的）
+  // 矢印マーカーの defs（静的）+ ドキュメントシャドウフィルタ
   let defs_node : @js_dom.Node = create_arrow_defs().cast()
   children.push(@element.static_node(defs_node))
+  // ドキュメントシャドウフィルタ（テーマに応じて変化）
+  children.push(create_doc_shadow_filter_node(state.theme_mode.get() == @model.Dark))
+
+  // Canvas 背景（境界外グレー + ドキュメント境界）
+  children.push(render_canvas_background_vnode(state))
 
   // グリッド線
   children.push(@element.show(
@@ -1101,26 +1140,38 @@ fn render_svg_canvas_node(
     fn() { render_connection_highlight_vnode(state) },
   ))
 
-  // SVG 属性
+  // SVG 属性（100% サイズ、viewBox は動的）
   let svg_attrs : Array[(String, @element.AttrValue)] = [
-    ("width", @element.Static(canvas_width.to_string())),
-    ("height", @element.Static(canvas_height.to_string())),
+    ("width", @element.Static("100%")),
+    ("height", @element.Static("100%")),
     ("viewBox", @element.Dynamic(fn() {
       let vp = state.viewport.get()
-      let vb_width = canvas_width.to_double() / vp.zoom
-      let vb_height = canvas_height.to_double() / vp.zoom
+      let cw = state.canvas_width.get().to_double()
+      let ch = state.canvas_height.get().to_double()
+      let vb_width = cw / vp.zoom
+      let vb_height = ch / vp.zoom
       "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
     })),
     ("style", @element.Dynamic(fn() {
-      let bg = state.preview_bg.get()
       let theme = state.get_theme()
-      "border: 1px solid #ccc; background: \{bg}; user-select: none; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
+      "border: 1px solid #ccc; user-select: none; overflow: hidden; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
     })),
     ("mousedown", @element.Handler(on_mousedown)),
     ("mousemove", @element.Handler(on_mousemove)),
     ("mouseup", @element.Handler(on_mouseup)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
+    // ResizeObserver で canvas サイズを更新
+    ("__ref", @element.Handler(fn(svg_el) {
+      observe_resize_ffi(svg_el, fn(width : Double, height : Double) {
+        let w = width.to_int()
+        let h = height.to_int()
+        if w > 0 && h > 0 {
+          state.canvas_width.set(w)
+          state.canvas_height.set(h)
+        }
+      })
+    })),
   ]
 
   @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, children)

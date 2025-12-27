@@ -714,6 +714,105 @@ pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
 }
 
 ///|
+/// ドロップシャドウフィルタを作成
+fn create_drop_shadow_filter(id : String, blur : Double, offset_y : Double, opacity : Double) -> @js.Any {
+  let filter = create_svg_element(
+    "filter",
+    [
+      ("id", id),
+      ("x", "-50%"),
+      ("y", "-50%"),
+      ("width", "200%"),
+      ("height", "200%"),
+    ],
+    [],
+  )
+  // feDropShadow を使用
+  let drop_shadow = create_svg_element(
+    "feDropShadow",
+    [
+      ("dx", "0"),
+      ("dy", num_str(offset_y)),
+      ("stdDeviation", num_str(blur)),
+      ("flood-opacity", num_str(opacity)),
+    ],
+    [],
+  )
+  append_child_ffi(filter, drop_shadow)
+  filter
+}
+
+///|
+/// Canvas 背景レイヤーを描画
+/// - 境界外のグレー背景（テーマ連動）
+/// - ドキュメント境界（白/黒 rect + ドロップシャドウ）
+pub fn render_canvas_background(
+  doc_width : Double,
+  doc_height : Double,
+  viewport : @model.Viewport,
+  screen_width : Int,
+  screen_height : Int,
+  is_dark_theme : Bool,
+) -> Array[@js.Any] {
+  let result : Array[@js.Any] = []
+
+  // viewBox のサイズを計算
+  let vb_width = screen_width.to_double() / viewport.zoom
+  let vb_height = screen_height.to_double() / viewport.zoom
+
+  // 境界外背景を十分大きくする（viewBox の2倍程度 + スクロール領域）
+  let margin = 2000.0
+  let bg_x = viewport.scroll_x - margin
+  let bg_y = viewport.scroll_y - margin
+  let bg_width = vb_width + margin * 2.0
+  let bg_height = vb_height + margin * 2.0
+
+  // テーマに応じた色
+  let outer_bg_color = if is_dark_theme { "#333333" } else { "#e0e0e0" }
+  let doc_bg_color = if is_dark_theme { "#1a1a1a" } else { "#ffffff" }
+
+  // 1. 境界外背景（グレー）
+  let outer_bg = create_svg_element(
+    "rect",
+    [
+      ("x", num_str(bg_x)),
+      ("y", num_str(bg_y)),
+      ("width", num_str(bg_width)),
+      ("height", num_str(bg_height)),
+      ("fill", outer_bg_color),
+      ("pointer-events", "none"),
+    ],
+    [],
+  )
+  result.push(outer_bg)
+
+  // 2. ドキュメント境界（白/黒 + シャドウ）
+  let doc_bg = create_svg_element(
+    "rect",
+    [
+      ("x", "0"),
+      ("y", "0"),
+      ("width", num_str(doc_width)),
+      ("height", num_str(doc_height)),
+      ("fill", doc_bg_color),
+      ("filter", "url(#doc-shadow)"),
+      ("pointer-events", "none"),
+    ],
+    [],
+  )
+  result.push(doc_bg)
+
+  result
+}
+
+///|
+/// ドキュメントシャドウフィルタを defs に追加
+pub fn create_doc_shadow_filter(is_dark_theme : Bool) -> @js.Any {
+  let opacity = if is_dark_theme { 0.5 } else { 0.15 }
+  create_drop_shadow_filter("doc-shadow", 4.0, 2.0, opacity)
+}
+
+///|
 /// 全てのアンカーポイントを描画（ドラッグ中の可視化用）
 pub fn render_all_anchor_points(elements : Array[@model.Element], exclude_id : String) -> Array[@js.Any] {
   let result : Array[@js.Any] = []
@@ -1205,8 +1304,8 @@ pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
   let viewport = state.viewport.get()
   let size = grid_size.to_double()
   // viewBox の範囲を計算
-  let vb_width = canvas_width.to_double() / viewport.zoom
-  let vb_height = canvas_height.to_double() / viewport.zoom
+  let vb_width = state.canvas_width.get().to_double() / viewport.zoom
+  let vb_height = state.canvas_height.get().to_double() / viewport.zoom
   let start_x = viewport.scroll_x
   let start_y = viewport.scroll_y
   let end_x = start_x + vb_width
@@ -1829,4 +1928,71 @@ pub fn render_connection_highlight_vnode(state : EditorState) -> @element.DomNod
     ("__ref", @element.Handler(fn(el) { circle_ref.val = Some(el) })),
   ]
   @element.create_element_ns(@element.svg_ns, "circle", attrs, [])
+}
+
+///|
+/// Canvas 背景を VNode として描画（Effect ベース）
+/// - 境界外のグレー背景（テーマ連動）
+/// - ドキュメント境界（白/黒 rect + ドロップシャドウ）
+pub fn render_canvas_background_vnode(state : EditorState) -> @element.DomNode {
+  let container_ref : Ref[@js.Any?] = { val: None }
+
+  // Effect で viewport / canvas サイズ変更を監視して再描画
+  let _ = @luna.effect(fn() {
+    let viewport = state.viewport.get()
+    let doc_width = state.doc_width.get()
+    let doc_height = state.doc_height.get()
+    let canvas_w = state.canvas_width.get()
+    let canvas_h = state.canvas_height.get()
+    let theme = state.theme_mode.get()
+    let is_dark = theme == @model.Dark
+
+    guard container_ref.val is Some(container) else { return }
+
+    // コンテナをクリア
+    clear_children_ffi(container)
+
+    // 背景要素を生成
+    let bg_elements = render_canvas_background(
+      doc_width,
+      doc_height,
+      viewport,
+      canvas_w,
+      canvas_h,
+      is_dark,
+    )
+
+    // コンテナに追加
+    for el in bg_elements {
+      append_child_ffi(container, el)
+    }
+  })
+
+  // コンテナグループを作成
+  let attrs : Array[(String, @element.AttrValue)] = [
+    ("class", @element.Static("canvas-background")),
+    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", attrs, [])
+}
+
+///|
+/// ドキュメントシャドウフィルタを defs Node として作成
+pub fn create_doc_shadow_filter_node(is_dark_theme : Bool) -> @element.DomNode {
+  let opacity = if is_dark_theme { 0.5 } else { 0.15 }
+  let filter_attrs : Array[(String, String)] = [
+    ("id", "doc-shadow"),
+    ("x", "-50%"),
+    ("y", "-50%"),
+    ("width", "200%"),
+    ("height", "200%"),
+  ]
+  let drop_shadow_attrs : Array[(String, String)] = [
+    ("dx", "0"),
+    ("dy", "2"),
+    ("stdDeviation", "4"),
+    ("flood-opacity", num_str(opacity)),
+  ]
+  let drop_shadow = create_svg_node("feDropShadow", drop_shadow_attrs, [], [])
+  create_svg_node("filter", filter_attrs, [], [drop_shadow])
 }

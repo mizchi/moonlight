@@ -11,8 +11,12 @@ pub(all) struct PendingConnection {
 ///|
 /// エディタの状態
 pub struct EditorState {
-  width : Int // キャンバス幅
-  height : Int // キャンバス高さ
+  width : Int // 初期ビューポート幅
+  height : Int // 初期ビューポート高さ
+  canvas_width : @luna.Signal[Int] // キャンバス幅（動的）
+  canvas_height : @luna.Signal[Int] // キャンバス高さ（動的）
+  doc_width : @luna.Signal[Double] // ドキュメント幅
+  doc_height : @luna.Signal[Double] // ドキュメント高さ
   elements : @luna.Signal[Array[@model.Element]] // 要素リスト
   selected_ids : @luna.Signal[Array[String]] // 選択中の要素 ID リスト（複数選択対応）
   drag_state : @luna.Signal[@model.DragState?] // ドラッグ状態
@@ -36,9 +40,18 @@ pub struct EditorState {
 ///|
 /// エディタ状態を作成
 pub fn EditorState::new(width : Int, height : Int) -> EditorState {
+  // 初期ドキュメントサイズ（キャンバスと同じ）
+  let doc_w = 400.0
+  let doc_h = 300.0
+  // 初期 zoom は 100%、ドキュメント左上から表示
+  let initial_viewport : @model.Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 1.0 }
   {
     width,
     height,
+    canvas_width: @luna.signal(width),
+    canvas_height: @luna.signal(height),
+    doc_width: @luna.signal(doc_w),
+    doc_height: @luna.signal(doc_h),
     elements: @luna.signal([]),
     selected_ids: @luna.signal([]),
     drag_state: @luna.signal(None),
@@ -46,7 +59,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     resize_state: @luna.signal(None),
     box_select: @luna.signal(None),
     context_menu: @luna.signal(None),
-    viewport: @luna.signal(@model.Viewport::default()),
+    viewport: @luna.signal(initial_viewport),
     grid_enabled: @luna.signal(false),
     grid_size: @luna.signal(20),
     is_panning: @luna.signal(false),
@@ -835,7 +848,7 @@ pub fn EditorState::send_to_back(self : EditorState, id : String) -> (Int, Int)?
 /// ズームイン
 pub fn EditorState::zoom_in(self : EditorState) -> Unit {
   self.viewport.update(fn(vp) {
-    let new_zoom = vp.zoom * 1.25
+    let new_zoom = vp.zoom * 1.01
     // 最大 400%
     let clamped = if new_zoom > 4.0 { 4.0 } else { new_zoom }
     { ..vp, zoom: clamped }
@@ -846,7 +859,7 @@ pub fn EditorState::zoom_in(self : EditorState) -> Unit {
 /// ズームアウト
 pub fn EditorState::zoom_out(self : EditorState) -> Unit {
   self.viewport.update(fn(vp) {
-    let new_zoom = vp.zoom / 1.25
+    let new_zoom = vp.zoom / 1.01
     // 最小 25%
     let clamped = if new_zoom < 0.25 { 0.25 } else { new_zoom }
     { ..vp, zoom: clamped }
@@ -864,8 +877,8 @@ pub fn EditorState::zoom_at(
   self.viewport.update(fn(vp) {
     // 現在のマウス位置のシーン座標を取得
     let scene = vp.screen_to_scene(screen_x, screen_y)
-    // 新しいズーム値を計算
-    let factor = if zoom_in { 1.25 } else { 1.0 / 1.25 }
+    // 新しいズーム値を計算（1%刻み）
+    let factor = if zoom_in { 1.01 } else { 1.0 / 1.01 }
     let new_zoom = vp.zoom * factor
     // 範囲制限
     let clamped = if new_zoom > 4.0 {
@@ -887,7 +900,27 @@ pub fn EditorState::zoom_at(
 ///|
 /// ビューポートをリセット
 pub fn EditorState::reset_viewport(self : EditorState) -> Unit {
-  self.viewport.set(@model.Viewport::default())
+  self.fit_to_canvas()
+}
+
+///|
+/// ドキュメント全体がキャンバスにフィットする zoom を計算してセット
+pub fn EditorState::fit_to_canvas(self : EditorState) -> Unit {
+  let doc_w = self.doc_width.get()
+  let doc_h = self.doc_height.get()
+  let canvas_w = self.canvas_width.get().to_double()
+  let canvas_h = self.canvas_height.get().to_double()
+  // 余白を含めてフィット
+  let margin = 40.0
+  let zoom_x = canvas_w / (doc_w + margin * 2.0)
+  let zoom_y = canvas_h / (doc_h + margin * 2.0)
+  let fit_zoom = if zoom_x < zoom_y { zoom_x } else { zoom_y }
+  // ドキュメントを中央に配置
+  let vb_width = canvas_w / fit_zoom
+  let vb_height = canvas_h / fit_zoom
+  let scroll_x = -(vb_width - doc_w) / 2.0
+  let scroll_y = -(vb_height - doc_h) / 2.0
+  self.viewport.set({ scroll_x, scroll_y, zoom: fit_zoom })
 }
 
 ///|

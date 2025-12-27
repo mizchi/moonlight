@@ -5,10 +5,6 @@ test.describe('Moonlight SVG Editor', () => {
     await page.goto('/');
   });
 
-  test('should display the title', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveText('Moonlight SVG Editor');
-  });
-
   test('should display element tree in sidebar when nothing selected', async ({ page }) => {
     // Sidebar should show element tree when nothing is selected (no breadcrumb at root)
     // Should show element list (initial shapes - ID shown in separate span)
@@ -26,8 +22,8 @@ test.describe('Moonlight SVG Editor', () => {
   test('should have an SVG element', async ({ page }) => {
     const svg = page.locator('svg');
     await expect(svg).toBeVisible();
-    await expect(svg).toHaveAttribute('width', '400');
-    await expect(svg).toHaveAttribute('height', '300');
+    await expect(svg).toHaveAttribute('width', '100%');
+    await expect(svg).toHaveAttribute('height', '100%');
   });
 
   test('should have initial shapes (2 rects, 2 texts, 1 circle)', async ({ page }) => {

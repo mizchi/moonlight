@@ -193,6 +193,29 @@ pub extern "js" fn insert_before_ffi(parent : @js.Any, new_child : @js.Any, ref_
   #| (parent, newChild, refChild) => parent.insertBefore(newChild, refChild)
 
 ///|
+/// ResizeObserver で要素のサイズ変更を監視
+pub extern "js" fn observe_resize_ffi(el : @js.Any, callback : (Double, Double) -> Unit) =
+  #| (el, callback) => {
+  #|   const observer = new ResizeObserver((entries) => {
+  #|     for (const entry of entries) {
+  #|       const { width, height } = entry.contentRect;
+  #|       callback(width, height);
+  #|     }
+  #|   });
+  #|   observer.observe(el);
+  #| }
+
+///|
+/// 入力要素にフォーカスがあるかチェック
+pub extern "js" fn is_input_focused_ffi() -> Bool =
+  #| () => {
+  #|   const el = document.activeElement;
+  #|   if (!el) return false;
+  #|   const tag = el.tagName.toLowerCase();
+  #|   return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+  #| }
+
+///|
 /// 子要素を取得
 pub extern "js" fn get_child_at_ffi(parent : @js.Any, index : Int) -> @js.Any =
   #| (parent, index) => parent.children[index] || null

@@ -80,10 +80,10 @@ fn render_color_swatches(
 pub fn render_sidebar(
   state : EditorState,
   history : @model.History,
-  canvas_height : Int,
+  _canvas_height : Int,
 ) -> @element.DomNode {
   let sidebar_style =
-    "width: \{sidebar_width}px; min-height: \{canvas_height}px; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box;"
+    "width: \{sidebar_width}px; height: 100%; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; padding: 12px; box-sizing: border-box; overflow-y: auto;"
   div(
     style=sidebar_style,
     [
@@ -221,13 +221,57 @@ fn render_canvas_settings(state : EditorState) -> @element.DomNode {
   let label_style = "color: #666;"
   let text_input_style =
     "width: 70px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 10px;"
+  let small_input_style =
+    "width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 10px;"
   let theme_btn_style =
     "flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 11px; transition: all 0.2s;"
   div(
     style="padding: 8px; background: #fff; border: 1px solid #eee; border-radius: 4px;",
     [
-      // テーマ切り替え
+      // Document Size
       div(style="margin-bottom: 12px;", [
+        @element.span(style=label_style + " display: block; margin-bottom: 6px;", [
+          text("Document Size"),
+        ]),
+        div(style="display: flex; gap: 8px; align-items: center;", [
+          @element.span(style="font-size: 10px; color: #999;", [text("W:")]),
+          input(
+            type_="number",
+            style=small_input_style,
+            dyn_value=fn() { state.doc_width.get().to_int().to_string() },
+            on=events().change(fn(e) {
+              let value = get_event_target_value(e.as_any())
+              if parse_double(value) is Some(w) {
+                if w > 0.0 {
+                  state.doc_width.set(w)
+                }
+              }
+            }),
+          ),
+          @element.span(style="font-size: 10px; color: #999;", [text("H:")]),
+          input(
+            type_="number",
+            style=small_input_style,
+            dyn_value=fn() { state.doc_height.get().to_int().to_string() },
+            on=events().change(fn(e) {
+              let value = get_event_target_value(e.as_any())
+              if parse_double(value) is Some(h) {
+                if h > 0.0 {
+                  state.doc_height.set(h)
+                }
+              }
+            }),
+          ),
+        ]),
+        // Fit to Canvas ボタン
+        button(
+          style="margin-top: 6px; width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px; background: #f8f8f8;",
+          on=events().click(fn(_) { state.fit_to_canvas() }),
+          [text("Fit to Canvas")],
+        ),
+      ]),
+      // テーマ切り替え
+      div(style="margin-bottom: 12px; border-top: 1px solid #eee; padding-top: 8px;", [
         @element.span(style=label_style + " display: block; margin-bottom: 6px;", [
           text("Theme"),
         ]),
