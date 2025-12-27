@@ -219,15 +219,67 @@ pub fn EditorState::move_element(
   guard self.find_element(id) is Some(el)
   let dx = new_x - el.x
   let dy = new_y - el.y
-  // 親要素を移動
-  self.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
-  // 子要素も移動
-  let children = self.get_children(id)
-  for child in children {
-    self.update_element(child.id, fn(c) { { ..c, x: c.x + dx, y: c.y + dy } })
+  // Line の場合は両端点を同時に移動し、接続された要素も一緒に移動
+  match el.shape {
+    @model.Line(x2, y2) => {
+      // まず接続されている要素のIDを収集（重複を避ける）
+      let connected_ids : Array[String] = []
+      match el.connections {
+        Some(conns) => {
+          match conns.start {
+            Some(conn) =>
+              if not(connected_ids.contains(conn.element_id)) {
+                connected_ids.push(conn.element_id)
+              }
+            None => ()
+          }
+          match conns.end {
+            Some(conn) =>
+              if not(connected_ids.contains(conn.element_id)) {
+                connected_ids.push(conn.element_id)
+              }
+            None => ()
+          }
+        }
+        None => ()
+      }
+      // 移動量をローカル変数に保存（クロージャ用）
+      let move_dx = dx
+      let move_dy = dy
+      // ライン自体の両端点を移動（接続は維持）
+      self.update_element(id, fn(e) {
+        { ..e, x: new_x, y: new_y, shape: @model.Line(x2 + move_dx, y2 + move_dy) }
+      })
+      // 接続されている要素も一緒に移動
+      for connected_id in connected_ids {
+        if self.find_element(connected_id) is Some(_) {
+          self.update_element(connected_id, fn(c) {
+            { ..c, x: c.x + move_dx, y: c.y + move_dy }
+          })
+          // 子要素も移動
+          let connected_children = self.get_children(connected_id)
+          for child in connected_children {
+            self.update_element(child.id, fn(c) {
+              { ..c, x: c.x + move_dx, y: c.y + move_dy }
+            })
+          }
+          // 接続要素に繋がっている他のラインも更新（自分自身を除く）
+          self.update_connected_lines_except(connected_id, id)
+        }
+      }
+    }
+    _ => {
+      // 親要素を移動
+      self.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+      // 子要素も移動
+      let children = self.get_children(id)
+      for child in children {
+        self.update_element(child.id, fn(c) { { ..c, x: c.x + dx, y: c.y + dy } })
+      }
+      // 接続されているラインを更新
+      self.update_connected_lines(id)
+    }
   }
-  // 接続されているラインを更新
-  self.update_connected_lines(id)
 }
 
 ///|
@@ -294,6 +346,33 @@ pub fn EditorState::start_drag(
   mouse_y : Double,
 ) -> Unit {
   guard self.find_element(element_id) is Some(el)
+  // Line の場合は終点と接続情報、接続要素の位置も保存
+  let (start_shape, start_connections, connected_positions) : (@model.ShapeType?, @model.LineConnections?, Array[(String, Double, Double)]) = match el.shape {
+    @model.Line(_, _) => {
+      let positions : Array[(String, Double, Double)] = []
+      match el.connections {
+        Some(conns) => {
+          match conns.start {
+            Some(conn) =>
+              if self.find_element(conn.element_id) is Some(connected_el) {
+                positions.push((conn.element_id, connected_el.x, connected_el.y))
+              }
+            None => ()
+          }
+          match conns.end {
+            Some(conn) =>
+              if self.find_element(conn.element_id) is Some(connected_el) {
+                positions.push((conn.element_id, connected_el.x, connected_el.y))
+              }
+            None => ()
+          }
+        }
+        None => ()
+      }
+      (Some(el.shape), el.connections, positions)
+    }
+    _ => (None, None, [])
+  }
   self.drag_state.set(
     Some({
       element_id,
@@ -301,6 +380,9 @@ pub fn EditorState::start_drag(
       start_y: el.y,
       offset_x: mouse_x - el.x,
       offset_y: mouse_y - el.y,
+      start_shape,
+      start_connections,
+      connected_start_positions: connected_positions,
     }),
   )
 }
@@ -1299,6 +1381,49 @@ pub fn EditorState::update_connected_lines(self : EditorState, element_id : Stri
         _ => (el.x, el.y)
       }
       // 終点の接続を確認（x2, y2 は終点の絶対座標）
+      let (new_x2, new_y2) = match conns.end {
+        Some(conn) if conn.element_id == element_id => {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          (anchor_point.x, anchor_point.y)
+        }
+        _ => (x2, y2)
+      }
+      // 変更があれば更新
+      if new_x != el.x || new_y != el.y || new_x2 != x2 || new_y2 != y2 {
+        { ..el, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 指定要素に接続されているラインを更新（特定のラインを除く）
+pub fn EditorState::update_connected_lines_except(
+  self : EditorState,
+  element_id : String,
+  except_line_id : String,
+) -> Unit {
+  guard self.find_element(element_id) is Some(target)
+  self.elements.update(fn(elements) {
+    elements.map(fn(el) {
+      // 除外するラインはスキップ
+      if el.id == except_line_id {
+        return el
+      }
+      // Line 要素のみ処理
+      guard el.shape is @model.Line(x2, y2) else { return el }
+      guard el.connections is Some(conns) else { return el }
+      // 始点の接続を確認
+      let (new_x, new_y) = match conns.start {
+        Some(conn) if conn.element_id == element_id => {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          (anchor_point.x, anchor_point.y)
+        }
+        _ => (el.x, el.y)
+      }
+      // 終点の接続を確認
       let (new_x2, new_y2) = match conns.end {
         Some(conn) if conn.element_id == element_id => {
           let anchor_point = target.get_anchor_point(conn.anchor)

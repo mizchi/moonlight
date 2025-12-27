@@ -540,7 +540,45 @@ fn create_mouseup_handler(
     if state.drag_state.get() is Some(drag) {
       if state.find_element(drag.element_id) is Some(el) {
         if drag.start_x != el.x || drag.start_y != el.y {
-          let cmd = @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y)
+          // Line の場合は終点の変更もコマンドとして記録
+          match (drag.start_shape, el.shape) {
+            (Some(@model.Line(_, _) as old_shape), @model.Line(_, _) as new_shape) => {
+              // 接続要素の移動を先に記録（Undoは逆順で実行されるため）
+              for pos in drag.connected_start_positions {
+                let (id, start_x, start_y) = pos
+                if state.find_element(id) is Some(connected_el) {
+                  if start_x != connected_el.x || start_y != connected_el.y {
+                    let connected_cmd = @model.MoveElement(
+                      id,
+                      start_x,
+                      start_y,
+                      connected_el.x,
+                      connected_el.y,
+                    )
+                    history.undo_stack.push(connected_cmd)
+                  }
+                }
+              }
+              // Line の終点変更を記録
+              if old_shape != new_shape {
+                let resize_cmd = @model.ResizeElement(
+                  drag.element_id,
+                  old_shape,
+                  new_shape,
+                )
+                history.undo_stack.push(resize_cmd)
+              }
+            }
+            _ => ()
+          }
+          // Line の始点移動を記録
+          let cmd = @model.MoveElement(
+            drag.element_id,
+            drag.start_x,
+            drag.start_y,
+            el.x,
+            el.y,
+          )
           history.undo_stack.push(cmd)
           history.redo_stack.clear()
         }

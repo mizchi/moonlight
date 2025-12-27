@@ -392,6 +392,9 @@ pub(all) struct DragState {
   start_y : Double // ドラッグ開始時の要素 Y
   offset_x : Double // クリック位置と要素位置の差分 X
   offset_y : Double // クリック位置と要素位置の差分 Y
+  start_shape : ShapeType? // Line の場合、開始時の形状を保存
+  start_connections : LineConnections? // Line の場合、開始時の接続情報を保存
+  connected_start_positions : Array[(String, Double, Double)] // 接続要素の開始位置
 } derive(Show, Eq)
 
 ///|

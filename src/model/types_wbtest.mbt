@@ -299,6 +299,9 @@ test "DragState - construction" {
     start_y: 200.0,
     offset_x: 10.0,
     offset_y: 20.0,
+    start_shape: None,
+    start_connections: None,
+    connected_start_positions: [],
   }
   assert_eq(state.element_id, "el-1")
   assert_eq(state.start_x, 100.0)
