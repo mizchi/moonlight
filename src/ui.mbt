@@ -595,29 +595,28 @@ pub fn render_text_input(
   // シーン座標をスクリーン座標に変換
   let vp = state.viewport.get()
   let screen_pos = vp.scene_to_screen(edit_state.x, edit_state.y)
-  // シンプルなインライン入力（コンテンツ幅に合わせる）
+  // 親要素の幅を取得（スクリーン座標に変換）
+  let max_width : Double = match state.find_element(edit_state.parent_id) {
+    Some(parent) => {
+      let bbox = parent.bounding_box()
+      // 親要素の幅をズームに合わせてスケール、パディング分を引く
+      (bbox.width * vp.zoom) - 16.0
+    }
+    None => 200.0
+  }
+  let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
+  // テキストエリア（複数行対応、親要素の幅に合わせる）
   let style =
-    "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 4px; border: none; border-bottom: 1px solid #333; background: transparent; font-size: 14px; text-align: center; outline: none;"
-  // 自動フォーカス（初期値付き）
-  let _ = schedule_focus_with_value_ffi("input[type=text]", edit_state.initial_text)
-  input(
-    type_="text",
-    style~,
-    on=events()
-      .keydown(fn(e) {
-        let key : String = e.as_any()._get("key").cast()
-        if key == "Enter" {
-          let value = get_event_target_value(e.as_any())
-          commit(value)
-        } else if key == "Escape" {
-          state.end_text_edit()
-        }
-      })
-      .blur(fn(e) {
-        let value = get_event_target_value(e.as_any())
-        commit(value)
-      }),
+    "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 24px; max-height: 100px; padding: 2px 4px; border: none; border-bottom: 1px solid #333; background: rgba(255,255,255,0.9); font-family: sans-serif; font-size: 16px; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden;"
+  // FFIでtextareaを作成
+  let textarea = create_textarea_ffi(
+    style,
+    edit_state.initial_text,
+    fn(value) { commit(value) },
+    fn(value) { commit(value) },
   )
+  let node : @js_dom.Node = textarea.cast()
+  @element.dom_node(node)
 }
 
 ///|

@@ -390,6 +390,23 @@ fn handle_element_click(
 /// ダブルクリック時のテキスト編集開始
 fn handle_double_click(state : EditorState, element_id : String) -> Unit {
   guard state.find_element(element_id) is Some(el)
+  // テキスト子要素がクリックされた場合は、そのテキストを編集
+  if el.shape is @model.Text(content, _) {
+    if el.parent_id is Some(parent_id) {
+      state.start_text_edit_existing(element_id, parent_id, el.x, el.y, content)
+      return
+    }
+  }
+  // 親要素の場合：既存のテキスト子要素があるかチェック
+  let children = state.get_children(element_id)
+  for child in children {
+    if child.shape is @model.Text(content, _) {
+      // 既存テキストを編集
+      state.start_text_edit_existing(child.id, element_id, child.x, child.y, content)
+      return
+    }
+  }
+  // テキスト子要素がない場合は新規作成
   let bbox = el.bounding_box()
   let center_x = bbox.x + bbox.width / 2.0
   let center_y = bbox.y + bbox.height / 2.0
@@ -665,9 +682,17 @@ fn redraw_svg_content(
     }
   }
 
-  // 要素を描画
+  // 要素を描画（テキスト編集中のテキスト要素はスキップ）
   let elements = state.elements.get()
+  let editing_text_id : String? = match state.text_edit.get() {
+    Some(edit_state) => edit_state.editing_id
+    None => None
+  }
   for el in elements {
+    // 編集中のテキスト要素はスキップ（入力フィールドと重複を避ける）
+    if editing_text_id is Some(text_id) && el.id == text_id {
+      continue
+    }
     let is_selected = state.is_selected(el.id)
     let child = render_element(el, is_selected)
     append_child_ffi(svg, child)
