@@ -80,7 +80,7 @@ fn editor_app() -> @element.DomNode {
   let space_pressed : Ref[Bool] = { val: false }
 
   // Space キーの監視を設定
-  setup_keyboard_listener(state, space_pressed)
+  setup_keyboard_listener(state, history, space_pressed)
 
   // 座標取得ヘルパー
   let get_screen_coords = fn(e : @js.Any) -> (Double, Double) {
@@ -192,9 +192,15 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
 
 ///|
 /// キーボードリスナーを設定（Space + Arrow）
-fn setup_keyboard_listener(state : EditorState, space_pressed : Ref[Bool]) -> Unit {
-  // パン移動量（ピクセル）
-  let pan_step = 12.0
+fn setup_keyboard_listener(
+  state : EditorState,
+  history : @model.History,
+  space_pressed : Ref[Bool],
+) -> Unit {
+  // 移動量（ピクセル）- グリッドスナップ時はグリッドサイズ
+  let default_step = 10.0
+  let grid_size = 20.0
+
   let _ = add_keydown_listener(fn(e) {
     // 入力要素にフォーカスがある場合はショートカットを無視
     if is_input_focused_ffi() {
@@ -208,23 +214,63 @@ fn setup_keyboard_listener(state : EditorState, space_pressed : Ref[Bool]) -> Un
       return
     }
     // Arrow キーでパン（選択なし時）または要素移動（選択あり時）
-    let has_selection = state.selected_ids.get().length() > 0
+    let selected_ids = state.selected_ids.get()
+    let has_selection = selected_ids.length() > 0
     match key {
       "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
         if has_selection {
-          // 選択要素がある場合は要素移動（既存の動作に任せる）
-          return
+          // 選択要素がある場合は要素を移動
+          let step = if state.grid_enabled.get() { grid_size } else { default_step }
+          let (dx, dy) : (Double, Double) = match key {
+            "ArrowUp" => (0.0, -step)
+            "ArrowDown" => (0.0, step)
+            "ArrowLeft" => (-step, 0.0)
+            "ArrowRight" => (step, 0.0)
+            _ => (0.0, 0.0)
+          }
+          // 選択中の全要素を移動
+          for id in selected_ids {
+            if state.find_element(id) is Some(el) {
+              let old_x = el.x
+              let old_y = el.y
+              let new_x = old_x + dx
+              let new_y = old_y + dy
+              // 要素を移動
+              state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+              // 子要素（テキストなど）も一緒に移動
+              let children = state.get_children(id)
+              for child in children {
+                let child_old_x = child.x
+                let child_old_y = child.y
+                let child_new_x = child_old_x + dx
+                let child_new_y = child_old_y + dy
+                state.update_element(child.id, fn(c) { { ..c, x: child_new_x, y: child_new_y } })
+                // 子要素の移動もUndoスタックに記録
+                let child_cmd = @model.MoveElement(child.id, child_old_x, child_old_y, child_new_x, child_new_y)
+                history.undo_stack.push(child_cmd)
+              }
+              // 接続されているラインを更新
+              state.update_connected_lines(id)
+              // Undo スタックに記録
+              let cmd = @model.MoveElement(id, old_x, old_y, new_x, new_y)
+              history.undo_stack.push(cmd)
+            }
+          }
+          history.redo_stack.clear()
+          keyboard_event.preventDefault()
+        } else {
+          // 選択なしの場合はパン
+          let zoom = state.viewport.get().zoom
+          let pan_step = 12.0
+          match key {
+            "ArrowUp" => state.pan(0.0, -pan_step / zoom)
+            "ArrowDown" => state.pan(0.0, pan_step / zoom)
+            "ArrowLeft" => state.pan(-pan_step / zoom, 0.0)
+            "ArrowRight" => state.pan(pan_step / zoom, 0.0)
+            _ => ()
+          }
+          keyboard_event.preventDefault()
         }
-        // 選択なしの場合はパン
-        let zoom = state.viewport.get().zoom
-        match key {
-          "ArrowUp" => state.pan(0.0, -pan_step / zoom)
-          "ArrowDown" => state.pan(0.0, pan_step / zoom)
-          "ArrowLeft" => state.pan(-pan_step / zoom, 0.0)
-          "ArrowRight" => state.pan(pan_step / zoom, 0.0)
-          _ => ()
-        }
-        keyboard_event.preventDefault()
       }
       _ => ()
     }
