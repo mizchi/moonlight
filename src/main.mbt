@@ -198,6 +198,7 @@ fn editor_app() -> @element.DomNode {
     state, get_screen_coords, get_scene_coords,
   )
   let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseleave = create_mouseleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
 
@@ -206,7 +207,7 @@ fn editor_app() -> @element.DomNode {
 
   // SVG キャンバスを Luna VNode として作成（for_each による差分更新）
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
   )
 
   // UI
@@ -1234,6 +1235,32 @@ fn create_mouseup_handler(
 }
 
 ///|
+/// mouseleave ハンドラを作成（マウスが画面外に出た時に状態をリセット）
+fn create_mouseleave_handler(state : EditorState) -> (@js.Any) -> Unit {
+  fn(_e) {
+    // すべてのドラッグ・選択状態をリセット
+    if state.is_panning.get() {
+      state.end_pan()
+    }
+    if state.is_box_selecting() {
+      state.end_box_select()
+    }
+    if state.resize_state.get() is Some(_) {
+      state.end_resize()
+    }
+    if state.multi_drag_state.get() is Some(_) {
+      state.end_multi_drag()
+    }
+    if state.drag_state.get() is Some(_) {
+      state.end_drag()
+    }
+    if state.placement_state.get() is Some(_) {
+      state.end_placement()
+    }
+  }
+}
+
+///|
 /// wheel ハンドラを作成（マウス位置を基準にズーム）
 fn create_wheel_handler(
   state : EditorState,
@@ -1818,10 +1845,11 @@ pub fn render_editor_modal(
     state, get_screen_coords, get_scene_coords,
   )
   let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseleave = create_mouseleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
   let modal_svg = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
   )
 
   // モーダルオーバーレイ
@@ -1907,10 +1935,11 @@ fn embedded_editor_app(
     state, get_screen_coords, get_scene_coords,
   )
   let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseleave = create_mouseleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = fn(_e : @js.Any) { () } // コンテキストメニュー無効
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
   )
   div(style="width: 100%;", [
     // 埋め込みビュー
@@ -2345,6 +2374,7 @@ fn render_svg_canvas_node(
   on_mousedown : (@js.Any) -> Unit,
   on_mousemove : (@js.Any) -> Unit,
   on_mouseup : (@js.Any) -> Unit,
+  on_mouseleave : (@js.Any) -> Unit,
   on_contextmenu : (@js.Any) -> Unit,
   on_wheel : (@js.Any) -> Unit,
 ) -> @element.DomNode {
@@ -2462,6 +2492,7 @@ fn render_svg_canvas_node(
     ("mousedown", @element.Handler(on_mousedown)),
     ("mousemove", @element.Handler(on_mousemove)),
     ("mouseup", @element.Handler(on_mouseup)),
+    ("mouseleave", @element.Handler(on_mouseleave)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
     // ResizeObserver で canvas サイズを更新し、初回はドキュメントを中央に配置
