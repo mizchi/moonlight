@@ -208,9 +208,21 @@ fn setup_keyboard_listener(
     }
     let key : String = e._get("key").cast()
     let keyboard_event : @js_dom.KeyboardEvent = e.cast()
+    // Escape キーでコンテキストメニューを閉じる
+    if key == "Escape" {
+      if state.context_menu.get() is Some(_) {
+        state.hide_context_menu()
+        keyboard_event.preventDefault()
+        return
+      }
+    }
     // Space キーでパンモード
     if key == " " {
       space_pressed.val = true
+      return
+    }
+    // コンテキストメニューが開いている場合は他のキー操作を無効化
+    if state.context_menu.get() is Some(_) {
       return
     }
     // Arrow キーでパン（選択なし時）または要素移動（選択あり時）
@@ -304,7 +316,11 @@ fn create_mousedown_handler(
   double_click_threshold : Double,
 ) -> (@js.Any) -> Unit {
   fn(e) {
-    state.hide_context_menu()
+    // コンテキストメニューが開いている場合は閉じるだけで他のアクションを実行しない
+    if state.context_menu.get() is Some(_) {
+      state.hide_context_menu()
+      return
+    }
 
     // マウスボタンをチェック
     let mouse_event : @js_dom.MouseEvent = e.cast()
@@ -561,6 +577,11 @@ fn create_mousemove_handler(
   get_scene_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
   fn(e) {
+    // コンテキストメニューが開いている場合は移動操作を無効化
+    if state.context_menu.get() is Some(_) {
+      return
+    }
+
     // マウス位置を更新（キーバインドでの挿入用）
     let (scene_x, scene_y) = get_scene_coords(e)
     state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
