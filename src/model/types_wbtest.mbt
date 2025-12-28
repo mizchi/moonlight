@@ -809,7 +809,7 @@ test "Element::bounding_box - Text" {
   // Text bbox is centered at (100, 100)
   assert_true(bbox.x < 100.0)
   assert_true(bbox.y < 100.0)
-  assert_eq(bbox.height, 20.0) // font_size
+  assert_eq(bbox.height, 24.0) // font_size * 1.2 (line height)
 }
 
 // ============================================================
@@ -1470,4 +1470,110 @@ test "calc_send_to_back - valid" {
 test "calc_send_to_back - already at back" {
   let result = calc_send_to_back(0, 5)
   assert_eq(result, None)
+}
+
+// ============================================================
+// find_nearest_connection tests
+// ============================================================
+
+///|
+test "find_nearest_connection - finds closest anchor" {
+  let elements = [
+    Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
+    Element::new("rect-2", 300.0, 100.0, Rect(80.0, 60.0, None, None)),
+  ]
+  // Point close to rect-1's right anchor (180, 130)
+  let point : Point = { x: 175.0, y: 130.0 }
+  let result = find_nearest_connection(elements, point, [], 20.0)
+  assert_true(result is Some(_))
+  let r = result.unwrap()
+  assert_eq(r.element.id, "rect-1")
+  assert_eq(r.anchor, Right)
+}
+
+///|
+test "find_nearest_connection - excludes specified ids" {
+  let elements = [
+    Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
+    Element::new("rect-2", 200.0, 100.0, Rect(80.0, 60.0, None, None)),
+  ]
+  // Point close to rect-1's right anchor
+  let point : Point = { x: 175.0, y: 130.0 }
+  // Exclude rect-1, should find rect-2 instead
+  let result = find_nearest_connection(elements, point, ["rect-1"], 50.0)
+  assert_true(result is Some(_))
+  let r = result.unwrap()
+  assert_eq(r.element.id, "rect-2")
+}
+
+///|
+test "find_nearest_connection - excludes Line elements" {
+  let elements = [
+    Element::new("line-1", 100.0, 100.0, Line(200.0, 200.0)),
+    Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
+  ]
+  // Point close to where line would be
+  let point : Point = { x: 140.0, y: 130.0 }
+  let result = find_nearest_connection(elements, point, [], 20.0)
+  assert_true(result is Some(_))
+  let r = result.unwrap()
+  // Should find rect, not line
+  assert_eq(r.element.id, "rect-1")
+}
+
+///|
+test "find_nearest_connection - excludes child elements" {
+  let parent = Element::new(
+    "parent-1",
+    100.0,
+    100.0,
+    Rect(80.0, 60.0, None, None),
+  )
+  let child = {
+    ..Element::new("child-1", 110.0, 110.0, Rect(20.0, 20.0, None, None)),
+    parent_id: Some("parent-1"),
+  }
+  let elements = [parent, child]
+  // Point close to parent's top-left anchor (100, 100)
+  let point : Point = { x: 102.0, y: 102.0 }
+  let result = find_nearest_connection(elements, point, [], 10.0)
+  assert_true(result is Some(_))
+  let r = result.unwrap()
+  // Should find parent, not child (child is excluded as it has parent_id)
+  assert_eq(r.element.id, "parent-1")
+}
+
+///|
+test "find_nearest_connection - returns None when no match within threshold" {
+  let elements = [
+    Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
+  ]
+  // Point far from any anchor
+  let point : Point = { x: 500.0, y: 500.0 }
+  let result = find_nearest_connection(elements, point, [], 20.0)
+  assert_eq(result, None)
+}
+
+///|
+test "find_nearest_connection - empty array returns None" {
+  let elements : Array[Element] = []
+  let point : Point = { x: 100.0, y: 100.0 }
+  let result = find_nearest_connection(elements, point, [], 20.0)
+  assert_eq(result, None)
+}
+
+///|
+test "find_nearest_connection - picks closer element" {
+  let elements = [
+    Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
+    Element::new("rect-2", 150.0, 100.0, Rect(80.0, 60.0, None, None)),
+  ]
+  // Point between rect-1's right (180, 130) and rect-2's left (150, 130)
+  // Closer to rect-2's left
+  let point : Point = { x: 155.0, y: 130.0 }
+  let result = find_nearest_connection(elements, point, [], 20.0)
+  assert_true(result is Some(_))
+  let r = result.unwrap()
+  assert_eq(r.element.id, "rect-2")
+  assert_eq(r.anchor, Left)
 }

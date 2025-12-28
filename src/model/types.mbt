@@ -1081,6 +1081,56 @@ pub fn apply_element_move(
   })
 }
 
+// ============================================================
+// 接続ポイント検索（純粋関数）
+// ============================================================
+
+///|
+/// 接続ポイント検索結果
+pub(all) struct NearestConnectionResult {
+  element : Element
+  anchor : Anchor
+  point : Point
+} derive(Show, Eq)
+
+///|
+/// 指定座標から最も近い接続ポイントを探す（純粋関数）
+/// - Line 要素は除外される
+/// - 子要素（parent_id がある要素）は除外される
+/// - exclude_ids に含まれる要素は除外される
+pub fn find_nearest_connection(
+  elements : Array[Element],
+  point : Point,
+  exclude_ids : Array[String],
+  threshold : Double,
+) -> NearestConnectionResult? {
+  let mut nearest : (Element, Anchor, Point, Double)? = None
+  for el in elements {
+    // 除外リストに含まれる要素はスキップ
+    guard not(exclude_ids.contains(el.id)) else { continue }
+    // Line 要素はスキップ（Lineには接続しない）
+    guard not(el.shape is Line(_, _)) else { continue }
+    // 子要素はスキップ
+    guard el.parent_id is None else { continue }
+    // 最寄りのアンカーを探す
+    guard el.find_nearest_anchor(point, threshold)
+      is Some((anchor, anchor_point, dist)) else {
+      continue
+    }
+    match nearest {
+      None => nearest = Some((el, anchor, anchor_point, dist))
+      Some((_, _, _, prev_dist)) =>
+        if dist < prev_dist {
+          nearest = Some((el, anchor, anchor_point, dist))
+        }
+    }
+  }
+  match nearest {
+    Some((el, anchor, point, _)) => Some({ element: el, anchor, point })
+    None => None
+  }
+}
+
 // ===== ユーティリティ関数 =====
 
 ///|

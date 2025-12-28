@@ -298,6 +298,13 @@ fn resize_selected_by_arrow(
       key,
       step,
     )
+    // 子要素の現在位置を記録（履歴用）
+    let children = state.get_children(id)
+    let child_old_positions : Array[(String, Double, Double)] = []
+    for child in children {
+      child_old_positions.push((child.id, child.x, child.y))
+    }
+    // 要素をリサイズ
     state.update_element(id, fn(e) {
       { ..e, shape: new_shape, x: new_x, y: new_y }
     })
@@ -306,6 +313,19 @@ fn resize_selected_by_arrow(
       history.undo_stack.push(@model.MoveElement(id, el.x, el.y, new_x, new_y))
     }
     history.undo_stack.push(@model.ResizeElement(id, old_shape, new_shape))
+    // 関連要素（子テキスト、接続ライン）を同期更新
+    state.sync_related_elements(id)
+    // 子要素の移動を履歴に記録
+    for pos in child_old_positions {
+      let (child_id, old_cx, old_cy) = pos
+      if state.find_element(child_id) is Some(child) {
+        if child.x != old_cx || child.y != old_cy {
+          history.undo_stack.push(
+            @model.MoveElement(child_id, old_cx, old_cy, child.x, child.y),
+          )
+        }
+      }
+    }
   }
   history.redo_stack.clear()
 }
@@ -541,6 +561,7 @@ fn handle_anchor_click(
   let anchor_point = source_el.get_anchor_point(anchor)
   let (scene_x, scene_y) = get_scene_coords(e)
   let line_id = new_id()
+  // Arrow として作成（矢印付き）
   let new_line = @model.Element::new(
     line_id,
     anchor_point.x,
@@ -555,6 +576,7 @@ fn handle_anchor_click(
     }),
   }
   execute_command(history, state, @model.AddElement(line_with_conn))
+  // リサイズ開始
   state.start_resize(line_id, @model.LineEnd, scene_x, scene_y)
   true
 }
@@ -953,6 +975,7 @@ fn try_start_placement(
   element : @model.Element,
   is_line : Bool,
   anchor_threshold : Double,
+  is_arrow? : Bool = false,
 ) -> Bool {
   let pos = state.mouse_scene_pos.get()
   // アンカー検索
@@ -1003,6 +1026,7 @@ fn try_start_placement(
         anchor,
         anchor_point,
         is_line,
+        is_arrow~,
       )
       true
     }
@@ -1102,14 +1126,29 @@ fn setup_keyboard_shortcuts(
       // 5: Arrow をマウス位置に挿入（アンカー近くなら配置モード）
       "5" => {
         let el_id = new_id()
+        // 配置モード用に矢印なしスタイルで作成
         let new_arrow = @model.Element::new(
           el_id,
           pos.x - 50.0,
           pos.y,
           @model.Line(pos.x + 50.0, pos.y),
-        ).with_style(state.get_arrow_style())
-        if not(try_start_placement(state, history, new_arrow, true, 20.0)) {
-          execute_command(history, state, @model.AddElement(new_arrow))
+        ).with_style(state.get_arrow_style_initial())
+        if not(
+            try_start_placement(
+              state,
+              history,
+              new_arrow,
+              true,
+              20.0,
+              is_arrow=true,
+            ),
+          ) {
+          // 配置モードでなければ矢印ありスタイルで直接追加
+          let arrow_with_marker = {
+            ..new_arrow,
+            style: state.get_arrow_style(),
+          }
+          execute_command(history, state, @model.AddElement(arrow_with_marker))
           state.select(Some(el_id))
         }
       }
@@ -1512,81 +1551,7 @@ fn render_text_input_container(
 }
 
 ///|
-/// ツールバーボタン用のユニーク ID カウンター
-let toolbar_btn_id_counter : Ref[Int] = { val: 0 }
-
-///|
-/// SVG アイコンを作成するヘルパー
-fn svg_icon(path_d : String, size : Int) -> @element.DomNode {
-  let size_str = size.to_string()
-  @element.create_element_ns(
-    @element.svg_ns,
-    "svg",
-    [
-      ("width", @element.Static(size_str)),
-      ("height", @element.Static(size_str)),
-      ("viewBox", @element.Static("0 0 24 24")),
-      ("fill", @element.Static("none")),
-      ("stroke", @element.Static("currentColor")),
-      ("stroke-width", @element.Static("2")),
-      ("stroke-linecap", @element.Static("round")),
-      ("stroke-linejoin", @element.Static("round")),
-      ("style", @element.Static("display: block;")),
-    ],
-    [
-      @element.create_element_ns(
-        @element.svg_ns,
-        "path",
-        [("d", @element.Static(path_d))],
-        [],
-      ),
-    ],
-  )
-}
-
-///|
-/// ツールバーボタン（アイコン + キーバインド + Popover ツールチップ）
-fn toolbar_button(
-  icon : @element.DomNode,
-  shortcut : String?,
-  tooltip : String,
-  on_click : () -> Unit,
-  theme? : @model.Theme = @model.Theme::light(),
-) -> @element.DomNode {
-  toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
-  let popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
-  let btn_style = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid \{theme.ui_border}; border-radius: 4px; background: \{theme.ui_bg}; min-width: 36px; height: 40px; position: relative; color: \{theme.ui_text};"
-  let shortcut_style = "color: \{theme.ui_text_muted}; font-size: 9px; font-family: system-ui, sans-serif; line-height: 1;"
-  let popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
-  div(style="position: relative; display: inline-block;", [
-    @element.create_element(
-      "button",
-      [
-        ("style", @element.Static(btn_style)),
-        ("aria-label", @element.Static(tooltip)),
-        ("click", @element.Handler(fn(_) { on_click() })),
-        (
-          "mouseenter",
-          @element.Handler(fn(e) { show_popover_at_button(popover_id, e) }),
-        ),
-        ("mouseleave", @element.Handler(fn(_) { hide_popover(popover_id) })),
-      ],
-      match shortcut {
-        Some(key) => [icon, @element.span(style=shortcut_style, [text(key)])]
-        None => [icon]
-      },
-    ),
-    // Popover ツールチップ
-    div(
-      style=popover_style,
-      attrs=[
-        ("id", @element.AttrString(popover_id)),
-        ("popover", @element.AttrString("manual")),
-      ],
-      [text(tooltip)],
-    ),
-  ])
-}
+// svg_icon, toolbar_button は @components から利用
 
 ///|
 /// 埋め込みツールバー（SVGアイコン + キーバインド表示）
@@ -1596,27 +1561,11 @@ fn render_embedded_toolbar(
   new_id : () -> String,
 ) -> @element.DomNode {
   let theme = state.get_theme()
-  let sep_style = "width: 1px; height: 24px; background: \{theme.ui_border}; margin: 0 2px;"
   let id_counter : Ref[Int] = { val: 0 }
-
-  // アイコンパス定義
-  let icon_rect = "M3 3h18v18H3z"
-  let icon_circle = "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"
-  let icon_ellipse = "M12 12m-9 0a9 5 0 1 0 18 0a9 5 0 1 0 -18 0"
-  let icon_line = "M5 19L19 5"
-  let icon_arrow = "M5 19L19 5M19 5L19 12M19 5L12 5"
-  let icon_text = "M4 7V4h16v3M9 20h6M12 4v16"
-  let icon_undo = "M3 7v6h6M3 13a9 9 0 1 0 3-7.5"
-  let icon_redo = "M21 7v6h-6M21 13a9 9 0 1 1 -3-7.5"
-  let icon_zoom_in = "M21 21l-6-6m2-5a7 7 0 1 1 -14 0a7 7 0 0 1 14 0zM10 7v6M7 10h6"
-  let icon_zoom_out = "M21 21l-6-6m2-5a7 7 0 1 1 -14 0a7 7 0 0 1 14 0zM7 10h6"
-  let icon_reset = "M3 12a9 9 0 1 0 9-9M3 3v6h6"
-  let icon_grid = "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
-  let icon_export = "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5l5-5M12 15V3"
   div(style="display: flex; gap: 3px; align-items: center;", [
     // 図形追加ボタン
-    toolbar_button(
-      svg_icon(icon_rect, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_rect, 16),
       Some("1"),
       "Rectangle",
       fn() {
@@ -1634,8 +1583,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_circle, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_circle, 16),
       Some("2"),
       "Circle",
       fn() {
@@ -1653,8 +1602,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_ellipse, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_ellipse, 16),
       Some("3"),
       "Ellipse",
       fn() {
@@ -1672,8 +1621,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_line, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_line, 16),
       Some("4"),
       "Line",
       fn() {
@@ -1691,8 +1640,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_arrow, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_arrow, 16),
       Some("5"),
       "Arrow",
       fn() {
@@ -1710,8 +1659,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_text, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_text, 16),
       Some("6"),
       "Text",
       fn() {
@@ -1730,10 +1679,10 @@ fn render_embedded_toolbar(
       theme~,
     ),
     // セパレータ
-    @element.span(style=sep_style, []),
+    @components.toolbar_separator(theme),
     // Undo/Redo
-    toolbar_button(
-      svg_icon(icon_undo, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_undo, 16),
       Some("⌘Z"),
       "Undo",
       fn() {
@@ -1742,8 +1691,8 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_redo, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_redo, 16),
       Some("⌘Y"),
       "Redo",
       fn() {
@@ -1753,10 +1702,10 @@ fn render_embedded_toolbar(
       theme~,
     ),
     // セパレータ
-    @element.span(style=sep_style, []),
+    @components.toolbar_separator(theme),
     // ズームコントロール
-    toolbar_button(
-      svg_icon(icon_zoom_out, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_zoom_out, 16),
       None,
       "Zoom Out",
       fn() { state.zoom_out() },
@@ -1771,26 +1720,25 @@ fn render_embedded_toolbar(
         }),
       ],
     ),
-    toolbar_button(
-      svg_icon(icon_zoom_in, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_zoom_in, 16),
       None,
       "Zoom In",
       fn() { state.zoom_in() },
       theme~,
     ),
-    toolbar_button(
-      svg_icon(icon_reset, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_reset, 16),
       None,
       "Fit to Canvas",
       fn() { state.reset_viewport() },
       theme~,
     ),
     // セパレータ
-    @element.span(style=sep_style, []),
+    @components.toolbar_separator(theme),
     // グリッドスナップ（トグルボタン + Popover）
     {
-      toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
-      let snap_popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
+      let snap_popover_id = "tooltip-grid-snap"
       let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
       let is_dark = state.theme_mode.get() == @model.Dark
       let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
@@ -1828,7 +1776,7 @@ fn render_embedded_toolbar(
             ),
           ],
           [
-            svg_icon(icon_grid, 16),
+            @components.svg_icon(@components.icon_grid, 16),
             @element.span(
               style="color: inherit; font-size: 9px; line-height: 1;",
               [text("Snap")],
@@ -1846,10 +1794,10 @@ fn render_embedded_toolbar(
       ])
     },
     // セパレータ
-    @element.span(style=sep_style, []),
+    @components.toolbar_separator(theme),
     // エクスポート
-    toolbar_button(
-      svg_icon(icon_export, 16),
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_export, 16),
       None,
       "Export SVG",
       fn() {

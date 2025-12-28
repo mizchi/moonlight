@@ -23,6 +23,8 @@ pub(all) struct PlacementState {
   anchor : @model.Anchor // アンカー位置
   anchor_point : @model.Point // アンカー座標
   is_line : Bool // Line/Arrow かどうか（接続情報を保存するか）
+  is_arrow : Bool // Arrow かどうか（矢印マーカーを追加するか）
+  has_moved : Bool // 1フレームでも動いたかどうか（Arrow表示判定用）
 }
 
 ///|
@@ -177,6 +179,22 @@ pub fn EditorState::get_arrow_style(_self : EditorState) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: Some(@model.Arrow),
+  }
+}
+
+///|
+/// Arrow用のスタイルを取得（矢印なし - 配置モード初期用）
+pub fn EditorState::get_arrow_style_initial(
+  _self : EditorState,
+) -> @model.Style {
+  {
+    fill: None,
+    stroke: Some(@model.css_var_stroke),
+    stroke_width: Some(1.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None, // 初期は矢印なし
   }
 }
 
@@ -1827,6 +1845,22 @@ pub fn EditorState::is_multi_dragging(self : EditorState) -> Bool {
 }
 
 // ============================================================
+// 関連要素の同期
+// ============================================================
+
+///|
+/// 要素の変更後に関連する要素を同期更新
+/// - 子要素（テキストなど）を親の中央に再配置
+/// - 接続されているラインの端点を更新
+pub fn EditorState::sync_related_elements(
+  self : EditorState,
+  element_id : String,
+) -> Unit {
+  self.center_child_elements(element_id)
+  self.update_connected_lines(element_id)
+}
+
+// ============================================================
 // 接続ライン管理
 // ============================================================
 
@@ -1938,34 +1972,15 @@ pub fn EditorState::find_nearest_connection_point(
   exclude_ids : Array[String],
   threshold : Double,
 ) -> (@model.Element, @model.Anchor, @model.Point)? {
-  let mut nearest : (@model.Element, @model.Anchor, @model.Point, Double)? = None
-  for el in self.elements.get() {
-    // 除外リストに含まれる要素はスキップ
-    if exclude_ids.contains(el.id) {
-      continue
-    }
-    // Line 要素はスキップ（Lineには接続しない）
-    if el.shape is @model.Line(_, _) {
-      continue
-    }
-    // 子要素はスキップ
-    if el.parent_id is Some(_) {
-      continue
-    }
-    // 最寄りのアンカーを探す
-    if el.find_nearest_anchor(point, threshold)
-      is Some((anchor, anchor_point, dist)) {
-      match nearest {
-        None => nearest = Some((el, anchor, anchor_point, dist))
-        Some((_, _, _, prev_dist)) =>
-          if dist < prev_dist {
-            nearest = Some((el, anchor, anchor_point, dist))
-          }
-      }
-    }
-  }
-  match nearest {
-    Some((el, anchor, point, _)) => Some((el, anchor, point))
+  // 純粋関数を呼び出し、結果を変換
+  match
+    @model.find_nearest_connection(
+      self.elements.get(),
+      point,
+      exclude_ids,
+      threshold,
+    ) {
+    Some(result) => Some((result.element, result.anchor, result.point))
     None => None
   }
 }
@@ -1983,9 +1998,18 @@ pub fn EditorState::start_placement(
   anchor : @model.Anchor,
   anchor_point : @model.Point,
   is_line : Bool,
+  is_arrow? : Bool = false,
 ) -> Unit {
   self.placement_state.set(
-    Some({ element_id, anchor_element_id, anchor, anchor_point, is_line }),
+    Some({
+      element_id,
+      anchor_element_id,
+      anchor,
+      anchor_point,
+      is_line,
+      is_arrow,
+      has_moved: false,
+    }),
   )
   self.select(Some(element_id))
 }
@@ -1998,6 +2022,17 @@ pub fn EditorState::update_placement(
 ) -> Unit {
   guard self.placement_state.get() is Some(placement)
   guard self.find_element(placement.element_id) is Some(el)
+
+  // 初回移動時に has_moved を true に設定し、Arrow のマーカーを有効化
+  if not(placement.has_moved) {
+    self.placement_state.set(Some({ ..placement, has_moved: true }))
+    // Arrow の場合、マーカーを追加
+    if placement.is_arrow {
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, style: { ..e.style, marker_end: Some(@model.Arrow) } }
+      })
+    }
+  }
 
   // グリッドスナップを適用
   let grid_enabled = self.grid_enabled.get()

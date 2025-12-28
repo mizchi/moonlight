@@ -1,0 +1,379 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "internal/app/model"
+
+// Values
+pub fn apply_command_pure(Command, Array[Element], Array[String]) -> CommandResult
+
+pub fn apply_element_move(Array[Element], String, Double, Double) -> Array[Element]
+
+pub fn calc_bring_forward(Int, Int) -> Int?
+
+pub fn calc_bring_to_front(Int, Int) -> Int?
+
+pub fn calc_child_positions(String, Double, Double, Array[Element]) -> Array[ChildMoveResult]
+
+pub fn calc_circle_resize(Double, Double, Double, HandlePosition, Double) -> Double
+
+pub fn calc_connected_line_updates(String, Double, Double, Array[Element], Array[Element]) -> Array[ConnectedLineUpdate]
+
+pub fn calc_drag_position(Double, Double, Double, Double) -> Point
+
+pub fn calc_ellipse_resize(Double, Double, Double, Double, Double, Double, HandlePosition, Double) -> EllipseResizeResult
+
+pub fn calc_line_resize(Double, Double, Double, Double, Double, Double, HandlePosition) -> LineResizeResult
+
+pub fn calc_rect_resize(Double, Double, Double, Double, Double, Double, HandlePosition, Double) -> RectResizeResult
+
+pub fn calc_send_backward(Int, Int) -> Int?
+
+pub fn calc_send_to_back(Int, Int) -> Int?
+
+pub fn calc_text_resize(Double, Double, Double, HandlePosition, Double) -> TextResizeResult
+
+pub let css_var_fill : String
+
+pub let css_var_stroke : String
+
+pub let css_var_text : String
+
+pub fn escape_xml(String) -> String
+
+pub fn find_element_at(Array[Element], Point) -> Element?
+
+pub fn find_elements_in_box(Array[Element], BoundingBox) -> Array[Element]
+
+pub fn find_nearest_connection(Array[Element], Point, Array[String], Double) -> NearestConnectionResult?
+
+pub fn format_shape(ShapeType) -> String
+
+pub fn num_str(Double) -> String
+
+pub fn parse_anchor(String) -> Anchor?
+
+pub fn parse_handle_position(String) -> HandlePosition
+
+pub fn preset_colors() -> Array[PresetColor]
+
+pub fn[T] reorder_array(Array[T], Int, Int) -> Array[T]
+
+pub fn shape_name(ShapeType) -> String
+
+pub fn snap_to_grid(Double, Double, Int, Bool) -> (Double, Double)
+
+pub fn unapply_command_pure(Command, Array[Element], Array[String]) -> CommandResult
+
+// Errors
+
+// Types and methods
+pub(all) enum Anchor {
+  Center
+  Top
+  Bottom
+  Left
+  Right
+  TopLeft
+  TopRight
+  BottomLeft
+  BottomRight
+}
+pub impl Eq for Anchor
+pub impl Show for Anchor
+
+pub(all) enum ArrowType {
+  NoArrow
+  Arrow
+}
+pub impl Eq for ArrowType
+pub impl Show for ArrowType
+
+pub(all) struct BoundingBox {
+  x : Double
+  y : Double
+  width : Double
+  height : Double
+}
+pub fn BoundingBox::contains(Self, Point) -> Bool
+pub fn BoundingBox::intersects(Self, Self) -> Bool
+pub impl Eq for BoundingBox
+pub impl Show for BoundingBox
+
+pub(all) struct BoxSelectState {
+  start_x : Double
+  start_y : Double
+  current_x : Double
+  current_y : Double
+}
+pub fn BoxSelectState::to_bbox(Self) -> BoundingBox
+pub impl Eq for BoxSelectState
+pub impl Show for BoxSelectState
+
+pub(all) struct ChildMoveResult {
+  child_id : String
+  new_x : Double
+  new_y : Double
+}
+pub impl Eq for ChildMoveResult
+pub impl Show for ChildMoveResult
+
+pub(all) enum Command {
+  AddElement(Element)
+  RemoveElement(Element)
+  MoveElement(String, Double, Double, Double, Double)
+  ResizeElement(String, ShapeType, ShapeType)
+  ReorderElement(String, Int, Int)
+  UpdateStyle(String, Style, Style)
+  RenameElement(String, String)
+  UpdateText(String, String, String)
+}
+pub impl Eq for Command
+pub impl Show for Command
+
+pub(all) struct CommandResult {
+  elements : Array[Element]
+  selected_ids : Array[String]
+}
+pub impl Eq for CommandResult
+pub impl Show for CommandResult
+
+pub(all) struct ConnectedLineUpdate {
+  line_id : String
+  new_x : Double
+  new_y : Double
+  new_x2 : Double
+  new_y2 : Double
+}
+pub impl Eq for ConnectedLineUpdate
+pub impl Show for ConnectedLineUpdate
+
+pub(all) struct Connection {
+  element_id : String
+  anchor : Anchor
+}
+pub impl Eq for Connection
+pub impl Show for Connection
+
+pub(all) struct ContextMenu {
+  x : Double
+  y : Double
+  scene_x : Double
+  scene_y : Double
+  target_id : String?
+}
+pub impl Eq for ContextMenu
+pub impl Show for ContextMenu
+
+pub(all) struct DragState {
+  element_id : String
+  start_x : Double
+  start_y : Double
+  offset_x : Double
+  offset_y : Double
+  start_shape : ShapeType?
+  start_connections : LineConnections?
+  connected_start_positions : Array[(String, Double, Double)]
+}
+pub impl Eq for DragState
+pub impl Show for DragState
+
+pub(all) struct Element {
+  id : String
+  x : Double
+  y : Double
+  shape : ShapeType
+  style : Style
+  transform : String?
+  parent_id : String?
+  connections : LineConnections?
+}
+pub fn Element::bounding_box(Self) -> BoundingBox
+pub fn Element::find_nearest_anchor(Self, Point, Double) -> (Anchor, Point, Double)?
+pub fn Element::get_all_anchors(Self) -> Array[(Anchor, Point)]
+pub fn Element::get_anchor_point(Self, Anchor) -> Point
+pub fn Element::hit_test(Self, Point) -> Bool
+pub fn Element::new(String, Double, Double, ShapeType) -> Self
+pub fn Element::with_parent(Self, String) -> Self
+pub fn Element::with_style(Self, Style) -> Self
+pub impl Eq for Element
+pub impl Show for Element
+
+pub(all) struct EllipseResizeResult {
+  cx : Double
+  cy : Double
+  rx : Double
+  ry : Double
+}
+pub impl Eq for EllipseResizeResult
+pub impl Show for EllipseResizeResult
+
+pub(all) enum HandlePosition {
+  NW
+  NE
+  SW
+  SE
+  LineStart
+  LineEnd
+}
+pub impl Eq for HandlePosition
+pub impl Show for HandlePosition
+
+pub(all) struct History {
+  undo_stack : Array[Command]
+  redo_stack : Array[Command]
+}
+pub fn History::can_redo(Self) -> Bool
+pub fn History::can_undo(Self) -> Bool
+pub fn History::new() -> Self
+
+pub(all) struct LineConnections {
+  start : Connection?
+  end : Connection?
+}
+pub fn LineConnections::get_connected_ids(Self) -> Array[String]
+pub fn LineConnections::none() -> Self
+pub impl Eq for LineConnections
+pub impl Show for LineConnections
+
+pub(all) struct LineResizeResult {
+  x1 : Double
+  y1 : Double
+  x2 : Double
+  y2 : Double
+}
+pub impl Eq for LineResizeResult
+pub impl Show for LineResizeResult
+
+pub(all) struct MultiDragState {
+  element_ids : Array[String]
+  start_positions : Array[(String, Double, Double)]
+  line_endpoints : Array[(String, Double, Double)]
+  mouse_start_x : Double
+  mouse_start_y : Double
+}
+pub impl Eq for MultiDragState
+pub impl Show for MultiDragState
+
+pub(all) struct NearestConnectionResult {
+  element : Element
+  anchor : Anchor
+  point : Point
+}
+pub impl Eq for NearestConnectionResult
+pub impl Show for NearestConnectionResult
+
+pub(all) struct Point {
+  x : Double
+  y : Double
+}
+pub impl Eq for Point
+pub impl Show for Point
+
+pub(all) struct PresetColor {
+  name : String
+  light : String
+  dark : String
+}
+pub impl Eq for PresetColor
+pub impl Show for PresetColor
+
+pub(all) struct RectResizeResult {
+  x : Double
+  y : Double
+  width : Double
+  height : Double
+}
+pub impl Eq for RectResizeResult
+pub impl Show for RectResizeResult
+
+pub(all) struct ResizeState {
+  element_id : String
+  handle : HandlePosition
+  start_x : Double
+  start_y : Double
+  start_shape : ShapeType
+  mouse_start_x : Double
+  mouse_start_y : Double
+}
+pub impl Eq for ResizeState
+pub impl Show for ResizeState
+
+pub(all) enum ShapeType {
+  Rect(Double, Double, Double?, Double?)
+  Circle(Double)
+  Ellipse(Double, Double)
+  Line(Double, Double)
+  Polyline(Array[Point])
+  Path(String)
+  Text(String, Double?)
+}
+pub impl Eq for ShapeType
+pub impl Show for ShapeType
+
+pub(all) struct Style {
+  fill : String?
+  stroke : String?
+  stroke_width : Double?
+  opacity : Double?
+  stroke_dasharray : String?
+  marker_start : ArrowType?
+  marker_end : ArrowType?
+}
+pub fn Style::default() -> Self
+pub impl Eq for Style
+pub impl Show for Style
+
+pub(all) struct TextEditState {
+  parent_id : String
+  x : Double
+  y : Double
+  editing_id : String?
+  initial_text : String
+  font_size : Double?
+}
+pub impl Eq for TextEditState
+pub impl Show for TextEditState
+
+pub(all) struct TextResizeResult {
+  font_size : Double
+}
+pub impl Eq for TextResizeResult
+pub impl Show for TextResizeResult
+
+pub(all) struct Theme {
+  background : String
+  stroke : String
+  fill : String
+  text : String
+  ui_bg : String
+  ui_bg_hover : String
+  ui_border : String
+  ui_text : String
+  ui_text_muted : String
+  ui_accent : String
+}
+pub fn Theme::dark() -> Self
+pub fn Theme::light() -> Self
+pub impl Eq for Theme
+pub impl Show for Theme
+
+pub(all) enum ThemeMode {
+  Light
+  Dark
+}
+pub impl Eq for ThemeMode
+pub impl Show for ThemeMode
+
+pub(all) struct Viewport {
+  scroll_x : Double
+  scroll_y : Double
+  zoom : Double
+}
+pub fn Viewport::default() -> Self
+pub fn Viewport::scene_to_screen(Self, Double, Double) -> Point
+pub fn Viewport::screen_to_scene(Self, Double, Double) -> Point
+pub impl Eq for Viewport
+pub impl Show for Viewport
+
+// Type aliases
+
+// Traits
+

@@ -666,6 +666,46 @@ pub fn render_connection_highlight(point : @model.Point) -> @js.Any {
 }
 
 ///|
+/// 接続済みポイントを描画（選択要素に接続しているラインの端点）
+pub fn render_connected_point(point : @model.Point) -> @js.Any {
+  let attrs : Array[(String, String)] = [
+    ("cx", @model.num_str(point.x)),
+    ("cy", @model.num_str(point.y)),
+    ("r", "5"),
+    ("fill", "rgba(255, 200, 0, 0.5)"),
+    ("stroke", "#ffcc00"),
+    ("stroke-width", "1.5"),
+    ("pointer-events", "none"),
+  ]
+  create_svg_element("circle", attrs, [])
+}
+
+///|
+/// 選択要素に接続しているラインの接続ポイントを収集
+pub fn get_connected_points(
+  elements : Array[@model.Element],
+  selected_el : @model.Element,
+) -> Array[@model.Point] {
+  let points : Array[@model.Point] = []
+  for el in elements {
+    // Line 要素のみ処理
+    guard el.shape is @model.Line(_, _) else { continue }
+    guard el.connections is Some(conns) else { continue }
+    // 始点の接続を確認
+    if conns.start is Some(conn) && conn.element_id == selected_el.id {
+      let anchor_point = selected_el.get_anchor_point(conn.anchor)
+      points.push(anchor_point)
+    }
+    // 終点の接続を確認
+    if conns.end is Some(conn) && conn.element_id == selected_el.id {
+      let anchor_point = selected_el.get_anchor_point(conn.anchor)
+      points.push(anchor_point)
+    }
+  }
+  points
+}
+
+///|
 /// 選択中の図形のアンカーポイントを描画（ドラッグでライン生成用）
 pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
   let result : Array[@js.Any] = []

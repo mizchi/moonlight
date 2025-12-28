@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "internal/app/components"
+
+import(
+  "internal/app/model"
+  "mizchi/js/browser/dom"
+  "mizchi/luna/luna/dom/element"
+)
+
+// Values
+pub fn create_happy_window() -> @dom.Window
+
+pub let icon_arrow : String
+
+pub let icon_bring_forward : String
+
+pub let icon_circle : String
+
+pub let icon_dark_mode : String
+
+pub let icon_delete : String
+
+pub let icon_duplicate : String
+
+pub let icon_ellipse : String
+
+pub let icon_export : String
+
+pub let icon_grid : String
+
+pub let icon_line : String
+
+pub let icon_rect : String
+
+pub let icon_redo : String
+
+pub let icon_reset : String
+
+pub let icon_send_backward : String
+
+pub let icon_text : String
+
+pub let icon_undo : String
+
+pub let icon_zoom_in : String
+
+pub let icon_zoom_out : String
+
+pub fn svg_icon(String, Int) -> @element.DomNode
+
+pub fn toolbar_button(@element.DomNode, String?, String, () -> Unit, theme? : @model.Theme) -> @element.DomNode
+
+pub fn toolbar_separator(@model.Theme) -> @element.DomNode
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
