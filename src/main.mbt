@@ -1458,13 +1458,18 @@ fn render_text_input_container(
       }
       let scaled_font_size = base_font_size * vp.zoom
       let scaled_height = scaled_font_size * 1.5
-      // 横に伸びるスタイル（折り返しなし）
-      let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: \{scaled_height}px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap;"
+      // 背景色（テーマに応じて変更）
+      let bg_color = match theme {
+        @model.Dark => "#1a1a2e"
+        @model.Light => "#ffffff"
+      }
+      // 横に伸びるスタイル（背景色でSVGテキストを覆う）
+      let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: \{scaled_height}px; padding: 2px 4px; border: none; background: \{bg_color}; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap; border-radius: 2px;"
       // リアルタイム更新用のコールバック
       let editing_id = edit_state.editing_id
       let initial_text = edit_state.initial_text
       let on_input = fn(value : String) {
-        // 編集中のテキスト要素をリアルタイムで更新（履歴なし）
+        // 編集中のテキスト要素をリアルタイムで更新（選択ハンドル更新のため）
         match editing_id {
           Some(id) => state.update_text_raw(id, value)
           None => ()

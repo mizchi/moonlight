@@ -1004,9 +1004,9 @@ pub fn render_text_input(
   }
   // シーン座標をスクリーン座標に変換
   let screen_pos = vp.scene_to_screen(text_x, text_y)
-  // テキストエリア（横に伸びるスタイル）
+  // テキストエリア（背景色でSVGテキストを覆う）
   let min_width = if max_width < 40.0 { 40.0 } else { max_width }
-  let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: 24px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap;"
+  let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: 24px; padding: 2px 4px; border: none; background: #ffffff; color: #000000; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap; border-radius: 2px;"
   // リアルタイム更新用のコールバック
   let editing_id = edit_state.editing_id
   let initial_text = edit_state.initial_text
