@@ -72,11 +72,7 @@ pub fn render_floating_panel(
       }),
       // 複数選択の場合
       show(fn() { state.selected_ids.get().length() > 1 }, fn() {
-        div(style="color: #333; font-size: 14px;", [
-          text_dyn(fn() {
-            "\{state.selected_ids.get().length()} elements selected"
-          }),
-        ])
+        render_multi_selection_panel(state)
       }),
       // 選択なしの場合：Canvas設定と要素ツリーを表示
       show(fn() { state.selected_ids.get().length() == 0 }, fn() {
@@ -126,6 +122,85 @@ fn render_breadcrumb(state : EditorState) -> @element.DomNode {
       }),
     ])
   })
+}
+
+///|
+/// 複数選択時のパネルをレンダリング
+fn render_multi_selection_panel(state : EditorState) -> @element.DomNode {
+  let theme = state.get_theme()
+  let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
+  div(style="font-size: 12px;", [
+    // ヘッダー
+    div(
+      style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;",
+      [
+        @element.span(style="font-weight: 500; color: \{theme.ui_text};", [
+          text_dyn(fn() {
+            "\{state.selected_ids.get().length()} elements selected"
+          }),
+        ]),
+        // 選択解除ボタン
+        button(
+          style="padding: 2px 6px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px; background: #fff;",
+          on=events().click(fn(_) { state.select(None) }),
+          [text("Clear")],
+        ),
+      ],
+    ),
+    // 選択中の要素リスト
+    div(
+      style="max-height: 200px; overflow-y: auto; border: 1px solid \{theme.ui_border}; border-radius: 4px; padding: 4px;",
+      [
+        @element.for_each(fn() { state.selected_ids.get() }, fn(id, _idx) {
+          let el_opt = state.find_element(id)
+          let shape_icon = match el_opt {
+            Some(el) =>
+              match el.shape {
+                @model.Rect(_, _, _, _) => "▢"
+                @model.Circle(_) => "○"
+                @model.Ellipse(_, _) => "⬭"
+                @model.Line(_, _) => "╱"
+                @model.Polyline(_) => "⟋"
+                @model.Path(_) => "✎"
+                @model.Text(_, _) => "T"
+              }
+            None => "?"
+          }
+          let shape_name = match el_opt {
+            Some(el) => @model.shape_name(el.shape)
+            None => "Unknown"
+          }
+          div(
+            style=item_style,
+            on=events().click(fn(_) { state.select(Some(id)) }),
+            [
+              @element.span(style="font-size: 14px; width: 16px;", [
+                text(shape_icon),
+              ]),
+              @element.span(style="color: #666;", [text(shape_name)]),
+              @element.span(style="color: #999; font-family: monospace;", [
+                text("#" + id),
+              ]),
+              // 選択から除外ボタン
+              button(
+                style="margin-left: auto; padding: 1px 4px; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; font-size: 9px; background: #fff; color: #666;",
+                on=events().click(fn(e) {
+                  let _ = e.as_any()._call("stopPropagation", [])
+                  state.remove_from_selection(id)
+                }),
+                [text("×")],
+              ),
+            ],
+          )
+        }),
+      ],
+    ),
+    // ヒントテキスト
+    div(
+      style="margin-top: 8px; font-size: 10px; color: \{theme.ui_text_muted};",
+      [text("Tip: Shift+click to add/remove, Ctrl+C/V to copy/paste")],
+    ),
+  ])
 }
 
 ///|

@@ -639,6 +639,21 @@ pub fn EditorState::get_selected_id(self : EditorState) -> String? {
 }
 
 ///|
+/// 全要素を選択（Line と子要素以外）
+pub fn EditorState::select_all(self : EditorState) -> Unit {
+  let ids : Array[String] = []
+  for el in self.elements.get() {
+    // 子要素は親と一緒に選択されるのでスキップ
+    if el.parent_id is Some(_) {
+      continue
+    }
+    // Line/Arrow は接続先と一緒に選択されることが多いので含める
+    ids.push(el.id)
+  }
+  self.selected_ids.set(ids)
+}
+
+///|
 /// ドラッグ開始
 pub fn EditorState::start_drag(
   self : EditorState,

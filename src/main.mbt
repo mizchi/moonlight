@@ -8,6 +8,10 @@ using @element {div, button, text, text_dyn, events, show, input}
 let canvas_width : Int = 400
 
 ///|
+/// クリップボード（コピーした要素を保持）
+let clipboard : Ref[Array[@model.Element]] = { val: [] }
+
+///|
 let canvas_height : Int = 300
 
 ///|
@@ -739,9 +743,11 @@ fn create_mousedown_handler(
       Some(data_id_raw.cast())
     }
     let (scene_x, scene_y) = get_scene_coords(e)
+    let shift_key : Bool = e._get("shiftKey").cast()
     if data_id is Some(id) {
       handle_element_click(
         state, id, scene_x, scene_y, last_click_time, last_click_element, double_click_threshold,
+        shift_key,
       )
     } else {
       // 空白をクリック - 矩形選択を開始
@@ -832,6 +838,7 @@ fn handle_element_click(
   last_click_time : Ref[Double],
   last_click_element : Ref[String],
   double_click_threshold : Double,
+  shift_key : Bool,
 ) -> Unit {
   // 子要素の場合は親を取得
   let target_id = match state.get_parent_id(id) {
@@ -866,6 +873,26 @@ fn handle_element_click(
   last_click_element.val = dblclick_target
   let already_selected = state.is_selected(target_id)
   let selected_count = state.selected_ids.get().length()
+
+  // Shift+クリック: 複数選択のトグル
+  if shift_key {
+    if already_selected {
+      state.remove_from_selection(target_id)
+    } else {
+      state.add_to_selection(target_id)
+    }
+    // 複数選択中はドラッグを開始
+    if state.selected_ids.get().length() > 1 {
+      state.start_multi_drag(scene_x, scene_y)
+    } else if state.selected_ids.get().length() == 1 {
+      // 1つだけ選択中の場合は通常ドラッグ
+      let selected_id = state.selected_ids.get()[0]
+      state.start_drag(selected_id, scene_x, scene_y)
+    }
+    return
+  }
+
+  // 通常クリック
   if already_selected && selected_count > 1 {
     state.start_multi_drag(scene_x, scene_y)
   } else {
@@ -1383,6 +1410,114 @@ fn setup_keyboard_shortcuts(
           state.select(Some(el_id))
         }
       }
+      "a" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          state.select_all()
+        }
+      "c" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          // 選択中の要素をクリップボードにコピー
+          let selected_ids = state.selected_ids.get()
+          let copied : Array[@model.Element] = []
+          for id in selected_ids {
+            if state.find_element(id) is Some(el) {
+              copied.push(el)
+              // 子要素もコピー
+              for child in state.get_children(id) {
+                copied.push(child)
+              }
+            }
+          }
+          clipboard.val = copied
+        }
+      "v" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          // クリップボードから貼り付け（右下に少しずらす）
+          if clipboard.val.length() > 0 {
+            let id_map : Array[(String, String)] = [] // (old_id, new_id)
+            let new_ids : Array[String] = []
+            // まず全要素の新しいIDを生成
+            for el in clipboard.val {
+              let old_id = el.id
+              let dup_id = new_id()
+              id_map.push((old_id, dup_id))
+            }
+            // IDマッピングを検索するヘルパー
+            let find_new_id = fn(old_id : String) -> String {
+              for mapping in id_map {
+                let (o, n) = mapping
+                if o == old_id {
+                  return n
+                }
+              }
+              old_id
+            }
+            // 要素を追加
+            for el in clipboard.val {
+              let new_el_id = find_new_id(el.id)
+              // parent_id も更新
+              let new_parent_id = match el.parent_id {
+                Some(pid) => Some(find_new_id(pid))
+                None => None
+              }
+              // 接続情報も更新
+              let new_connections : @model.LineConnections? = match
+                el.connections {
+                Some(conns) => {
+                  let new_start : @model.Connection? = match conns.start {
+                    Some(conn) => {
+                      let c : @model.Connection = {
+                        element_id: find_new_id(conn.element_id),
+                        anchor: conn.anchor,
+                      }
+                      Some(c)
+                    }
+                    None => None
+                  }
+                  let new_end : @model.Connection? = match conns.end {
+                    Some(conn) => {
+                      let c : @model.Connection = {
+                        element_id: find_new_id(conn.element_id),
+                        anchor: conn.anchor,
+                      }
+                      Some(c)
+                    }
+                    None => None
+                  }
+                  let lc : @model.LineConnections = {
+                    start: new_start,
+                    end: new_end,
+                  }
+                  Some(lc)
+                }
+                None => None
+              }
+              let new_el = {
+                ..el,
+                id: new_el_id,
+                x: el.x + 20.0,
+                y: el.y + 20.0,
+                parent_id: new_parent_id,
+                connections: new_connections,
+              }
+              // Line の場合は終点も移動
+              let final_el = match new_el.shape {
+                @model.Line(x2, y2) =>
+                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0) }
+                _ => new_el
+              }
+              execute_command(history, state, @model.AddElement(final_el))
+              // 子要素でなければ選択対象に追加
+              if new_parent_id is None {
+                new_ids.push(new_el_id)
+              }
+            }
+            state.select_multiple(new_ids)
+          }
+        }
       "d" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
