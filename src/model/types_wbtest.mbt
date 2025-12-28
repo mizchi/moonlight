@@ -1281,3 +1281,193 @@ test "apply_element_move - element not found" {
   assert_eq(result[0].x, 100.0)
   assert_eq(result[0].y, 100.0)
 }
+
+// ============================================================
+// calc_ellipse_resize tests
+// ============================================================
+
+///|
+test "calc_ellipse_resize - SE expand" {
+  let result = calc_ellipse_resize(
+    100.0,
+    100.0,
+    50.0,
+    30.0,
+    20.0,
+    10.0,
+    SE,
+    5.0,
+  )
+  // 右下ハンドルを (20, 10) だけ移動
+  // 新しい x2 = 150 + 20 = 170, y2 = 130 + 10 = 140
+  // 新しい rx = (170 - 50) / 2 = 60, ry = (140 - 70) / 2 = 35
+  inspect(result, content="{cx: 110, cy: 105, rx: 60, ry: 35}")
+}
+
+///|
+test "calc_ellipse_resize - NW shrink" {
+  let result = calc_ellipse_resize(
+    100.0,
+    100.0,
+    50.0,
+    30.0,
+    20.0,
+    10.0,
+    NW,
+    5.0,
+  )
+  // 左上ハンドルを (20, 10) だけ移動
+  inspect(result, content="{cx: 110, cy: 105, rx: 40, ry: 25}")
+}
+
+///|
+test "calc_ellipse_resize - minimum size enforcement" {
+  let result = calc_ellipse_resize(
+    100.0,
+    100.0,
+    10.0,
+    10.0,
+    50.0,
+    50.0,
+    NW,
+    5.0,
+  )
+  // 最小半径が保証される
+  assert_true(result.rx >= 5.0)
+  assert_true(result.ry >= 5.0)
+}
+
+// ============================================================
+// calc_line_resize tests
+// ============================================================
+
+///|
+test "calc_line_resize - LineEnd" {
+  let result = calc_line_resize(0.0, 0.0, 100.0, 100.0, 20.0, 10.0, LineEnd)
+  assert_eq(result.x1, 0.0)
+  assert_eq(result.y1, 0.0)
+  assert_eq(result.x2, 120.0) // 100 + 20
+  assert_eq(result.y2, 110.0) // 100 + 10
+}
+
+///|
+test "calc_line_resize - LineStart" {
+  let result = calc_line_resize(0.0, 0.0, 100.0, 100.0, 20.0, 10.0, LineStart)
+  assert_eq(result.x1, 20.0) // 0 + 20
+  assert_eq(result.y1, 10.0) // 0 + 10
+  assert_eq(result.x2, 100.0)
+  assert_eq(result.y2, 100.0)
+}
+
+// ============================================================
+// calc_text_resize tests
+// ============================================================
+
+///|
+test "calc_text_resize - SE expand" {
+  let result = calc_text_resize(16.0, 8.0, 8.0, SE, 8.0)
+  // (8 + 8) / 4 = 4
+  assert_eq(result.font_size, 20.0)
+}
+
+///|
+test "calc_text_resize - NW shrink" {
+  let result = calc_text_resize(16.0, 8.0, 8.0, NW, 8.0)
+  // -(8 + 8) / 4 = -4
+  assert_eq(result.font_size, 12.0)
+}
+
+///|
+test "calc_text_resize - minimum size enforcement" {
+  let result = calc_text_resize(16.0, -40.0, -40.0, SE, 8.0)
+  // 最小サイズが保証される
+  assert_eq(result.font_size, 8.0)
+}
+
+// ============================================================
+// reorder_array tests
+// ============================================================
+
+///|
+test "reorder_array - move forward" {
+  let arr = [1, 2, 3, 4, 5]
+  let result = reorder_array(arr, 1, 3)
+  // [1, 2, 3, 4, 5] -> 要素2を位置3に移動 -> [1, 3, 4, 2, 5]
+  inspect(result, content="[1, 3, 4, 2, 5]")
+}
+
+///|
+test "reorder_array - move backward" {
+  let arr = [1, 2, 3, 4, 5]
+  let result = reorder_array(arr, 3, 1)
+  // [1, 2, 3, 4, 5] -> 要素4を位置1に移動 -> [1, 4, 2, 3, 5]
+  inspect(result, content="[1, 4, 2, 3, 5]")
+}
+
+///|
+test "reorder_array - same position" {
+  let arr = [1, 2, 3]
+  let result = reorder_array(arr, 1, 1)
+  // 同じ位置への移動は変化なし
+  inspect(result, content="[1, 2, 3]")
+}
+
+///|
+test "reorder_array - invalid index" {
+  let arr = [1, 2, 3]
+  let result = reorder_array(arr, -1, 1)
+  // 無効なインデックスは変化なし
+  inspect(result, content="[1, 2, 3]")
+}
+
+// ============================================================
+// calc_bring_forward / calc_send_backward tests
+// ============================================================
+
+///|
+test "calc_bring_forward - valid" {
+  let result = calc_bring_forward(2, 5)
+  assert_eq(result, Some(3))
+}
+
+///|
+test "calc_bring_forward - at end" {
+  let result = calc_bring_forward(4, 5)
+  assert_eq(result, None)
+}
+
+///|
+test "calc_send_backward - valid" {
+  let result = calc_send_backward(2, 5)
+  assert_eq(result, Some(1))
+}
+
+///|
+test "calc_send_backward - at start" {
+  let result = calc_send_backward(0, 5)
+  assert_eq(result, None)
+}
+
+///|
+test "calc_bring_to_front - valid" {
+  let result = calc_bring_to_front(1, 5)
+  assert_eq(result, Some(4))
+}
+
+///|
+test "calc_bring_to_front - already at front" {
+  let result = calc_bring_to_front(4, 5)
+  assert_eq(result, None)
+}
+
+///|
+test "calc_send_to_back - valid" {
+  let result = calc_send_to_back(3, 5)
+  assert_eq(result, Some(0))
+}
+
+///|
+test "calc_send_to_back - already at back" {
+  let result = calc_send_to_back(0, 5)
+  assert_eq(result, None)
+}

@@ -467,6 +467,172 @@ pub fn calc_circle_resize(
 }
 
 ///|
+/// 楕円リサイズ結果
+pub(all) struct EllipseResizeResult {
+  cx : Double
+  cy : Double
+  rx : Double
+  ry : Double
+} derive(Show, Eq)
+
+///|
+/// 楕円のリサイズを計算（純粋関数）
+pub fn calc_ellipse_resize(
+  cx : Double,
+  cy : Double,
+  start_rx : Double,
+  start_ry : Double,
+  dx : Double,
+  dy : Double,
+  handle : HandlePosition,
+  min_r : Double,
+) -> EllipseResizeResult {
+  // 楕円のバウンディングボックスの4隅
+  let x1 = cx - start_rx
+  let y1 = cy - start_ry
+  let x2 = cx + start_rx
+  let y2 = cy + start_ry
+  // ハンドルに応じて新しい座標を計算
+  let (new_x1, new_y1, new_x2, new_y2) = match handle {
+    SE | LineStart | LineEnd => (x1, y1, x2 + dx, y2 + dy)
+    NW => (x1 + dx, y1 + dy, x2, y2)
+    NE => (x1, y1 + dy, x2 + dx, y2)
+    SW => (x1 + dx, y1, x2, y2 + dy)
+  }
+  // 最小サイズを保証
+  let new_rx = (new_x2 - new_x1).abs() / 2.0
+  let new_ry = (new_y2 - new_y1).abs() / 2.0
+  let final_rx = if new_rx < min_r { min_r } else { new_rx }
+  let final_ry = if new_ry < min_r { min_r } else { new_ry }
+  // 中心を再計算
+  let final_cx = (new_x1 + new_x2) / 2.0
+  let final_cy = (new_y1 + new_y2) / 2.0
+  { cx: final_cx, cy: final_cy, rx: final_rx, ry: final_ry }
+}
+
+///|
+/// Line リサイズ結果
+pub(all) struct LineResizeResult {
+  x1 : Double
+  y1 : Double
+  x2 : Double
+  y2 : Double
+} derive(Show, Eq)
+
+///|
+/// Line のリサイズを計算（純粋関数）
+pub fn calc_line_resize(
+  start_x : Double,
+  start_y : Double,
+  start_x2 : Double,
+  start_y2 : Double,
+  dx : Double,
+  dy : Double,
+  handle : HandlePosition,
+) -> LineResizeResult {
+  match handle {
+    LineStart =>
+      { x1: start_x + dx, y1: start_y + dy, x2: start_x2, y2: start_y2 }
+    LineEnd =>
+      { x1: start_x, y1: start_y, x2: start_x2 + dx, y2: start_y2 + dy }
+    _ => { x1: start_x, y1: start_y, x2: start_x2 + dx, y2: start_y2 + dy }
+  }
+}
+
+///|
+/// Text リサイズ結果
+pub(all) struct TextResizeResult {
+  font_size : Double
+} derive(Show, Eq)
+
+///|
+/// Text のリサイズを計算（純粋関数）
+/// フォントサイズを変更
+pub fn calc_text_resize(
+  start_font_size : Double,
+  dx : Double,
+  dy : Double,
+  handle : HandlePosition,
+  min_size : Double,
+) -> TextResizeResult {
+  // 斜め方向の変化量から新しいフォントサイズを計算
+  let change = match handle {
+    SE | LineEnd => (dx + dy) / 4.0
+    NW => -(dx + dy) / 4.0
+    NE => (dx - dy) / 4.0
+    SW => (-dx + dy) / 4.0
+    LineStart => (dx + dy) / 4.0
+  }
+  let new_size = start_font_size + change
+  { font_size: if new_size < min_size { min_size } else { new_size } }
+}
+
+///|
+/// 配列内の要素を新しいインデックスに移動
+pub fn[T] reorder_array(
+  arr : Array[T],
+  from_idx : Int,
+  to_idx : Int,
+) -> Array[T] {
+  guard from_idx >= 0 && from_idx < arr.length() else { return arr }
+  guard to_idx >= 0 && to_idx < arr.length() else { return arr }
+  guard from_idx != to_idx else { return arr }
+  let result : Array[T] = []
+  let element = arr[from_idx]
+  for i, el in arr {
+    if i == from_idx {
+      continue
+    }
+    if i == to_idx {
+      if from_idx < to_idx {
+        result.push(el)
+        result.push(element)
+      } else {
+        result.push(element)
+        result.push(el)
+      }
+    } else {
+      result.push(el)
+    }
+  }
+  result
+}
+
+///|
+/// 配列の並べ替え計算（bring_forward相当）
+pub fn calc_bring_forward(current_idx : Int, length : Int) -> Int? {
+  guard current_idx >= 0 && current_idx < length else { return None }
+  let new_idx = current_idx + 1
+  guard new_idx < length else { return None }
+  Some(new_idx)
+}
+
+///|
+/// 配列の並べ替え計算（send_backward相当）
+pub fn calc_send_backward(current_idx : Int, length : Int) -> Int? {
+  guard current_idx >= 0 && current_idx < length else { return None }
+  guard current_idx > 0 else { return None }
+  Some(current_idx - 1)
+}
+
+///|
+/// 配列の並べ替え計算（bring_to_front相当）
+pub fn calc_bring_to_front(current_idx : Int, length : Int) -> Int? {
+  guard current_idx >= 0 && current_idx < length else { return None }
+  let new_idx = length - 1
+  guard current_idx != new_idx else { return None }
+  Some(new_idx)
+}
+
+///|
+/// 配列の並べ替え計算（send_to_back相当）
+pub fn calc_send_to_back(current_idx : Int, length : Int) -> Int? {
+  guard current_idx >= 0 && current_idx < length else { return None }
+  guard current_idx != 0 else { return None }
+  Some(0)
+}
+
+///|
 /// Viewport (表示領域) 座標変換
 pub(all) struct Viewport {
   scroll_x : Double
