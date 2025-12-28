@@ -114,8 +114,9 @@ pub extern "js" fn create_textarea_ffi(
   initial_value : String,
   on_commit : (String) -> Unit,
   on_escape : (String) -> Unit,
+  on_input : (String) -> Unit,
 ) -> @js.Any =
-  #| (style, initialValue, onCommit, onEscape) => {
+  #| (style, initialValue, onCommit, onEscape, onInput) => {
   #|   const textarea = document.createElement('textarea');
   #|   textarea.id = 'inline-text-edit';
   #|   textarea.style.cssText = style;
@@ -142,6 +143,8 @@ pub extern "js" fn create_textarea_ffi(
   #|     // 横幅を自動調整（テキストに合わせて伸びる）
   #|     textarea.style.width = 'auto';
   #|     textarea.style.width = Math.max(textarea.scrollWidth, 40) + 'px';
+  #|     // リアルタイムでテキスト要素を更新
+  #|     onInput(textarea.value);
   #|   });
   #|   // フォーカスを遅延設定
   #|   setTimeout(() => {

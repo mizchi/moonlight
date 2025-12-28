@@ -1004,16 +1004,33 @@ pub fn render_text_input(
   }
   // シーン座標をスクリーン座標に変換
   let screen_pos = vp.scene_to_screen(text_x, text_y)
-  let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
-  // テキストエリア（複数行対応、親要素の幅に合わせる）
-  // line-height: 1.2 は SVG tspan の lineHeight = fontSize * 1.2 と一致
-  let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: 19px; max-height: 100px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
+  // テキストエリア（横に伸びるスタイル）
+  let min_width = if max_width < 40.0 { 40.0 } else { max_width }
+  let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: 24px; padding: 0; border: none; background: transparent; font-family: sans-serif; font-size: 16px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap;"
+  // リアルタイム更新用のコールバック
+  let editing_id = edit_state.editing_id
+  let initial_text = edit_state.initial_text
+  let on_input = fn(value : String) {
+    match editing_id {
+      Some(id) => state.update_text_raw(id, value)
+      None => ()
+    }
+  }
+  let on_escape = fn(_value : String) {
+    // キャンセル時は元のテキストに戻す
+    match editing_id {
+      Some(id) => state.update_text_raw(id, initial_text)
+      None => ()
+    }
+    cancel()
+  }
   // FFIでtextareaを作成
   let textarea = create_textarea_ffi(
     style,
-    edit_state.initial_text,
+    initial_text,
     fn(value) { commit(value) },
-    fn(_) { cancel() },
+    on_escape,
+    on_input,
   )
   let node : @js_dom.Node = textarea.cast()
   @element.dom_node(node)
