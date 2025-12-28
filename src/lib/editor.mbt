@@ -1,24 +1,5 @@
 // 共通ライブラリ - エディタ作成ロジック
-
-///|
-/// SVG 要素に属性を設定（FFI）
-pub extern "js" fn set_svg_attr(el : @js.Any, name : String, value : String) =
-  #| (el, name, value) => el.setAttribute(name, value)
-
-///|
-/// SVG 要素を作成（createElementNS）
-pub extern "js" fn create_svg_element_ns(tag : String) -> @js.Any =
-  #| (tag) => document.createElementNS('http://www.w3.org/2000/svg', tag)
-
-///|
-/// 子要素を追加
-pub extern "js" fn append_child(parent : @js.Any, child : @js.Any) =
-  #| (parent, child) => parent.appendChild(child)
-
-///|
-/// innerHTML を設定
-pub extern "js" fn set_inner_html(el : @js.Any, html : String) =
-  #| (el, html) => el.innerHTML = html
+// FFI関数とレンダリング関数は render.mbt から使用
 
 ///|
 /// 要素のスタイルを設定
@@ -71,179 +52,53 @@ pub extern "js" fn create_preview_handle(
   #|   setSvg: setSvg
   #| })
 
-///|
-/// 数値を文字列に変換（小数点以下2桁）
-fn num_to_str(n : Double) -> String {
-  let rounded = (n * 100.0).round() / 100.0
-  rounded.to_string()
-}
+// SimpleEditorState は @core.EditorState の型エイリアス
+pub type SimpleEditorState = @core.EditorState
 
 ///|
-/// 簡易エディタ状態
-pub struct SimpleEditorState {
-  width : Int
-  height : Int
-  elements : @luna.Signal[Array[@model.Element]]
-  selected_id : @luna.Signal[String?]
-  theme_mode : @luna.Signal[@model.ThemeMode]
-  has_focus : @luna.Signal[Bool]
-  is_readonly : @luna.Signal[Bool]
-  show_toolbar : @luna.Signal[Bool]
-  mut svg_el : @js.Any // SVG 要素への参照
-  mut container_el : @js.Any // コンテナへの参照
-}
-
-///|
-/// 簡易エディタ状態を作成
-pub fn SimpleEditorState::new(
+/// 埋め込みエディタ状態を作成
+pub fn create_embed_state(
   width : Int,
   height : Int,
   options : EditorOptions,
-) -> SimpleEditorState {
-  {
-    width,
-    height,
-    elements: @luna.signal([]),
-    selected_id: @luna.signal(None),
-    theme_mode: @luna.signal(parse_theme(options.theme)),
-    has_focus: @luna.signal(false),
-    is_readonly: @luna.signal(options.is_readonly),
-    show_toolbar: @luna.signal(options.toolbar_visible),
-    svg_el: js_null(),
-    container_el: js_null(),
+) -> @core.EditorState {
+  let state = @core.EditorState::new_with_mode(width, height, @core.Embedded)
+  // オプションを適用
+  state.theme_mode.set(parse_theme(options.theme))
+  state.is_readonly.set(options.is_readonly)
+  state.show_toolbar.set(options.toolbar_visible)
+  state
+}
+
+// ============================================================
+// ヘルパー関数（単一選択用）
+// ============================================================
+
+///|
+/// 選択中のIDを取得（単一選択として）
+pub fn get_selected_id(state : @core.EditorState) -> String? {
+  let ids = state.selected_ids.get()
+  if ids.length() > 0 { Some(ids[0]) } else { None }
+}
+
+///|
+/// 選択を設定（単一選択として）
+pub fn set_selected_id(state : @core.EditorState, id : String?) -> Unit {
+  match id {
+    Some(i) => state.selected_ids.set([i])
+    None => state.selected_ids.set([])
   }
 }
 
 ///|
-/// 要素を SVG 文字列に変換
-pub fn element_to_svg_string(el : @model.Element) -> String {
-  let style = el.style
-  let fill = style.fill.unwrap_or("none")
-  let stroke = style.stroke.unwrap_or("#000000")
-  let stroke_width = style.stroke_width.unwrap_or(1.0)
-  match el.shape {
-    @model.Rect(w, h, rx, ry) => {
-      let rx_attr = match rx {
-        Some(v) => " rx=\"\{num_to_str(v)}\""
-        None => ""
-      }
-      let ry_attr = match ry {
-        Some(v) => " ry=\"\{num_to_str(v)}\""
-        None => ""
-      }
-      "<rect x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" width=\"\{num_to_str(w)}\" height=\"\{num_to_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
-    }
-    @model.Circle(r) =>
-      "<circle cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" r=\"\{num_to_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
-    @model.Ellipse(rx, ry) =>
-      "<ellipse cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" rx=\"\{num_to_str(rx)}\" ry=\"\{num_to_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
-    @model.Line(x2, y2) =>
-      "<line x1=\"\{num_to_str(el.x)}\" y1=\"\{num_to_str(el.y)}\" x2=\"\{num_to_str(x2)}\" y2=\"\{num_to_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
-    @model.Text(content, font_size) => {
-      let fs = font_size.unwrap_or(16.0)
-      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{fill}\" font-size=\"\{num_to_str(fs)}\">\{content}</text>"
-    }
-    _ => ""
-  }
-}
-
-///|
-/// 要素配列を SVG 文字列にエクスポート
-pub fn export_elements_to_svg(
-  elements : Array[@model.Element],
-  width : Int,
-  height : Int,
-  bg_color : String,
-) -> String {
-  let mut svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 \{width} \{height}\" width=\"\{width}\" height=\"\{height}\">\n"
-  svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"
-  for el in elements {
-    svg = svg + "  " + element_to_svg_string(el) + "\n"
-  }
-  svg = svg + "</svg>"
-  svg
-}
-
-///|
-/// 要素を DOM SVG 要素として描画
-fn render_element_to_dom(el : @model.Element) -> @js.Any {
-  let style = el.style
-  let fill = style.fill.unwrap_or("none")
-  let stroke = style.stroke.unwrap_or("#000000")
-  let stroke_width = style.stroke_width.unwrap_or(1.0)
-  match el.shape {
-    @model.Rect(w, h, rx, ry) => {
-      let rect = create_svg_element_ns("rect")
-      set_svg_attr(rect, "x", num_to_str(el.x))
-      set_svg_attr(rect, "y", num_to_str(el.y))
-      set_svg_attr(rect, "width", num_to_str(w))
-      set_svg_attr(rect, "height", num_to_str(h))
-      if rx is Some(v) {
-        set_svg_attr(rect, "rx", num_to_str(v))
-      }
-      if ry is Some(v) {
-        set_svg_attr(rect, "ry", num_to_str(v))
-      }
-      set_svg_attr(rect, "fill", fill)
-      set_svg_attr(rect, "stroke", stroke)
-      set_svg_attr(rect, "stroke-width", num_to_str(stroke_width))
-      set_svg_attr(rect, "data-id", el.id)
-      rect
-    }
-    @model.Circle(r) => {
-      let circle = create_svg_element_ns("circle")
-      set_svg_attr(circle, "cx", num_to_str(el.x))
-      set_svg_attr(circle, "cy", num_to_str(el.y))
-      set_svg_attr(circle, "r", num_to_str(r))
-      set_svg_attr(circle, "fill", fill)
-      set_svg_attr(circle, "stroke", stroke)
-      set_svg_attr(circle, "stroke-width", num_to_str(stroke_width))
-      set_svg_attr(circle, "data-id", el.id)
-      circle
-    }
-    @model.Ellipse(rx, ry) => {
-      let ellipse = create_svg_element_ns("ellipse")
-      set_svg_attr(ellipse, "cx", num_to_str(el.x))
-      set_svg_attr(ellipse, "cy", num_to_str(el.y))
-      set_svg_attr(ellipse, "rx", num_to_str(rx))
-      set_svg_attr(ellipse, "ry", num_to_str(ry))
-      set_svg_attr(ellipse, "fill", fill)
-      set_svg_attr(ellipse, "stroke", stroke)
-      set_svg_attr(ellipse, "stroke-width", num_to_str(stroke_width))
-      set_svg_attr(ellipse, "data-id", el.id)
-      ellipse
-    }
-    @model.Line(x2, y2) => {
-      let line = create_svg_element_ns("line")
-      set_svg_attr(line, "x1", num_to_str(el.x))
-      set_svg_attr(line, "y1", num_to_str(el.y))
-      set_svg_attr(line, "x2", num_to_str(x2))
-      set_svg_attr(line, "y2", num_to_str(y2))
-      set_svg_attr(line, "stroke", stroke)
-      set_svg_attr(line, "stroke-width", num_to_str(stroke_width))
-      set_svg_attr(line, "data-id", el.id)
-      line
-    }
-    @model.Text(content, font_size) => {
-      let text = create_svg_element_ns("text")
-      set_svg_attr(text, "x", num_to_str(el.x))
-      set_svg_attr(text, "y", num_to_str(el.y))
-      set_svg_attr(text, "fill", fill)
-      set_svg_attr(text, "font-size", num_to_str(font_size.unwrap_or(16.0)))
-      set_inner_html(text, content)
-      set_svg_attr(text, "data-id", el.id)
-      text
-    }
-    _ => create_svg_element_ns("g") // 空のグループを返す
-  }
-}
-
-///|
-/// SVG を再描画
-pub fn redraw_svg(state : SimpleEditorState) -> Unit {
-  let svg = state.svg_el
-  // 既存の子要素をクリア（背景rect以外）
-  clear_svg_elements_ffi(svg)
+/// SVG を再描画（共通レンダリング関数を使用）
+pub fn redraw_svg(state : @core.EditorState) -> Unit {
+  let svg = state.svg_el.get()
+  // 既存の子要素をクリア
+  clear_svg_children(svg)
+  // 矢印マーカーの defs を再追加
+  let defs = create_arrow_defs()
+  append_child(svg, defs)
   // 背景を追加
   let bg = create_svg_element_ns("rect")
   set_svg_attr(bg, "width", "100%")
@@ -254,22 +109,22 @@ pub fn redraw_svg(state : SimpleEditorState) -> Unit {
   }
   set_svg_attr(bg, "fill", bg_color)
   append_child(svg, bg)
-  // 要素を描画
+  // 要素を描画（選択状態に応じてハイライト）
+  let selected_id = get_selected_id(state)
   for el in state.elements.get() {
-    let dom_el = render_element_to_dom(el)
+    let is_selected = match selected_id {
+      Some(id) => el.id == id
+      None => false
+    }
+    let dom_el = render_element_to_svg(el, is_selected)
     append_child(svg, dom_el)
   }
 }
 
 ///|
-/// SVG 要素の子要素をクリア
-extern "js" fn clear_svg_elements_ffi(svg : @js.Any) =
-  #| (svg) => { while (svg.firstChild) svg.removeChild(svg.firstChild); }
-
-///|
 /// SVG コンテナを作成して初期化
 pub fn create_svg_container(
-  state : SimpleEditorState,
+  state : @core.EditorState,
   container : @js.Any,
 ) -> @js.Any {
   let width = state.width
@@ -280,11 +135,14 @@ pub fn create_svg_container(
   set_svg_attr(svg, "width", width.to_string())
   set_svg_attr(svg, "height", height.to_string())
   set_style(svg, "display: block; max-width: 100%; height: auto;")
+  // 矢印マーカーの defs を追加
+  let defs = create_arrow_defs()
+  append_child(svg, defs)
   // コンテナに追加
   append_child(container, svg)
   // 状態に参照を保存
-  state.svg_el = svg
-  state.container_el = container
+  state.svg_el.set(svg)
+  state.container_el.set(container)
   // 初期描画
   redraw_svg(state)
   svg
@@ -327,7 +185,7 @@ fn parse_svg_circles(
 
 ///|
 /// サンプル図形を追加
-pub fn add_sample_elements(state : SimpleEditorState) -> Unit {
+pub fn add_sample_elements(state : @core.EditorState) -> Unit {
   let elements : Array[@model.Element] = [
     {
       id: "sample-rect",
@@ -360,6 +218,25 @@ pub fn add_sample_elements(state : SimpleEditorState) -> Unit {
         stroke_dasharray: None,
         marker_start: None,
         marker_end: None,
+      },
+      transform: None,
+      parent_id: None,
+      connections: None,
+    },
+    // 矢印付きLine（サンプル）
+    {
+      id: "sample-arrow",
+      x: 150.0,
+      y: 80.0,
+      shape: @model.Line(210.0, 80.0),
+      style: {
+        fill: None,
+        stroke: Some("#333333"),
+        stroke_width: Some(2.0),
+        opacity: None,
+        stroke_dasharray: None,
+        marker_start: None,
+        marker_end: Some(@model.Arrow),
       },
       transform: None,
       parent_id: None,

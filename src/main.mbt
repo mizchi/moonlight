@@ -32,7 +32,7 @@ fn create_id_counter() -> @luna.Signal[Int] {
 
 ///|
 /// 現在の状態を IndexedDB に保存
-fn save_state(state : EditorState) -> Unit {
+fn save_state(state : @core.EditorState) -> Unit {
   let elements = state.elements.get()
   let theme = state.theme_mode.get()
   let bg_color = match theme {
@@ -50,7 +50,7 @@ fn save_state(state : EditorState) -> Unit {
 ///|
 /// IndexedDB から状態を読み込み
 fn load_state(
-  state : EditorState,
+  state : @core.EditorState,
   new_id : () -> String,
   on_loaded : () -> Unit,
   on_not_found : () -> Unit,
@@ -73,7 +73,7 @@ fn load_state(
 
 ///|
 /// 自動保存の Effect を設定
-fn setup_auto_save(state : EditorState) -> Unit {
+fn setup_auto_save(state : @core.EditorState) -> Unit {
   let _ = @luna.effect(fn() {
     let _ = state.elements.get() // 依存関係を登録
     save_state(state)
@@ -83,12 +83,12 @@ fn setup_auto_save(state : EditorState) -> Unit {
 
 ///|
 /// URL パラメータからモードを取得
-fn get_mode_from_url() -> EditorMode {
+fn get_mode_from_url() -> @core.EditorMode {
   let search = get_url_search_ffi()
   if search.contains("mode=embed") {
-    Embedded
+    @core.Embedded
   } else {
-    Full
+    @core.Full
   }
 }
 
@@ -97,8 +97,8 @@ fn main {
   guard @js_dom.document().getElementById("app") is Some(el)
   let mode = get_mode_from_url()
   match mode {
-    Full => @element.render(el |> @element.DomElement::from_dom, editor_app())
-    Embedded =>
+    @core.Full => @element.render(el |> @element.DomElement::from_dom, editor_app())
+    @core.Embedded =>
       @element.render(
         el |> @element.DomElement::from_dom,
         create_embedded_app(),
@@ -115,7 +115,7 @@ fn create_embedded_app() -> @element.DomNode {
     id_counter.set(current + 1)
     "el-\{current + 1}"
   }
-  let state = EditorState::new_with_mode(canvas_width, canvas_height, Embedded)
+  let state = @core.EditorState::new_with_mode(canvas_width, canvas_height, @core.Embedded)
   let history = @model.History::new()
   // IndexedDB から読み込み、なければサンプルを追加
   load_state(state, new_id, fn() { setup_auto_save(state) }, fn() {
@@ -136,7 +136,7 @@ fn editor_app() -> @element.DomNode {
   }
 
   // エディタ状態を初期化
-  let state = EditorState::new(canvas_width, canvas_height)
+  let state = @core.EditorState::new(canvas_width, canvas_height)
 
   // 履歴管理
   let history = @model.History::new()
@@ -302,7 +302,7 @@ fn resize_shape_by_arrow(
 
 ///|
 /// サンプル図形を追加
-fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
+fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
   let text_style = state.get_text_style()
   let arrow_style = state.get_arrow_style()
 
@@ -573,7 +573,7 @@ fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
 ///|
 /// 矢印キーで選択要素をリサイズ
 fn resize_selected_by_arrow(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   selected_ids : Array[String],
   key : String,
@@ -624,7 +624,7 @@ fn resize_selected_by_arrow(
 ///|
 /// 矢印キーで選択要素を移動
 fn move_selected_by_arrow(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   selected_ids : Array[String],
   key : String,
@@ -658,7 +658,7 @@ fn move_selected_by_arrow(
 
 ///|
 /// 矢印キーでキャンバスをパン
-fn pan_by_arrow(state : EditorState, key : String) -> Unit {
+fn pan_by_arrow(state : @core.EditorState, key : String) -> Unit {
   let zoom = state.viewport.get().zoom
   let pan_step = 12.0 / zoom
   match key {
@@ -673,7 +673,7 @@ fn pan_by_arrow(state : EditorState, key : String) -> Unit {
 ///|
 /// 矢印キーイベントを処理
 fn handle_arrow_key(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   key : String,
   shift_key : Bool,
@@ -694,7 +694,7 @@ fn handle_arrow_key(
 ///|
 /// キーボードリスナーを設定（Space + Arrow）
 fn setup_keyboard_listener(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   space_pressed : Ref[Bool],
 ) -> Unit {
@@ -754,7 +754,7 @@ fn setup_keyboard_listener(
 ///|
 /// mousedown ハンドラを作成
 fn create_mousedown_handler(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
   get_screen_coords : (@js.Any) -> (Double, Double),
@@ -832,7 +832,7 @@ fn create_mousedown_handler(
 ///|
 /// アンカーポイントクリックを処理
 fn handle_anchor_click(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
   get_scene_coords : (@js.Any) -> (Double, Double),
@@ -868,7 +868,7 @@ fn handle_anchor_click(
       end: None,
     }),
   }
-  execute_command(history, state, @model.AddElement(line_with_conn))
+  @core.execute_command(history, state, @model.AddElement(line_with_conn))
   // リサイズ開始
   state.start_resize(line_id, @model.LineEnd, scene_x, scene_y)
   true
@@ -877,7 +877,7 @@ fn handle_anchor_click(
 ///|
 /// リサイズハンドルクリックを処理
 fn handle_resize_click(
-  state : EditorState,
+  state : @core.EditorState,
   get_scene_coords : (@js.Any) -> (Double, Double),
   e : @js.Any,
   dataset : @js.Any,
@@ -901,7 +901,7 @@ fn handle_resize_click(
 ///|
 /// 要素クリックを処理
 fn handle_element_click(
-  state : EditorState,
+  state : @core.EditorState,
   id : String,
   scene_x : Double,
   scene_y : Double,
@@ -973,7 +973,7 @@ fn handle_element_click(
 
 ///|
 /// ダブルクリック時のテキスト編集開始
-fn handle_double_click(state : EditorState, element_id : String) -> Unit {
+fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
   guard state.find_element(element_id) is Some(el)
   // テキスト要素の場合は直接編集
   if el.shape is @model.Text(content, font_size) {
@@ -1014,7 +1014,7 @@ fn handle_double_click(state : EditorState, element_id : String) -> Unit {
 
 ///|
 /// テキスト要素の編集開始
-fn handle_text_edit(state : EditorState, text_id : String) -> Unit {
+fn handle_text_edit(state : @core.EditorState, text_id : String) -> Unit {
   guard state.find_element(text_id) is Some(el)
   guard el.shape is @model.Text(content, font_size)
   // parent_id がない場合は自分自身を親として扱う
@@ -1032,7 +1032,7 @@ fn handle_text_edit(state : EditorState, text_id : String) -> Unit {
 ///|
 /// テキスト入力を確定
 fn commit_text_edit(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
   text_content : String,
@@ -1042,11 +1042,11 @@ fn commit_text_edit(
     Some(text_id) =>
       if text_content == "" {
         if state.find_element(text_id) is Some(el) {
-          execute_command(history, state, @model.RemoveElement(el))
+          @core.execute_command(history, state, @model.RemoveElement(el))
         }
       } else if text_content != edit_state.initial_text {
         // UpdateText コマンドを使ってUndoスタックに記録
-        execute_command(
+        @core.execute_command(
           history,
           state,
           @model.UpdateText(text_id, edit_state.initial_text, text_content),
@@ -1062,7 +1062,7 @@ fn commit_text_edit(
           )
           .with_style(state.get_text_style())
           .with_parent(edit_state.parent_id)
-        execute_command(history, state, @model.AddElement(text_el))
+        @core.execute_command(history, state, @model.AddElement(text_el))
       }
   }
   state.end_text_edit()
@@ -1071,7 +1071,7 @@ fn commit_text_edit(
 ///|
 /// mousemove ハンドラを作成
 fn create_mousemove_handler(
-  state : EditorState,
+  state : @core.EditorState,
   get_screen_coords : (@js.Any) -> (Double, Double),
   get_scene_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
@@ -1108,7 +1108,7 @@ fn create_mousemove_handler(
 ///|
 /// リサイズ終了時のコマンド記録
 fn record_resize_end(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   resize : @model.ResizeState,
 ) -> Unit {
@@ -1138,7 +1138,7 @@ fn record_resize_end(
 ///|
 /// 複数要素ドラッグ終了時のコマンド記録
 fn record_multi_drag_end(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   multi_drag : @model.MultiDragState,
 ) -> Unit {
@@ -1156,7 +1156,7 @@ fn record_multi_drag_end(
 ///|
 /// Line ドラッグ時の接続要素移動を記録
 fn record_connected_moves(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   positions : Array[(String, Double, Double)],
 ) -> Unit {
@@ -1173,7 +1173,7 @@ fn record_connected_moves(
 ///|
 /// ドラッグ終了時のコマンド記録
 fn record_drag_end(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   drag : @model.DragState,
 ) -> Unit {
@@ -1200,7 +1200,7 @@ fn record_drag_end(
 ///|
 /// mouseup ハンドラを作成
 fn create_mouseup_handler(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
@@ -1233,7 +1233,7 @@ fn create_mouseup_handler(
 
 ///|
 /// mouseleave ハンドラを作成（マウスが画面外に出た時に状態をリセット）
-fn create_mouseleave_handler(state : EditorState) -> (@js.Any) -> Unit {
+fn create_mouseleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
   fn(_e) {
     // マウスがキャンバス外に出たことを記録
     state.mouse_in_canvas.set(false)
@@ -1262,7 +1262,7 @@ fn create_mouseleave_handler(state : EditorState) -> (@js.Any) -> Unit {
 ///|
 /// wheel ハンドラを作成（マウス位置を基準にズーム）
 fn create_wheel_handler(
-  state : EditorState,
+  state : @core.EditorState,
   get_screen_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
   fn(e) {
@@ -1277,7 +1277,7 @@ fn create_wheel_handler(
 ///|
 /// contextmenu ハンドラを作成
 fn create_contextmenu_handler(
-  state : EditorState,
+  state : @core.EditorState,
   get_scene_coords : (@js.Any) -> (Double, Double),
 ) -> (@js.Any) -> Unit {
   fn(e) {
@@ -1313,7 +1313,7 @@ fn create_contextmenu_handler(
 ///|
 /// アンカー近くで要素を作成し、配置モードを開始するヘルパー
 fn try_start_placement(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   element : @model.Element,
   is_line : Bool,
@@ -1362,7 +1362,7 @@ fn try_start_placement(
           // その他: そのまま配置
           { ..element, x: anchor_point.x, y: anchor_point.y }
       }
-      execute_command(history, state, @model.AddElement(placed_element))
+      @core.execute_command(history, state, @model.AddElement(placed_element))
       state.start_placement(
         element.id,
         anchor_el.id,
@@ -1380,7 +1380,7 @@ fn try_start_placement(
 ///|
 /// キーボードショートカットを設定
 fn setup_keyboard_shortcuts(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> Unit {
@@ -1405,7 +1405,7 @@ fn setup_keyboard_shortcuts(
         let selected_ids = state.selected_ids.get()
         for id in selected_ids {
           if state.find_element(id) is Some(el) {
-            execute_command(history, state, @model.RemoveElement(el))
+            @core.execute_command(history, state, @model.RemoveElement(el))
           }
         }
       }
@@ -1421,7 +1421,7 @@ fn setup_keyboard_shortcuts(
         ).with_style(state.get_default_style())
         if not(try_start_placement(state, history, new_rect, false, 20.0)) {
           // アンカー近くでなければ即時配置
-          execute_command(history, state, @model.AddElement(new_rect))
+          @core.execute_command(history, state, @model.AddElement(new_rect))
           state.select(Some(el_id))
         }
       }
@@ -1435,7 +1435,7 @@ fn setup_keyboard_shortcuts(
           @model.Circle(40.0),
         ).with_style(state.get_default_style())
         if not(try_start_placement(state, history, new_circle, false, 20.0)) {
-          execute_command(history, state, @model.AddElement(new_circle))
+          @core.execute_command(history, state, @model.AddElement(new_circle))
           state.select(Some(el_id))
         }
       }
@@ -1449,7 +1449,7 @@ fn setup_keyboard_shortcuts(
           @model.Ellipse(60.0, 35.0),
         ).with_style(state.get_default_style())
         if not(try_start_placement(state, history, new_ellipse, false, 20.0)) {
-          execute_command(history, state, @model.AddElement(new_ellipse))
+          @core.execute_command(history, state, @model.AddElement(new_ellipse))
           state.select(Some(el_id))
         }
       }
@@ -1463,7 +1463,7 @@ fn setup_keyboard_shortcuts(
           @model.Line(pos.x + 50.0, pos.y),
         ).with_style(state.get_line_style())
         if not(try_start_placement(state, history, new_line, true, 20.0)) {
-          execute_command(history, state, @model.AddElement(new_line))
+          @core.execute_command(history, state, @model.AddElement(new_line))
           state.select(Some(el_id))
         }
       }
@@ -1492,7 +1492,7 @@ fn setup_keyboard_shortcuts(
             ..new_arrow,
             style: state.get_arrow_style(),
           }
-          execute_command(history, state, @model.AddElement(arrow_with_marker))
+          @core.execute_command(history, state, @model.AddElement(arrow_with_marker))
           state.select(Some(el_id))
         }
       }
@@ -1506,7 +1506,7 @@ fn setup_keyboard_shortcuts(
           @model.Text("Text", Some(16.0)),
         ).with_style(state.get_text_style())
         if not(try_start_placement(state, history, new_text, false, 20.0)) {
-          execute_command(history, state, @model.AddElement(new_text))
+          @core.execute_command(history, state, @model.AddElement(new_text))
           state.select(Some(el_id))
         }
       }
@@ -1609,7 +1609,7 @@ fn setup_keyboard_shortcuts(
                   { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0) }
                 _ => new_el
               }
-              execute_command(history, state, @model.AddElement(final_el))
+              @core.execute_command(history, state, @model.AddElement(final_el))
               // 子要素でなければ選択対象に追加
               if new_parent_id is None {
                 new_ids.push(new_el_id)
@@ -1627,7 +1627,7 @@ fn setup_keyboard_shortcuts(
             if state.find_element(id) is Some(el) {
               let dup_id = new_id()
               let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0 }
-              execute_command(history, state, @model.AddElement(new_el))
+              @core.execute_command(history, state, @model.AddElement(new_el))
               new_ids.push(dup_id)
             }
           }
@@ -1636,13 +1636,13 @@ fn setup_keyboard_shortcuts(
       "z" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          let _ = undo_command(history, state)
+          let _ = @core.undo_command(history, state)
 
         }
       "y" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          let _ = redo_command(history, state)
+          let _ = @core.redo_command(history, state)
 
         }
       "s" =>
@@ -1677,7 +1677,7 @@ fn setup_keyboard_shortcuts(
             fn(text) {
               let imported = import_svg_elements(text, new_id)
               for el in imported {
-                execute_command(history, state, @model.AddElement(el))
+                @core.execute_command(history, state, @model.AddElement(el))
               }
               if imported.length() > 0 {
                 let ids = imported
@@ -1702,7 +1702,7 @@ fn setup_keyboard_shortcuts(
 ///|
 /// エディタ UI をレンダリング（Luna VNode ベース）
 fn render_editor_ui_vnode(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
   svg_canvas : @element.DomNode,
@@ -1746,7 +1746,7 @@ fn render_editor_ui_vnode(
 
 ///|
 /// パネル表示/非表示トグルボタン
-fn render_panel_toggle(state : EditorState) -> @element.DomNode {
+fn render_panel_toggle(state : @core.EditorState) -> @element.DomNode {
   button(
     dyn_style=fn() {
       let is_mobile = state.is_mobile.get()
@@ -1776,7 +1776,7 @@ fn render_panel_toggle(state : EditorState) -> @element.DomNode {
 ///|
 /// 埋め込みビューをレンダリング（簡易モード）
 fn render_embedded_view(
-  state : EditorState,
+  state : @core.EditorState,
   svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
@@ -1810,7 +1810,7 @@ fn render_embedded_view(
 ///|
 /// エディタモーダルをレンダリング（フルエディタを別ウィンドウ風に表示）
 pub fn render_editor_modal(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
@@ -1899,7 +1899,7 @@ pub fn render_editor_modal(
 ///|
 /// 埋め込みエディタアプリをレンダリング
 fn embedded_editor_app(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
@@ -1955,7 +1955,7 @@ fn embedded_editor_app(
 ///|
 /// テキスト入力コンテナ（FFI 要素を Effect で手動管理）
 fn render_text_input_container(
-  state : EditorState,
+  state : @core.EditorState,
   commit : (String) -> Unit,
 ) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
@@ -2056,7 +2056,7 @@ fn render_text_input_container(
 ///|
 /// 埋め込みツールバー（SVGアイコン + キーバインド表示）
 fn render_embedded_toolbar(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
@@ -2078,7 +2078,7 @@ fn render_embedded_toolbar(
           pos.y - height / 2.0,
           @model.Rect(width, height, None, None),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_rect))
+        @core.execute_command(history, state, @model.AddElement(new_rect))
         state.select(Some(el_id))
       },
       theme~,
@@ -2096,7 +2096,7 @@ fn render_embedded_toolbar(
           pos.y,
           @model.Circle(40.0),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_circle))
+        @core.execute_command(history, state, @model.AddElement(new_circle))
         state.select(Some(el_id))
       },
       theme~,
@@ -2114,7 +2114,7 @@ fn render_embedded_toolbar(
           pos.y,
           @model.Ellipse(60.0, 35.0),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_ellipse))
+        @core.execute_command(history, state, @model.AddElement(new_ellipse))
         state.select(Some(el_id))
       },
       theme~,
@@ -2134,7 +2134,7 @@ fn render_embedded_toolbar(
           pos.y - dy / 2.0,
           @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
         ).with_style(state.get_line_style())
-        execute_command(history, state, @model.AddElement(new_line))
+        @core.execute_command(history, state, @model.AddElement(new_line))
         state.select(Some(el_id))
       },
       theme~,
@@ -2154,7 +2154,7 @@ fn render_embedded_toolbar(
           pos.y - dy / 2.0,
           @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
         ).with_style(state.get_arrow_style())
-        execute_command(history, state, @model.AddElement(new_arrow))
+        @core.execute_command(history, state, @model.AddElement(new_arrow))
         state.select(Some(el_id))
       },
       theme~,
@@ -2174,7 +2174,7 @@ fn render_embedded_toolbar(
           pos.y + font_size / 3.0,
           @model.Text("Text", Some(font_size)),
         ).with_style(state.get_text_style())
-        execute_command(history, state, @model.AddElement(new_text))
+        @core.execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))
       },
       theme~,
@@ -2187,7 +2187,7 @@ fn render_embedded_toolbar(
       Some("⌘Z"),
       "Undo",
       fn() {
-        let _ = undo_command(history, state)
+        let _ = @core.undo_command(history, state)
 
       },
       theme~,
@@ -2197,7 +2197,7 @@ fn render_embedded_toolbar(
       Some("⌘Y"),
       "Redo",
       fn() {
-        let _ = redo_command(history, state)
+        let _ = @core.redo_command(history, state)
 
       },
       theme~,
@@ -2350,7 +2350,7 @@ fn render_embedded_toolbar(
         open_file_dialog(".svg", fn(text) {
           let imported = import_svg_elements(text, new_id)
           for el in imported {
-            execute_command(history, state, @model.AddElement(el))
+            @core.execute_command(history, state, @model.AddElement(el))
           }
           if imported.length() > 0 {
             let ids = imported
@@ -2372,7 +2372,7 @@ fn render_embedded_toolbar(
 ///|
 /// SVG キャンバスを作成（Luna VNode + for_each による差分更新）
 fn render_svg_canvas_node(
-  state : EditorState,
+  state : @core.EditorState,
   on_mousedown : (@js.Any) -> Unit,
   on_mousemove : (@js.Any) -> Unit,
   on_mouseup : (@js.Any) -> Unit,

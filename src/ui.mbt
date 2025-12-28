@@ -36,7 +36,7 @@ fn to_hex_color(color : String, default : String) -> String {
 ///|
 /// サイドバーをレンダリング（後方互換性のため残す）
 pub fn render_sidebar(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   _canvas_height : Int,
 ) -> @element.DomNode {
@@ -46,7 +46,7 @@ pub fn render_sidebar(
 ///|
 /// フローティングパネルをレンダリング
 pub fn render_floating_panel(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
 ) -> @element.DomNode {
   div(
@@ -84,7 +84,7 @@ pub fn render_floating_panel(
 
 ///|
 /// パンくずリストをレンダリング
-fn render_breadcrumb(state : EditorState) -> @element.DomNode {
+fn render_breadcrumb(state : @core.EditorState) -> @element.DomNode {
   let theme = state.get_theme()
   let breadcrumb_style = "display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid \{theme.ui_border}; padding-bottom: 8px; font-size: 12px;"
   let link_style = "color: \{theme.ui_accent}; cursor: pointer; background: none; border: none; padding: 0; font-size: 12px;"
@@ -126,7 +126,7 @@ fn render_breadcrumb(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 複数選択時のパネルをレンダリング
-fn render_multi_selection_panel(state : EditorState) -> @element.DomNode {
+fn render_multi_selection_panel(state : @core.EditorState) -> @element.DomNode {
   let theme = state.get_theme()
   let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
   div(style="font-size: 12px;", [
@@ -209,7 +209,7 @@ let accordion_header_style : String = "display: flex; align-items: center; justi
 
 ///|
 /// Canvas ルート表示（設定 + 要素ツリー）
-fn render_canvas_root(state : EditorState) -> @element.DomNode {
+fn render_canvas_root(state : @core.EditorState) -> @element.DomNode {
   let settings_open = @luna.signal(true)
   let elements_open = @luna.signal(true)
   div(style="display: flex; flex-direction: column; gap: 8px;", [
@@ -248,7 +248,7 @@ fn render_canvas_root(state : EditorState) -> @element.DomNode {
 
 ///|
 /// Canvas 設定パネル
-fn render_canvas_settings(state : EditorState) -> @element.DomNode {
+fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
   let row_style = "display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; font-size: 11px;"
   let label_style = "color: #666;"
   let text_input_style = "width: 70px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 10px;"
@@ -388,7 +388,7 @@ fn render_canvas_settings(state : EditorState) -> @element.DomNode {
 
 ///|
 /// プリセットカラーを表示
-fn render_preset_colors(state : EditorState) -> @element.DomNode {
+fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
   let colors = @model.preset_colors()
   let children : Array[@element.DomNode] = []
   for preset in colors {
@@ -435,7 +435,7 @@ fn render_preset_colors(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 要素ツリーをレンダリング
-fn render_element_tree(state : EditorState) -> @element.DomNode {
+fn render_element_tree(state : @core.EditorState) -> @element.DomNode {
   let tree_style = "max-height: 300px; overflow-y: auto; padding: 4px;"
   let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
   // 親要素のみを表示（子要素は除外）
@@ -502,7 +502,7 @@ let row_style : String = "display: flex; align-items: center; gap: 6px; margin-b
 ///|
 /// カラーピッカー付きドロップダウン
 fn render_color_dropdown(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   is_fill : Bool,
 ) -> @element.DomNode {
@@ -584,7 +584,7 @@ fn render_color_dropdown(
               } else {
                 { ..old_style, stroke: Some(value) }
               }
-              execute_command(
+              @core.execute_command(
                 history,
                 state,
                 @model.UpdateStyle(id, old_style, new_style),
@@ -611,7 +611,7 @@ fn render_color_dropdown(
 ///|
 /// ドロップダウン内のカラースウォッチ
 fn render_dropdown_swatches(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   colors : Array[String],
   is_fill : Bool,
@@ -641,7 +641,7 @@ fn render_dropdown_swatches(
             } else {
               { ..old_style, stroke: Some(value) }
             }
-            execute_command(
+            @core.execute_command(
               history,
               state,
               @model.UpdateStyle(id, old_style, new_style),
@@ -660,7 +660,7 @@ fn render_dropdown_swatches(
 ///|
 /// 要素の詳細を表示・編集（コンパクト版）
 fn render_element_details(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
 ) -> @element.DomNode {
   let id_error = @luna.signal(false)
@@ -698,7 +698,7 @@ fn render_element_details(
               if state.has_element_with_id(new_id) {
                 id_error.set(true)
               } else {
-                execute_command(
+                @core.execute_command(
                   history,
                   state,
                   @model.RenameElement(old_id, new_id),
@@ -735,7 +735,7 @@ fn render_element_details(
                 if state.find_element(id) is Some(el) {
                   let value = get_event_target_value(e.as_any())
                   if parse_double(value) is Some(new_x) {
-                    execute_command(
+                    @core.execute_command(
                       history,
                       state,
                       @model.MoveElement(id, el.x, el.y, new_x, el.y),
@@ -767,7 +767,7 @@ fn render_element_details(
                 if state.find_element(id) is Some(el) {
                   let value = get_event_target_value(e.as_any())
                   if parse_double(value) is Some(new_y) {
-                    execute_command(
+                    @core.execute_command(
                       history,
                       state,
                       @model.MoveElement(id, el.x, el.y, el.x, new_y),
@@ -847,7 +847,7 @@ fn render_element_details(
                   if parse_double(value) is Some(w) {
                     let old_style = el.style
                     let new_style = { ..old_style, stroke_width: Some(w) }
-                    execute_command(
+                    @core.execute_command(
                       history,
                       state,
                       @model.UpdateStyle(id, old_style, new_style),
@@ -903,7 +903,7 @@ let dasharray_presets : Array[(String, String?)] = [
 ///|
 /// Line 専用オプション（破線、矢印）- コンパクト版
 fn render_line_options(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
 ) -> @element.DomNode {
   // Style と Arrows を一行に
@@ -946,7 +946,7 @@ fn render_line_options(
                       Some(@model.Arrow)
                     }
                     let new_style = { ..old_style, marker_start: new_marker }
-                    execute_command(
+                    @core.execute_command(
                       history,
                       state,
                       @model.UpdateStyle(id, old_style, new_style),
@@ -986,7 +986,7 @@ fn render_line_options(
                       Some(@model.Arrow)
                     }
                     let new_style = { ..old_style, marker_end: new_marker }
-                    execute_command(
+                    @core.execute_command(
                       history,
                       state,
                       @model.UpdateStyle(id, old_style, new_style),
@@ -1006,7 +1006,7 @@ fn render_line_options(
 ///|
 /// 破線パターンボタン群
 fn render_dasharray_buttons(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
 ) -> @element.DomNode {
   let children : Array[@element.DomNode] = []
@@ -1042,7 +1042,7 @@ fn render_dasharray_buttons(
           if state.find_element(id) is Some(el) {
             let old_style = el.style
             let new_style = { ..old_style, stroke_dasharray: pattern }
-            execute_command(
+            @core.execute_command(
               history,
               state,
               @model.UpdateStyle(id, old_style, new_style),
@@ -1060,7 +1060,7 @@ fn render_dasharray_buttons(
 ///|
 /// テキスト入力オーバーレイをレンダリング
 pub fn render_text_input(
-  state : EditorState,
+  state : @core.EditorState,
   commit : (String) -> Unit,
   cancel : () -> Unit,
 ) -> @element.DomNode {
@@ -1114,7 +1114,7 @@ pub fn render_text_input(
 ///|
 /// コンテキストメニューをレンダリング
 pub fn render_context_menu(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
@@ -1146,7 +1146,7 @@ pub fn render_context_menu(
                     on=events().click(fn(_) {
                       if state.find_element(id) is Some(el) {
                         let new_style = { ..el.style, stroke: Some(color) }
-                        execute_command(
+                        @core.execute_command(
                           history,
                           state,
                           @model.UpdateStyle(id, el.style, new_style),
@@ -1186,7 +1186,7 @@ pub fn render_context_menu(
                           Some(color)
                         }
                         let new_style = { ..el.style, fill: fill_value }
-                        execute_command(
+                        @core.execute_command(
                           history,
                           state,
                           @model.UpdateStyle(id, el.style, new_style),
@@ -1269,7 +1269,7 @@ pub fn render_context_menu(
             style=menu_button_style + " color: #e53e3e;",
             on=events().click(fn(_) {
               if state.find_element(id) is Some(el) {
-                execute_command(history, state, @model.RemoveElement(el))
+                @core.execute_command(history, state, @model.RemoveElement(el))
               }
               state.hide_context_menu()
             }),
@@ -1287,7 +1287,7 @@ pub fn render_context_menu(
 ///|
 /// 挿入メニューをレンダリング
 fn render_insert_menu(
-  state : EditorState,
+  state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
   insert_x : Double,
@@ -1310,7 +1310,7 @@ fn render_insert_menu(
             insert_y,
             @model.Rect(80.0, 60.0, None, None),
           ).with_style(state.get_default_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Rectangle")],
@@ -1327,7 +1327,7 @@ fn render_insert_menu(
             insert_y,
             @model.Circle(40.0),
           ).with_style(state.get_default_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Circle")],
@@ -1344,7 +1344,7 @@ fn render_insert_menu(
             insert_y,
             @model.Ellipse(60.0, 35.0),
           ).with_style(state.get_default_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Ellipse")],
@@ -1361,7 +1361,7 @@ fn render_insert_menu(
             insert_y,
             @model.Line(insert_x + 100.0, insert_y + 50.0),
           ).with_style(state.get_line_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Line")],
@@ -1378,7 +1378,7 @@ fn render_insert_menu(
             insert_y,
             @model.Line(insert_x + 100.0, insert_y + 50.0),
           ).with_style(state.get_arrow_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Arrow")],
@@ -1395,7 +1395,7 @@ fn render_insert_menu(
             insert_y,
             @model.Text("Text", Some(24.0)),
           ).with_style(state.get_text_style())
-          execute_command(history, state, @model.AddElement(el))
+          @core.execute_command(history, state, @model.AddElement(el))
           state.hide_context_menu()
         }),
         [text("Text")],

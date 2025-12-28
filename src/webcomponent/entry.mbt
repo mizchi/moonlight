@@ -100,56 +100,9 @@ fn on_connected(element : @js.Any) -> Unit {
   // Shadow DOM を作成
   let shadow = attach_shadow(element)
   let container = create_container_in_shadow(shadow)
-  // エディタ状態を作成
-  let state = @lib.SimpleEditorState::new(width, height, options)
-  @lib.add_sample_elements(state)
-  // SVG をレンダリング
-  let _ = @lib.create_svg_container(state, container)
-  // ドラッグ状態を作成
-  let drag_state = @lib.DragState::new()
-  // インタラクションをセットアップ
-  @lib.setup_interaction(state, drag_state)
-  // 要素変更時に再描画
-  let _ = @luna.effect(fn() {
-    let _ = state.elements.get()
-    @lib.redraw_svg(state)
-    @lib.render_selection_rect(state)
-  })
-  // 選択変更時に選択枠を更新
-  let _ = @luna.effect(fn() {
-    let _ = state.selected_id.get()
-    @lib.render_selection_rect(state)
-  })
-  // フォーカス管理
-  let focus_state : @lib.FocusState = {
-    has_focus: state.has_focus,
-    container: @luna.signal(None),
-  }
-  @lib.setup_focus_management(focus_state, container)
-  // エディタハンドルを作成
-  let export_svg = fn() -> String {
-    let bg_color = match state.theme_mode.get() {
-      @model.Dark => "#1a1a2e"
-      @model.Light => "#ffffff"
-    }
-    @lib.export_elements_to_svg(state.elements.get(), width, height, bg_color)
-  }
-  let import_svg = fn(svg_str : String) -> Unit {
-    let elements = @lib.parse_simple_svg(svg_str, new_id)
-    if elements.length() > 0 {
-      state.elements.set(elements)
-    }
-  }
-  let clear = fn() -> Unit { state.elements.set([]) }
-  let destroy = fn() -> Unit {
-    state.elements.set([])
-    @lib.clear_container_ffi(container)
-  }
-  let has_focus = fn() -> Bool { state.has_focus.get() }
-  let handle = @lib.create_editor_handle(
-    export_svg, import_svg, clear, destroy, has_focus,
-  )
-  set_element_handle(element, handle)
+  // 共通セットアップロジックを使用
+  let result = @lib.setup_editor(container, options, new_id)
+  set_element_handle(element, result.handle)
 }
 
 ///|

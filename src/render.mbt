@@ -1583,7 +1583,7 @@ pub fn render_connection_highlight_node(
 
 ///|
 /// グリッド線を VNode として描画
-pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
+pub fn render_grid_vnode(state : @core.EditorState) -> @element.DomNode {
   let children : Array[@element.DomNode] = []
   let grid_size = state.grid_size.get()
   let viewport = state.viewport.get()
@@ -1649,7 +1649,7 @@ pub fn render_grid_vnode(state : EditorState) -> @element.DomNode {
 ///|
 /// 要素を VNode として描画（Effect で直接 DOM 更新）
 pub fn render_element_vnode(
-  state : EditorState,
+  state : @core.EditorState,
   id : String,
 ) -> @element.DomNode {
   // 現在の要素を取得（初期値）
@@ -1663,7 +1663,7 @@ pub fn render_element_vnode(
 ///|
 /// Effect で直接 DOM を更新する要素レンダリング
 fn render_element_with_effect(
-  state : EditorState,
+  state : @core.EditorState,
   id : String,
   initial_el : @model.Element,
 ) -> @element.DomNode {
@@ -2114,7 +2114,7 @@ fn create_svg_node_with_ref(
 
 ///|
 /// 選択オーバーレイ（ハンドル・アンカー）を描画（Effect ベース）
-pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
+pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
   // コンテナへの参照
   let container_ref : Ref[@js.Any?] = { val: None }
 
@@ -2174,7 +2174,7 @@ pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 矩形選択ボックスを VNode として描画（Effect ベース）
-pub fn render_box_select_vnode(state : EditorState) -> @element.DomNode {
+pub fn render_box_select_vnode(state : @core.EditorState) -> @element.DomNode {
   let rect_ref : Ref[@js.Any?] = { val: None }
   let _ = @luna.effect(fn() {
     let box_state = state.box_select.get()
@@ -2213,7 +2213,7 @@ pub fn render_box_select_vnode(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 全アンカーポイントを VNode として描画（ライン編集中、Effect ベース）
-pub fn render_all_anchors_vnode(state : EditorState) -> @element.DomNode {
+pub fn render_all_anchors_vnode(state : @core.EditorState) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
   let _ = @luna.effect(fn() {
     let elements = state.elements.get()
@@ -2253,7 +2253,7 @@ pub fn render_all_anchors_vnode(state : EditorState) -> @element.DomNode {
 ///|
 /// 接続ハイライトを VNode として描画（Effect ベース）
 pub fn render_connection_highlight_vnode(
-  state : EditorState,
+  state : @core.EditorState,
 ) -> @element.DomNode {
   let circle_ref : Ref[@js.Any?] = { val: None }
   let _ = @luna.effect(fn() {
@@ -2287,7 +2287,7 @@ pub fn render_connection_highlight_vnode(
 /// Canvas 背景を VNode として描画（Effect ベース）
 /// - 境界外のグレー背景（テーマ連動）
 /// - ドキュメント境界（白/黒 rect + ドロップシャドウ）
-pub fn render_canvas_background_vnode(state : EditorState) -> @element.DomNode {
+pub fn render_canvas_background_vnode(state : @core.EditorState) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
 
   // Effect で viewport / canvas サイズ変更を監視して再描画

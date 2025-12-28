@@ -2,7 +2,7 @@
 
 ///|
 /// エディタモード
-pub enum EditorMode {
+pub(all) enum EditorMode {
   Full // フル機能モード
   Embedded // 埋め込み簡易モード
 }
@@ -26,6 +26,33 @@ pub(all) struct PlacementState {
   is_arrow : Bool // Arrow かどうか（矢印マーカーを追加するか）
   has_moved : Bool // 1フレームでも動いたかどうか（Arrow表示判定用）
 }
+
+///|
+/// アンカータイプ（アンカーポイントの位置）
+pub(all) enum AnchorType {
+  Top
+  Bottom
+  Left
+  Right
+  Center
+  LineStart
+  LineEnd
+}
+
+///|
+/// アンカードラッグ状態（アンカーから線を描画中）
+pub(all) struct AnchorDragState {
+  source_element_id : String // ドラッグ開始元の要素ID
+  source_anchor_type : AnchorType // どのアンカーから始まったか
+  source_x : Double // アンカーポイントのX座標
+  source_y : Double // アンカーポイントのY座標
+  current_x : Double // 現在のマウスX座標
+  current_y : Double // 現在のマウスY座標
+}
+
+///|
+extern "js" fn js_null() -> @js.Any =
+  #| () => null
 
 ///|
 /// エディタの状態
@@ -64,6 +91,10 @@ pub struct EditorState {
   has_focus : @luna.Signal[Bool] // フォーカスがあるか（キーボードイベント制御用）
   is_readonly : @luna.Signal[Bool] // 読み取り専用モード
   show_toolbar : @luna.Signal[Bool] // ツールバー表示/非表示
+  // 埋め込みモード用 DOM 参照
+  anchor_drag_state : @luna.Signal[AnchorDragState?] // アンカードラッグ状態
+  svg_el : @luna.Signal[@js.Any] // SVG 要素への参照
+  container_el : @luna.Signal[@js.Any] // コンテナ要素への参照
 }
 
 ///|
@@ -113,6 +144,10 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     has_focus: @luna.signal(true), // Full モードではデフォルトで true
     is_readonly: @luna.signal(false),
     show_toolbar: @luna.signal(true),
+    // 埋め込みモード用 DOM 参照
+    anchor_drag_state: @luna.signal(None),
+    svg_el: @luna.signal(js_null()),
+    container_el: @luna.signal(js_null()),
   }
 }
 

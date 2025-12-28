@@ -2,10 +2,6 @@
   "supported-targets": ["js"],
   "import": [
     "internal/app/model",
-    {
-      "path": "internal/app/core",
-      "alias": "core"
-    },
     "mizchi/luna",
     {
       "path": "mizchi/js/core",

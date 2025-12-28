@@ -108,6 +108,35 @@ pub(all) struct PreviewOptions {
 }
 
 ///|
+/// アンカータイプを文字列から変換
+pub fn parse_anchor_type(s : String) -> @core.AnchorType? {
+  match s {
+    "top" => Some(@core.Top)
+    "bottom" => Some(@core.Bottom)
+    "left" => Some(@core.Left)
+    "right" => Some(@core.Right)
+    "center" => Some(@core.Center)
+    "line-start" => Some(@core.LineStart)
+    "line-end" => Some(@core.LineEnd)
+    _ => None
+  }
+}
+
+///|
+/// アンカータイプを文字列に変換
+pub fn anchor_type_to_string(anchor : @core.AnchorType) -> String {
+  match anchor {
+    @core.Top => "top"
+    @core.Bottom => "bottom"
+    @core.Left => "left"
+    @core.Right => "right"
+    @core.Center => "center"
+    @core.LineStart => "line-start"
+    @core.LineEnd => "line-end"
+  }
+}
+
+///|
 /// デフォルトプレビューオプション
 pub fn PreviewOptions::default() -> PreviewOptions {
   { width: None, height: None, click_to_edit: true, modal_fullscreen: false }
