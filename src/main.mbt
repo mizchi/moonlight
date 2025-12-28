@@ -769,6 +769,98 @@ fn create_mousemove_handler(
 }
 
 ///|
+/// リサイズ終了時のコマンド記録
+fn record_resize_end(
+  state : EditorState,
+  history : @model.History,
+  resize : @model.ResizeState,
+) -> Unit {
+  guard state.find_element(resize.element_id) is Some(el) else { return }
+  let changed = resize.start_shape != el.shape ||
+    resize.start_x != el.x ||
+    resize.start_y != el.y
+  guard changed else { return }
+  // 位置変更があれば記録
+  if resize.start_x != el.x || resize.start_y != el.y {
+    history.undo_stack.push(
+      @model.MoveElement(
+        resize.element_id,
+        resize.start_x,
+        resize.start_y,
+        el.x,
+        el.y,
+      ),
+    )
+  }
+  history.undo_stack.push(
+    @model.ResizeElement(resize.element_id, resize.start_shape, el.shape),
+  )
+  history.redo_stack.clear()
+}
+
+///|
+/// 複数要素ドラッグ終了時のコマンド記録
+fn record_multi_drag_end(
+  state : EditorState,
+  history : @model.History,
+  multi_drag : @model.MultiDragState,
+) -> Unit {
+  for pos in multi_drag.start_positions {
+    let (id, start_x, start_y) = pos
+    guard state.find_element(id) is Some(el) else { continue }
+    guard start_x != el.x || start_y != el.y else { continue }
+    history.undo_stack.push(
+      @model.MoveElement(id, start_x, start_y, el.x, el.y),
+    )
+  }
+  history.redo_stack.clear()
+}
+
+///|
+/// Line ドラッグ時の接続要素移動を記録
+fn record_connected_moves(
+  state : EditorState,
+  history : @model.History,
+  positions : Array[(String, Double, Double)],
+) -> Unit {
+  for pos in positions {
+    let (id, start_x, start_y) = pos
+    guard state.find_element(id) is Some(el) else { continue }
+    guard start_x != el.x || start_y != el.y else { continue }
+    history.undo_stack.push(
+      @model.MoveElement(id, start_x, start_y, el.x, el.y),
+    )
+  }
+}
+
+///|
+/// ドラッグ終了時のコマンド記録
+fn record_drag_end(
+  state : EditorState,
+  history : @model.History,
+  drag : @model.DragState,
+) -> Unit {
+  guard state.find_element(drag.element_id) is Some(el) else { return }
+  guard drag.start_x != el.x || drag.start_y != el.y else { return }
+  // Line の場合は終点の変更もコマンドとして記録
+  match (drag.start_shape, el.shape) {
+    (Some(@model.Line(_, _) as old_shape), @model.Line(_, _) as new_shape) => {
+      record_connected_moves(state, history, drag.connected_start_positions)
+      if old_shape != new_shape {
+        history.undo_stack.push(
+          @model.ResizeElement(drag.element_id, old_shape, new_shape),
+        )
+      }
+    }
+    _ => ()
+  }
+  history.undo_stack.push(
+    @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y),
+  )
+  history.redo_stack.clear()
+}
+
+///|
 /// mouseup ハンドラを作成
 fn create_mouseup_handler(
   state : EditorState,
@@ -785,99 +877,18 @@ fn create_mouseup_handler(
       state.end_box_select()
       return
     }
-    // リサイズ終了時
     if state.resize_state.get() is Some(resize) {
-      if state.find_element(resize.element_id) is Some(el) {
-        if resize.start_shape != el.shape ||
-          resize.start_x != el.x ||
-          resize.start_y != el.y {
-          let cmd = @model.ResizeElement(
-            resize.element_id,
-            resize.start_shape,
-            el.shape,
-          )
-          if resize.start_x != el.x || resize.start_y != el.y {
-            let move_cmd = @model.MoveElement(
-              resize.element_id,
-              resize.start_x,
-              resize.start_y,
-              el.x,
-              el.y,
-            )
-            history.undo_stack.push(move_cmd)
-          }
-          history.undo_stack.push(cmd)
-          history.redo_stack.clear()
-        }
-      }
+      record_resize_end(state, history, resize)
       state.end_resize()
       return
     }
-    // 複数要素ドラッグ終了時
     if state.multi_drag_state.get() is Some(multi_drag) {
-      for pos in multi_drag.start_positions {
-        let (id, start_x, start_y) = pos
-        if state.find_element(id) is Some(el) {
-          if start_x != el.x || start_y != el.y {
-            let cmd = @model.MoveElement(id, start_x, start_y, el.x, el.y)
-            history.undo_stack.push(cmd)
-          }
-        }
-      }
-      history.redo_stack.clear()
+      record_multi_drag_end(state, history, multi_drag)
       state.end_multi_drag()
       return
     }
-    // ドラッグ終了時
     if state.drag_state.get() is Some(drag) {
-      if state.find_element(drag.element_id) is Some(el) {
-        if drag.start_x != el.x || drag.start_y != el.y {
-          // Line の場合は終点の変更もコマンドとして記録
-          match (drag.start_shape, el.shape) {
-            (
-              Some(@model.Line(_, _) as old_shape),
-              @model.Line(_, _) as new_shape,
-            ) => {
-              // 接続要素の移動を先に記録（Undoは逆順で実行されるため）
-              for pos in drag.connected_start_positions {
-                let (id, start_x, start_y) = pos
-                if state.find_element(id) is Some(connected_el) {
-                  if start_x != connected_el.x || start_y != connected_el.y {
-                    let connected_cmd = @model.MoveElement(
-                      id,
-                      start_x,
-                      start_y,
-                      connected_el.x,
-                      connected_el.y,
-                    )
-                    history.undo_stack.push(connected_cmd)
-                  }
-                }
-              }
-              // Line の終点変更を記録
-              if old_shape != new_shape {
-                let resize_cmd = @model.ResizeElement(
-                  drag.element_id,
-                  old_shape,
-                  new_shape,
-                )
-                history.undo_stack.push(resize_cmd)
-              }
-            }
-            _ => ()
-          }
-          // Line の始点移動を記録
-          let cmd = @model.MoveElement(
-            drag.element_id,
-            drag.start_x,
-            drag.start_y,
-            el.x,
-            el.y,
-          )
-          history.undo_stack.push(cmd)
-          history.redo_stack.clear()
-        }
-      }
+      record_drag_end(state, history, drag)
     }
     state.end_drag()
   }
