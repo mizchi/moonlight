@@ -74,18 +74,22 @@ fn parse_moonlight_element(
   let style = parse_style(el)
   // 図形をパース
   let shape_opt = parse_shape(el, tag)
-  guard shape_opt is Some(shape_data)
-  let (shape, x, y) = shape_data
-  Some({
-    id: el_id,
-    x,
-    y,
-    shape,
-    style,
-    transform: None,
-    parent_id,
-    connections,
-  })
+  match shape_opt {
+    Some(shape_data) => {
+      let (shape, x, y) = shape_data
+      Some({
+        id: el_id,
+        x,
+        y,
+        shape,
+        style,
+        transform: None,
+        parent_id,
+        connections,
+      })
+    }
+    None => None
+  }
 }
 
 ///|
@@ -98,18 +102,22 @@ fn parse_plain_svg_element(
   let el_id = new_id()
   let style = parse_style(el)
   let shape_opt = parse_shape(el, tag)
-  guard shape_opt is Some(shape_data)
-  let (shape, x, y) = shape_data
-  Some({
-    id: el_id,
-    x,
-    y,
-    shape,
-    style,
-    transform: None,
-    parent_id: None,
-    connections: None,
-  })
+  match shape_opt {
+    Some(shape_data) => {
+      let (shape, x, y) = shape_data
+      Some({
+        id: el_id,
+        x,
+        y,
+        shape,
+        style,
+        transform: None,
+        parent_id: None,
+        connections: None,
+      })
+    }
+    None => None
+  }
 }
 
 ///|
@@ -292,8 +300,10 @@ fn parse_connection_string(s : String) -> @model.Connection? {
   }
   let element_id = parts[0]
   let anchor_str = parts[1]
-  guard @model.parse_anchor(anchor_str) is Some(anchor)
-  Some({ element_id, anchor })
+  match @model.parse_anchor(anchor_str) {
+    Some(anchor) => Some({ element_id, anchor })
+    None => None
+  }
 }
 
 ///|
