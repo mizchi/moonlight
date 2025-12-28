@@ -81,18 +81,13 @@ fn add_style_attrs(attrs : Array[(String, String)], style : @model.Style) -> Uni
 
 ///|
 /// 矢印マーカー属性を追加（Line 用）
-fn add_marker_attrs(attrs : Array[(String, String)], style : @model.Style, stroke_color : String) -> Unit {
-  // CSS変数の場合は currentColor を使用、それ以外は色に基づいたマーカー ID を使用
-  let color_suffix = if stroke_color.has_prefix("var(") {
-    "current"
-  } else {
-    stroke_color.replace(old="#", new="")
-  }
+/// context-stroke マーカーを使用して、参照元のstroke色を継承
+fn add_marker_attrs(attrs : Array[(String, String)], style : @model.Style, _stroke_color : String) -> Unit {
   if style.marker_start is Some(@model.Arrow) {
-    attrs.push(("marker-start", "url(#arrow-start-\{color_suffix})"))
+    attrs.push(("marker-start", "url(#arrow-start-context)"))
   }
   if style.marker_end is Some(@model.Arrow) {
-    attrs.push(("marker-end", "url(#arrow-end-\{color_suffix})"))
+    attrs.push(("marker-end", "url(#arrow-end-context)"))
   }
 }
 
@@ -153,17 +148,12 @@ pub fn render_element(
     }
     @model.Line(x2, y2) => {
       // グループ要素でラップ（ヒットエリア + 線）
-      // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
       let stroke_color = el.style.stroke.unwrap_or("#000000")
-      let group_attrs : Array[(String, String)] = [
-        ("data-id", el.id),
-        ("data-element-type", "line"),
-        ("cursor", "move"),
-      ]
-      if stroke_color.has_prefix("var(") {
-        group_attrs.push(("style", "color: \{stroke_color}"))
-      }
-      let group = create_svg_element("g", group_attrs, [])
+      let group = create_svg_element(
+        "g",
+        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
+        [],
+      )
       // 透明なヒットエリア（クリックしやすくするため、24px幅）
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
@@ -323,8 +313,8 @@ pub fn render_svg_container(
 }
 
 ///|
-/// 矢印マーカーを作成（シンプルな三角形）
-fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any {
+/// 矢印マーカーを作成（シンプルな三角形、context-stroke使用）
+fn create_arrow_marker(id : String, is_start : Bool) -> @js.Any {
   // 矢印マーカー（stroke-width: 1 でも見やすいサイズ）
   let marker_attrs : Array[(String, String)] = [
     ("id", id),
@@ -336,11 +326,11 @@ fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any 
     ("markerUnits", "strokeWidth"),
   ]
   let marker = create_svg_element("marker", marker_attrs, [])
-  // シンプルな三角形パス
+  // シンプルな三角形パス - context-stroke で参照元のstrokeを継承
   let path_d = if is_start { "M10,0 L0,5 L10,10" } else { "M0,0 L10,5 L0,10" }
   let path_attrs : Array[(String, String)] = [
     ("d", path_d),
-    ("fill", color),
+    ("fill", "context-stroke"),
   ]
   let path = create_svg_element("path", path_attrs, [])
   append_child_ffi(marker, path)
@@ -351,23 +341,11 @@ fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any 
 /// SVG 定義（マーカー）を作成
 pub fn create_arrow_defs() -> @js.Any {
   let defs = create_svg_element("defs", [], [])
-  // currentColor マーカー（CSS変数用）
-  let start_current = create_arrow_marker("arrow-start-current", "currentColor", true)
-  let end_current = create_arrow_marker("arrow-end-current", "currentColor", false)
-  append_child_ffi(defs, start_current)
-  append_child_ffi(defs, end_current)
-  // よく使う色のマーカーを事前定義
-  let colors = [
-    "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
-    "#ffff00", "#ff00ff", "#00ffff", "#808080", "#c0c0c0",
-  ]
-  for color in colors {
-    let suffix = color.replace(old="#", new="")
-    let start_marker = create_arrow_marker("arrow-start-\{suffix}", color, true)
-    let end_marker = create_arrow_marker("arrow-end-\{suffix}", color, false)
-    append_child_ffi(defs, start_marker)
-    append_child_ffi(defs, end_marker)
-  }
+  // context-stroke マーカー（参照元のstrokeを継承）
+  let start_context = create_arrow_marker("arrow-start-context", true)
+  let end_context = create_arrow_marker("arrow-end-context", false)
+  append_child_ffi(defs, start_context)
+  append_child_ffi(defs, end_context)
   defs
 }
 
@@ -937,7 +915,6 @@ pub fn render_element_node(
       create_svg_node("ellipse", attrs, [], [])
     }
     @model.Line(x2, y2) => {
-      // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
       let stroke_color = el.style.stroke.unwrap_or("#000000")
       // 透明なヒットエリア
       let hit_attrs : Array[(String, String)] = [
@@ -980,16 +957,13 @@ pub fn render_element_node(
         line_attrs.push(("transform", t))
       }
       children.push(create_svg_node("line", line_attrs, [], []))
-      // グループ（CSS変数の場合はcolor属性を追加）
-      let group_attrs : Array[(String, String)] = [
-        ("data-id", el.id),
-        ("data-element-type", "line"),
-        ("cursor", "move"),
-      ]
-      if stroke_color.has_prefix("var(") {
-        group_attrs.push(("style", "color: \{stroke_color}"))
-      }
-      create_svg_node("g", group_attrs, [], children)
+      // グループ
+      create_svg_node(
+        "g",
+        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
+        [],
+        children,
+      )
     }
     @model.Polyline(points) => {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
@@ -1091,9 +1065,10 @@ pub fn render_element_node(
 
 ///|
 /// 矢印マーカーを DomNode として作成
-fn create_arrow_marker_node(id : String, color : String, is_start : Bool) -> @element.DomNode {
+fn create_arrow_marker_node(id : String, is_start : Bool) -> @element.DomNode {
   let path_d = if is_start { "M10,0 L0,5 L10,10" } else { "M0,0 L10,5 L0,10" }
-  let path = create_svg_node("path", [("d", path_d), ("fill", color)], [], [])
+  // context-stroke で参照元のstrokeを継承
+  let path = create_svg_node("path", [("d", path_d), ("fill", "context-stroke")], [], [])
   create_svg_node(
     "marker",
     [
@@ -1114,19 +1089,9 @@ fn create_arrow_marker_node(id : String, color : String, is_start : Bool) -> @el
 /// SVG defs を DomNode として作成
 pub fn create_arrow_defs_node() -> @element.DomNode {
   let markers : Array[@element.DomNode] = []
-  // currentColor マーカー（CSS変数用）
-  markers.push(create_arrow_marker_node("arrow-start-current", "currentColor", true))
-  markers.push(create_arrow_marker_node("arrow-end-current", "currentColor", false))
-  // よく使う色のマーカーを事前定義
-  let colors = [
-    "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
-    "#ffff00", "#ff00ff", "#00ffff", "#808080", "#c0c0c0",
-  ]
-  for color in colors {
-    let suffix = color.replace(old="#", new="")
-    markers.push(create_arrow_marker_node("arrow-start-\{suffix}", color, true))
-    markers.push(create_arrow_marker_node("arrow-end-\{suffix}", color, false))
-  }
+  // context-stroke マーカー（参照元のstrokeを継承）
+  markers.push(create_arrow_marker_node("arrow-start-context", true))
+  markers.push(create_arrow_marker_node("arrow-end-context", false))
   create_svg_node("defs", [], [], markers)
 }
 
@@ -1473,7 +1438,10 @@ fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
     @model.Text(content, font_size) => {
       // Text はグループ内の子要素を更新
       let size = font_size.unwrap_or(16.0)
-      update_text_children(dom_el, el.x, el.y, content, size)
+      let fill = el.style.fill.unwrap_or("none")
+      let stroke = el.style.stroke.unwrap_or("")
+      let stroke_width = el.style.stroke_width.unwrap_or(0.0)
+      update_text_children_with_style(dom_el, el.x, el.y, content, size, fill, stroke, stroke_width)
     }
     _ => ()
   }
@@ -1528,12 +1496,6 @@ extern "js" fn update_line_children_ffi(
   stroke_width : Double,
 ) =
   #| (group, x1, y1, x2, y2, stroke, strokeWidth) => {
-  #|   // CSS変数の場合、グループにcolor属性を設定してcurrentColorマーカーが継承できるようにする
-  #|   if (stroke.startsWith('var(')) {
-  #|     group.style.color = stroke;
-  #|   } else {
-  #|     group.style.color = '';
-  #|   }
   #|   const children = group.children;
   #|   for (let i = 0; i < children.length; i++) {
   #|     const child = children[i];
@@ -1552,15 +1514,18 @@ extern "js" fn update_line_children_ffi(
   #| }
 
 ///|
-/// Text グループの子要素を更新
-extern "js" fn update_text_children(
+/// Text グループの子要素を更新（スタイル含む）
+extern "js" fn update_text_children_with_style(
   group : @js.Any,
   x : Double,
   y : Double,
   content : String,
   font_size : Double,
+  fill : String,
+  stroke : String,
+  stroke_width : Double,
 ) =
-  #| (group, x, y, content, fontSize) => {
+  #| (group, x, y, content, fontSize, fill, stroke, strokeWidth) => {
   #|   const children = group.children;
   #|   // ヒットエリアのサイズを計算
   #|   const lines = content.split('\n');
@@ -1583,6 +1548,15 @@ extern "js" fn update_text_children(
   #|       // テキスト要素
   #|       child.setAttribute('x', x);
   #|       child.setAttribute('y', y);
+  #|       // スタイル更新
+  #|       child.setAttribute('fill', fill);
+  #|       if (stroke) {
+  #|         child.setAttribute('stroke', stroke);
+  #|         child.setAttribute('stroke-width', strokeWidth);
+  #|       } else {
+  #|         child.removeAttribute('stroke');
+  #|         child.removeAttribute('stroke-width');
+  #|       }
   #|     }
   #|   }
   #| }
@@ -1648,7 +1622,6 @@ fn create_line_vnode_with_ref(
   y2 : Double,
   el_ref : Ref[@js.Any?],
 ) -> @element.DomNode {
-  // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
   let stroke_color = el.style.stroke.unwrap_or("#000000")
   // 子要素を作成
   let children : Array[@element.DomNode] = []
@@ -1677,16 +1650,13 @@ fn create_line_vnode_with_ref(
   add_marker_attrs(line_attrs, el.style, stroke_color)
   children.push(create_svg_node("line", line_attrs, [], []))
 
-  // グループを作成（__ref 付き、CSS変数の場合はcolor属性を追加）
+  // グループを作成（__ref 付き）
   let group_attrs : Array[(String, @element.AttrValue)] = [
     ("data-id", @element.Static(el.id)),
     ("data-element-type", @element.Static("line")),
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
-  if stroke_color.has_prefix("var(") {
-    group_attrs.push(("style", @element.Static("color: \{stroke_color}")))
-  }
   @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
 }
 
