@@ -17,10 +17,6 @@ let stroke_presets : Array[String] = [
 ]
 
 ///|
-/// カラースウォッチのスタイル
-let swatch_style : String = "width: 20px; height: 20px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0;"
-
-///|
 /// メニューボタンのスタイル
 let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
 
@@ -36,44 +32,6 @@ fn to_hex_color(color : String, default : String) -> String {
   }
 }
 
-///|
-/// カラースウォッチを描画
-fn render_color_swatches(
-  state : EditorState,
-  history : @model.History,
-  colors : Array[String],
-  is_fill : Bool,
-) -> @element.DomNode {
-  let children : Array[@element.DomNode] = []
-  for color in colors {
-    // transparent の場合は斜線パターンで表示
-    let bg_style = if color == "transparent" {
-      "background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0px;"
-    } else {
-      "background: \{color};"
-    }
-    let swatch = button(
-      style=swatch_style + " " + bg_style,
-      on=events().click(fn(_) {
-        if state.get_selected_id() is Some(id) {
-          if state.find_element(id) is Some(el) {
-            let value = if color == "transparent" { "transparent" } else { color }
-            let old_style = el.style
-            let new_style = if is_fill {
-              { ..old_style, fill: Some(value) }
-            } else {
-              { ..old_style, stroke: Some(value) }
-            }
-            execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
-          }
-        }
-      }),
-      [],
-    )
-    children.push(swatch)
-  }
-  @element.fragment(children)
-}
 
 ///|
 /// サイドバーをレンダリング（後方互換性のため残す）
@@ -450,23 +408,146 @@ fn render_element_tree(state : EditorState) -> @element.DomNode {
 
 ///|
 /// 小さい入力フィールドのスタイル（コンパクト版）
-let small_input_style : String = "width: 50px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
+let small_input_style : String = "width: 48px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
 
 ///|
 /// 読み取り専用フィールドのスタイル
-let readonly_field_style : String = "font-family: monospace; font-size: 11px; padding: 2px 4px; background: #f0f0f0; border-radius: 3px; min-width: 30px;"
+let readonly_field_style : String = "font-family: monospace; font-size: 11px; padding: 2px 4px; background: #f5f5f5; border-radius: 3px; min-width: 36px; text-align: center;"
 
 ///|
 /// ID入力フィールドのスタイル
-let id_input_style : String = "width: 80px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
+let id_input_style : String = "flex: 1; padding: 2px 6px; border: 1px solid #ddd; border-radius: 3px; font-family: monospace; font-size: 11px; box-sizing: border-box;"
 
 ///|
 /// ラベルのスタイル
-let label_style : String = "font-size: 10px; color: #666; min-width: 14px;"
+let label_style : String = "font-size: 11px; color: #888; min-width: 12px;"
 
 ///|
 /// 行のスタイル
-let row_style : String = "display: flex; align-items: center; gap: 4px; margin-bottom: 4px;"
+let row_style : String = "display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
+
+///|
+/// カラーピッカー付きドロップダウン
+fn render_color_dropdown(
+  state : EditorState,
+  history : @model.History,
+  is_fill : Bool,
+) -> @element.DomNode {
+  let dropdown_open = @luna.signal(false)
+  let colors = if is_fill { fill_presets } else { stroke_presets }
+
+  div(
+    style="position: relative; display: flex; align-items: center; gap: 4px;",
+    [
+      // 現在の色を表示するボタン（クリックでドロップダウン）
+      @element.create_element(
+        "button",
+        [
+          ("style", @element.Dynamic(fn() {
+            let color = match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => if is_fill { el.style.fill.unwrap_or("transparent") } else { el.style.stroke.unwrap_or("#000000") }
+                  None => if is_fill { "transparent" } else { "#000000" }
+                }
+              None => if is_fill { "transparent" } else { "#000000" }
+            }
+            let bg = if color == "transparent" {
+              "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px"
+            } else {
+              color
+            }
+            "width: 28px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: \{bg};"
+          })),
+          ("click", @element.Handler(fn(_) { dropdown_open.update(fn(v) { not(v) }) })),
+        ],
+        [],
+      ),
+      // カラーピッカー（ネイティブ）
+      input(
+        type_="color",
+        style="width: 20px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;",
+        dyn_value=fn() {
+          match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => {
+                  let color = if is_fill { el.style.fill.unwrap_or("transparent") } else { el.style.stroke.unwrap_or("#000000") }
+                  to_hex_color(color, if is_fill { "#ffffff" } else { "#000000" })
+                }
+                None => if is_fill { "#ffffff" } else { "#000000" }
+              }
+            None => if is_fill { "#ffffff" } else { "#000000" }
+          }
+        },
+        on=events().input(fn(e) {
+          if state.get_selected_id() is Some(id) {
+            if state.find_element(id) is Some(el) {
+              let value = get_event_target_value(e.as_any())
+              let old_style = el.style
+              let new_style = if is_fill {
+                { ..old_style, fill: Some(value) }
+              } else {
+                { ..old_style, stroke: Some(value) }
+              }
+              execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+            }
+          }
+        }),
+      ),
+      // ドロップダウンパネル（Popover）
+      show(
+        fn() { dropdown_open.get() },
+        fn() {
+          div(
+            style="position: absolute; top: 100%; left: 0; margin-top: 4px; padding: 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;",
+            [render_dropdown_swatches(state, history, colors, is_fill, dropdown_open)],
+          )
+        },
+      ),
+    ],
+  )
+}
+
+///|
+/// ドロップダウン内のカラースウォッチ
+fn render_dropdown_swatches(
+  state : EditorState,
+  history : @model.History,
+  colors : Array[String],
+  is_fill : Bool,
+  dropdown_open : @luna.Signal[Bool],
+) -> @element.DomNode {
+  let children : Array[@element.DomNode] = []
+  for color in colors {
+    let bg_style = if color == "transparent" {
+      "background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px;"
+    } else {
+      "background: \{color};"
+    }
+    let swatch = button(
+      style="width: 24px; height: 24px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; padding: 0; " + bg_style,
+      on=events().click(fn(_) {
+        if state.get_selected_id() is Some(id) {
+          if state.find_element(id) is Some(el) {
+            let value = if color == "transparent" { "transparent" } else { color }
+            let old_style = el.style
+            let new_style = if is_fill {
+              { ..old_style, fill: Some(value) }
+            } else {
+              { ..old_style, stroke: Some(value) }
+            }
+            execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+            dropdown_open.set(false)
+          }
+        }
+      }),
+      [],
+    )
+    children.push(swatch)
+  }
+  @element.fragment(children)
+}
 
 ///|
 /// 要素の詳細を表示・編集（コンパクト版）
@@ -474,12 +555,12 @@ fn render_element_details(
   state : EditorState,
   history : @model.History,
 ) -> @element.DomNode {
-  // ID編集用のローカル状態（衝突エラー表示用）
   let id_error = @luna.signal(false)
-  div([
-    // ID: rect #id 形式、id部分は編集可能
+
+  div(style="font-size: 12px;", [
+    // Shape type + ID (一行)
     div(style=row_style, [
-      @element.span(style="font-size: 11px; color: #333;", [
+      @element.span(style="font-size: 12px; color: #333; font-weight: 500;", [
         text_dyn(fn() {
           match state.get_selected_id() {
             Some(id) =>
@@ -491,13 +572,13 @@ fn render_element_details(
           }
         }),
       ]),
-      @element.span(style="font-size: 11px; color: #666;", [text("#")]),
+      @element.span(style="font-size: 11px; color: #999;", [text("#")]),
       input(
         type_="text",
         style=id_input_style,
         dyn_style=fn() {
           if id_error.get() {
-            id_input_style + " border-color: #c53030; background: #fff5f5;"
+            id_input_style + " border-color: #e53e3e; background: #fff5f5;"
           } else {
             id_input_style
           }
@@ -507,7 +588,6 @@ fn render_element_details(
           if state.get_selected_id() is Some(old_id) {
             let new_id = get_event_target_value(e.as_any())
             if new_id != "" && new_id != old_id {
-              // 衝突チェック
               if state.has_element_with_id(new_id) {
                 id_error.set(true)
               } else {
@@ -519,250 +599,141 @@ fn render_element_details(
         }),
       ),
     ]),
-    // x: [] y: [] を一行に
-    div(style=row_style, [
-      @element.span(style=label_style, [text("x:")]),
-      input(
-        type_="number",
-        style=small_input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.x.to_int().to_string()
-                None => "0"
-              }
-            None => "0"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              if parse_double(value) is Some(new_x) {
-                execute_command(history, state, @model.MoveElement(id, el.x, el.y, new_x, el.y))
-              }
-            }
-          }
-        }),
-      ),
-      @element.span(style=label_style, [text("y:")]),
-      input(
-        type_="number",
-        style=small_input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.y.to_int().to_string()
-                None => "0"
-              }
-            None => "0"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              if parse_double(value) is Some(new_y) {
-                execute_command(history, state, @model.MoveElement(id, el.x, el.y, el.x, new_y))
-              }
-            }
-          }
-        }),
-      ),
-    ]),
-    // w: [] h: [] を一行に
-    div(style=row_style, [
-      @element.span(style=label_style, [text("w:")]),
-      @element.span(style=readonly_field_style, [
-        text_dyn(fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => {
-                  let bbox = el.bounding_box()
-                  bbox.width.to_int().to_string()
+    // Position & Size (2行をコンパクトに)
+    div(style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; padding: 6px; background: #f8f8f8; border-radius: 4px;", [
+      // x
+      div(style="display: flex; align-items: center; gap: 4px;", [
+        @element.span(style=label_style, [text("x")]),
+        input(
+          type_="number",
+          style=small_input_style + " flex: 1;",
+          dyn_value=fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.x.to_int().to_string()
+                  None => "0"
                 }
-                None => "-"
-              }
-            None => "-"
-          }
-        }),
-      ]),
-      @element.span(style=label_style, [text("h:")]),
-      @element.span(style=readonly_field_style, [
-        text_dyn(fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => {
-                  let bbox = el.bounding_box()
-                  bbox.height.to_int().to_string()
-                }
-                None => "-"
-              }
-            None => "-"
-          }
-        }),
-      ]),
-    ]),
-    // Stroke: カラーピッカー + カラーコード（背景色付き）
-    div(style=row_style + " margin-top: 6px;", [
-      @element.span(style=label_style + " min-width: 38px;", [text("Stroke")]),
-      input(
-        type_="color",
-        style="width: 24px; height: 20px; padding: 0; border: 1px solid #ccc; border-radius: 2px; cursor: pointer;",
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => to_hex_color(el.style.stroke.unwrap_or("#000000"), "#000000")
-                None => "#000000"
-              }
-            None => "#000000"
-          }
-        },
-        on=events().input(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              let old_style = el.style
-              let new_style = { ..old_style, stroke: Some(value) }
-              execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+              None => "0"
             }
-          }
-        }),
-      ),
-      @element.span(
-        style="font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: #fff;",
-        dyn_style=fn() {
-          let color = match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.stroke.unwrap_or("#000000")
-                None => "#000000"
+          },
+          on=events().change(fn(e) {
+            if state.get_selected_id() is Some(id) {
+              if state.find_element(id) is Some(el) {
+                let value = get_event_target_value(e.as_any())
+                if parse_double(value) is Some(new_x) {
+                  execute_command(history, state, @model.MoveElement(id, el.x, el.y, new_x, el.y))
+                }
               }
-            None => "#000000"
-          }
-          "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: #fff; background: \{color};"
-        },
-        [
+            }
+          }),
+        ),
+      ]),
+      // y
+      div(style="display: flex; align-items: center; gap: 4px;", [
+        @element.span(style=label_style, [text("y")]),
+        input(
+          type_="number",
+          style=small_input_style + " flex: 1;",
+          dyn_value=fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.y.to_int().to_string()
+                  None => "0"
+                }
+              None => "0"
+            }
+          },
+          on=events().change(fn(e) {
+            if state.get_selected_id() is Some(id) {
+              if state.find_element(id) is Some(el) {
+                let value = get_event_target_value(e.as_any())
+                if parse_double(value) is Some(new_y) {
+                  execute_command(history, state, @model.MoveElement(id, el.x, el.y, el.x, new_y))
+                }
+              }
+            }
+          }),
+        ),
+      ]),
+      // w (readonly)
+      div(style="display: flex; align-items: center; gap: 4px;", [
+        @element.span(style=label_style, [text("w")]),
+        @element.span(style=readonly_field_style + " flex: 1;", [
           text_dyn(fn() {
             match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
-                  Some(el) => el.style.stroke.unwrap_or("none")
+                  Some(el) => el.bounding_box().width.to_int().to_string()
                   None => "-"
                 }
               None => "-"
             }
           }),
-        ],
-      ),
-    ]),
-    // Stroke プリセット（1行）
-    div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
-      render_color_swatches(state, history, stroke_presets, false),
-    ]),
-    // stroke-width を一行に
-    div(style=row_style, [
-      @element.span(style=label_style + " min-width: 64px;", [text("stroke-width:")]),
-      input(
-        type_="number",
-        style=small_input_style,
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
-                None => "1"
-              }
-            None => "1"
-          }
-        },
-        on=events().change(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              if parse_double(value) is Some(w) {
-                let old_style = el.style
-                let new_style = { ..old_style, stroke_width: Some(w) }
-                execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
-              }
-            }
-          }
-        }),
-      ),
-    ]),
-    // Fill: カラーピッカー + カラーコード（背景色付き）
-    div(style=row_style + " margin-top: 6px;", [
-      @element.span(style=label_style + " min-width: 38px;", [text("Fill")]),
-      input(
-        type_="color",
-        style="width: 24px; height: 20px; padding: 0; border: 1px solid #ccc; border-radius: 2px; cursor: pointer;",
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => to_hex_color(el.style.fill.unwrap_or("transparent"), "#ffffff")
-                None => "#ffffff"
-              }
-            None => "#ffffff"
-          }
-        },
-        on=events().input(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              let old_style = el.style
-              let new_style = { ..old_style, fill: Some(value) }
-              execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
-            }
-          }
-        }),
-      ),
-      @element.span(
-        style="font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px;",
-        dyn_style=fn() {
-          let fill = match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => el.style.fill.unwrap_or("transparent")
-                None => "transparent"
-              }
-            None => "transparent"
-          }
-          if fill == "transparent" {
-            "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px;"
-          } else {
-            let text_color = if fill == "#ffffff" || fill == "#ffff00" || fill == "#00ff00" {
-              "#000"
-            } else {
-              "#fff"
-            }
-            "font-family: monospace; font-size: 10px; padding: 2px 4px; border-radius: 2px; background: \{fill}; color: \{text_color};"
-          }
-        },
-        [
+        ]),
+      ]),
+      // h (readonly)
+      div(style="display: flex; align-items: center; gap: 4px;", [
+        @element.span(style=label_style, [text("h")]),
+        @element.span(style=readonly_field_style + " flex: 1;", [
           text_dyn(fn() {
             match state.get_selected_id() {
               Some(id) =>
                 match state.find_element(id) {
-                  Some(el) => el.style.fill.unwrap_or("transparent")
+                  Some(el) => el.bounding_box().height.to_int().to_string()
                   None => "-"
                 }
               None => "-"
             }
           }),
-        ],
-      ),
+        ]),
+      ]),
     ]),
-    // Fill プリセット（1行）
-    div(style="display: flex; gap: 2px; margin-bottom: 4px;", [
-      render_color_swatches(state, history, fill_presets, true),
+    // Stroke セクション
+    div(style="margin-bottom: 8px;", [
+      div(style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;", [
+        @element.span(style="font-size: 11px; color: #666; min-width: 40px;", [text("Stroke")]),
+        render_color_dropdown(state, history, false),
+        // stroke-width
+        input(
+          type_="number",
+          style="width: 40px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 10px;",
+          attrs=[("min", @element.AttrString("0")), ("step", @element.AttrString("0.5"))],
+          dyn_value=fn() {
+            match state.get_selected_id() {
+              Some(id) =>
+                match state.find_element(id) {
+                  Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
+                  None => "1"
+                }
+              None => "1"
+            }
+          },
+          on=events().change(fn(e) {
+            if state.get_selected_id() is Some(id) {
+              if state.find_element(id) is Some(el) {
+                let value = get_event_target_value(e.as_any())
+                if parse_double(value) is Some(w) {
+                  let old_style = el.style
+                  let new_style = { ..old_style, stroke_width: Some(w) }
+                  execute_command(history, state, @model.UpdateStyle(id, old_style, new_style))
+                }
+              }
+            }
+          }),
+        ),
+        @element.span(style="font-size: 10px; color: #999;", [text("px")]),
+      ]),
     ]),
-    // Line 専用オプション（破線、矢印）
+    // Fill セクション
+    div(style="margin-bottom: 8px;", [
+      div(style="display: flex; align-items: center; gap: 8px;", [
+        @element.span(style="font-size: 11px; color: #666; min-width: 40px;", [text("Fill")]),
+        render_color_dropdown(state, history, true),
+      ]),
+    ]),
+    // Line 専用オプション
     show(
       fn() {
         match state.get_selected_id() {

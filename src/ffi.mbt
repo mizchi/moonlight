@@ -1,6 +1,28 @@
 // FFI - JavaScript との相互運用
 
 ///|
+/// Popover を表示してボタン位置に配置
+pub extern "js" fn show_popover_at_button(popover_id : String, e : @js.Any) =
+  #| (popoverId, e) => {
+  #|   const popover = document.getElementById(popoverId);
+  #|   if (!popover) return;
+  #|   const btn = e.currentTarget;
+  #|   const rect = btn.getBoundingClientRect();
+  #|   popover.showPopover();
+  #|   popover.style.left = (rect.left + rect.width / 2) + 'px';
+  #|   popover.style.top = (rect.bottom + 6) + 'px';
+  #|   popover.style.transform = 'translateX(-50%)';
+  #| }
+
+///|
+/// Popover を非表示
+pub extern "js" fn hide_popover(popover_id : String) =
+  #| (popoverId) => {
+  #|   const popover = document.getElementById(popoverId);
+  #|   if (popover) popover.hidePopover();
+  #| }
+
+///|
 /// window に keydown イベントリスナーを追加
 pub extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keydown', handler)
@@ -76,7 +98,7 @@ pub extern "js" fn is_composing_ffi() -> Bool =
   #| () => window.__isComposing === true
 
 ///|
-/// テキストエリアを作成（IMEコンポジション対応、Shift+Enter改行対応）
+/// テキストエリアを作成（IMEコンポジション対応）
 pub extern "js" fn create_textarea_ffi(
   style : String,
   initial_value : String,
@@ -93,14 +115,10 @@ pub extern "js" fn create_textarea_ffi(
   #|   textarea.addEventListener('compositionstart', () => { isComposing = true; });
   #|   textarea.addEventListener('compositionend', () => { isComposing = false; });
   #|   textarea.addEventListener('keydown', (e) => {
-  #|     if (e.key === 'Enter') {
-  #|       if (e.shiftKey) {
-  #|         // Shift+Enter: 改行を許可
-  #|       } else if (!isComposing) {
-  #|         // Enter（IMEコンポジション中でない場合）: 確定
-  #|         e.preventDefault();
-  #|         onCommit(textarea.value);
-  #|       }
+  #|     if (e.key === 'Enter' && !isComposing) {
+  #|       // Enter（Shift有無問わず、IMEコンポジション中でない場合）: 確定
+  #|       e.preventDefault();
+  #|       onCommit(textarea.value);
   #|     } else if (e.key === 'Escape') {
   #|       // Escape: キャンセル（初期値に戻す）
   #|       e.preventDefault();

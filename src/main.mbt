@@ -1160,195 +1160,271 @@ fn render_text_input_container(
 }
 
 ///|
-/// 埋め込みツールバー（コンパクト版）
+/// ツールバーボタン用のユニーク ID カウンター
+let toolbar_btn_id_counter : Ref[Int] = { val: 0 }
+
+///|
+/// SVG アイコンを作成するヘルパー
+fn svg_icon(path_d : String, size : Int) -> @element.DomNode {
+  let size_str = size.to_string()
+  @element.create_element_ns(
+    @element.svg_ns,
+    "svg",
+    [
+      ("width", @element.Static(size_str)),
+      ("height", @element.Static(size_str)),
+      ("viewBox", @element.Static("0 0 24 24")),
+      ("fill", @element.Static("none")),
+      ("stroke", @element.Static("currentColor")),
+      ("stroke-width", @element.Static("2")),
+      ("stroke-linecap", @element.Static("round")),
+      ("stroke-linejoin", @element.Static("round")),
+      ("style", @element.Static("display: block;")),
+    ],
+    [
+      @element.create_element_ns(
+        @element.svg_ns,
+        "path",
+        [("d", @element.Static(path_d))],
+        [],
+      ),
+    ],
+  )
+}
+
+///|
+/// ツールバーボタン（アイコン + キーバインド + Popover ツールチップ）
+fn toolbar_button(
+  icon : @element.DomNode,
+  shortcut : String?,
+  tooltip : String,
+  on_click : () -> Unit,
+) -> @element.DomNode {
+  toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
+  let popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
+  let btn_style = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: #fff; min-width: 36px; height: 40px; position: relative;"
+  let shortcut_style = "color: #999; font-size: 9px; font-family: system-ui, sans-serif; line-height: 1;"
+  let popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
+
+  div(
+    style="position: relative; display: inline-block;",
+    [
+      @element.create_element(
+        "button",
+        [
+          ("style", @element.Static(btn_style)),
+          ("aria-label", @element.Static(tooltip)),
+          ("click", @element.Handler(fn(_) { on_click() })),
+          ("mouseenter", @element.Handler(fn(e) { show_popover_at_button(popover_id, e) })),
+          ("mouseleave", @element.Handler(fn(_) { hide_popover(popover_id) })),
+        ],
+        match shortcut {
+          Some(key) => [icon, @element.span(style=shortcut_style, [text(key)])]
+          None => [icon]
+        },
+      ),
+      // Popover ツールチップ
+      div(
+        style=popover_style,
+        attrs=[
+          ("id", @element.AttrString(popover_id)),
+          ("popover", @element.AttrString("manual")),
+        ],
+        [text(tooltip)],
+      ),
+    ],
+  )
+}
+
+///|
+/// 埋め込みツールバー（SVGアイコン + キーバインド表示）
 fn render_embedded_toolbar(
   state : EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
-  let btn_style = "padding: 2px 6px; font-size: 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;"
-  let sep_style = "width: 1px; height: 16px; background: #ddd; margin: 0 4px;"
+  let sep_style = "width: 1px; height: 24px; background: #ddd; margin: 0 2px;"
   let id_counter : Ref[Int] = { val: 0 }
 
-  div(style="display: flex; gap: 4px; align-items: center;", [
+  // アイコンパス定義
+  let icon_rect = "M3 3h18v18H3z"
+  let icon_circle = "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"
+  let icon_ellipse = "M12 12m-9 0a9 5 0 1 0 18 0a9 5 0 1 0 -18 0"
+  let icon_line = "M5 19L19 5"
+  let icon_arrow = "M5 19L19 5M19 5L19 12M19 5L12 5"
+  let icon_text = "M4 7V4h16v3M9 20h6M12 4v16"
+  let icon_undo = "M3 7v6h6M3 13a9 9 0 1 0 3-7.5"
+  let icon_redo = "M21 7v6h-6M21 13a9 9 0 1 1 -3-7.5"
+  let icon_zoom_in = "M21 21l-6-6m2-5a7 7 0 1 1 -14 0a7 7 0 0 1 14 0zM10 7v6M7 10h6"
+  let icon_zoom_out = "M21 21l-6-6m2-5a7 7 0 1 1 -14 0a7 7 0 0 1 14 0zM7 10h6"
+  let icon_reset = "M3 12a9 9 0 1 0 9-9M3 3v6h6"
+  let icon_grid = "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
+  let icon_export = "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5l5-5M12 15V3"
+
+  div(style="display: flex; gap: 3px; align-items: center;", [
     // 図形追加ボタン
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Rectangle"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_rect = @model.Element::new(
-          el_id,
-          150.0 + offset,
-          150.0 + offset,
-          @model.Rect(80.0, 60.0, None, None),
-        ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_rect))
-        state.select(Some(el_id))
-      }),
-      [text("Rect (1)")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Circle"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_circle = @model.Element::new(
-          el_id,
-          200.0 + offset,
-          200.0 + offset,
-          @model.Circle(40.0),
-        ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_circle))
-        state.select(Some(el_id))
-      }),
-      [text("Circle (2)")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Ellipse"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_ellipse = @model.Element::new(
-          el_id,
-          180.0 + offset,
-          120.0 + offset,
-          @model.Ellipse(60.0, 35.0),
-        ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_ellipse))
-        state.select(Some(el_id))
-      }),
-      [text("Ellipse")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Line"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_line = @model.Element::new(
-          el_id,
-          50.0 + offset,
-          220.0,
-          @model.Line(180.0 + offset, 260.0),
-        ).with_style(state.get_line_style())
-        execute_command(history, state, @model.AddElement(new_line))
-        state.select(Some(el_id))
-      }),
-      [text("Line")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Arrow"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_arrow = @model.Element::new(
-          el_id,
-          50.0 + offset,
-          240.0,
-          @model.Line(180.0 + offset, 280.0),
-        ).with_style(state.get_arrow_style())
-        execute_command(history, state, @model.AddElement(new_arrow))
-        state.select(Some(el_id))
-      }),
-      [text("Arrow")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Add Text"))],
-      on=events().click(fn(_) {
-        id_counter.val = id_counter.val + 1
-        let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
-        let new_text = @model.Element::new(
-          el_id,
-          100.0 + offset,
-          200.0 + offset * 0.75,
-          @model.Text("Hello", Some(24.0)),
-        ).with_style(state.get_text_style())
-        execute_command(history, state, @model.AddElement(new_text))
-        state.select(Some(el_id))
-      }),
-      [text("Text (4)")],
-    ),
+    toolbar_button(svg_icon(icon_rect, 16), Some("1"), "Rectangle", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_rect = @model.Element::new(
+        el_id,
+        150.0 + offset,
+        150.0 + offset,
+        @model.Rect(80.0, 60.0, None, None),
+      ).with_style(state.get_default_style())
+      execute_command(history, state, @model.AddElement(new_rect))
+      state.select(Some(el_id))
+    }),
+    toolbar_button(svg_icon(icon_circle, 16), Some("2"), "Circle", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_circle = @model.Element::new(
+        el_id,
+        200.0 + offset,
+        200.0 + offset,
+        @model.Circle(40.0),
+      ).with_style(state.get_default_style())
+      execute_command(history, state, @model.AddElement(new_circle))
+      state.select(Some(el_id))
+    }),
+    toolbar_button(svg_icon(icon_ellipse, 16), None, "Ellipse", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_ellipse = @model.Element::new(
+        el_id,
+        180.0 + offset,
+        120.0 + offset,
+        @model.Ellipse(60.0, 35.0),
+      ).with_style(state.get_default_style())
+      execute_command(history, state, @model.AddElement(new_ellipse))
+      state.select(Some(el_id))
+    }),
+    toolbar_button(svg_icon(icon_line, 16), None, "Line", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_line = @model.Element::new(
+        el_id,
+        50.0 + offset,
+        220.0,
+        @model.Line(180.0 + offset, 260.0),
+      ).with_style(state.get_line_style())
+      execute_command(history, state, @model.AddElement(new_line))
+      state.select(Some(el_id))
+    }),
+    toolbar_button(svg_icon(icon_arrow, 16), Some("3"), "Arrow", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_arrow = @model.Element::new(
+        el_id,
+        50.0 + offset,
+        240.0,
+        @model.Line(180.0 + offset, 280.0),
+      ).with_style(state.get_arrow_style())
+      execute_command(history, state, @model.AddElement(new_arrow))
+      state.select(Some(el_id))
+    }),
+    toolbar_button(svg_icon(icon_text, 16), Some("4"), "Text", fn() {
+      id_counter.val = id_counter.val + 1
+      let el_id = new_id()
+      let offset = id_counter.val.to_double() * 20.0
+      let new_text = @model.Element::new(
+        el_id,
+        100.0 + offset,
+        200.0 + offset * 0.75,
+        @model.Text("Hello", Some(24.0)),
+      ).with_style(state.get_text_style())
+      execute_command(history, state, @model.AddElement(new_text))
+      state.select(Some(el_id))
+    }),
     // セパレータ
     @element.span(style=sep_style, []),
     // Undo/Redo
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Undo"))],
-      on=events().click(fn(_) { let _ = undo_command(history, state) }),
-      [text("Undo")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Redo"))],
-      on=events().click(fn(_) { let _ = redo_command(history, state) }),
-      [text("Redo")],
-    ),
+    toolbar_button(svg_icon(icon_undo, 16), Some("⌘Z"), "Undo", fn() {
+      let _ = undo_command(history, state)
+    }),
+    toolbar_button(svg_icon(icon_redo, 16), Some("⌘Y"), "Redo", fn() {
+      let _ = redo_command(history, state)
+    }),
     // セパレータ
     @element.span(style=sep_style, []),
     // ズームコントロール
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Zoom Out"))],
-      on=events().click(fn(_) { state.zoom_out() }),
-      [text("-")],
+    toolbar_button(svg_icon(icon_zoom_out, 16), None, "Zoom Out", fn() {
+      state.zoom_out()
+    }),
+    @element.span(
+      style="min-width: 44px; text-align: center; font-size: 11px; font-weight: 500;",
+      [
+        text_dyn(fn() {
+          let zoom = state.viewport.get().zoom
+          "\{(zoom * 100.0).to_int()}%"
+        }),
+      ],
     ),
-    @element.span(style="min-width: 36px; text-align: center;", [
-      text_dyn(fn() {
-        let zoom = state.viewport.get().zoom
-        "\{(zoom * 100.0).to_int()}%"
-      }),
-    ]),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Zoom In"))],
-      on=events().click(fn(_) { state.zoom_in() }),
-      [text("+")],
-    ),
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Reset Zoom"))],
-      on=events().click(fn(_) { state.reset_viewport() }),
-      [text("Reset")],
-    ),
+    toolbar_button(svg_icon(icon_zoom_in, 16), None, "Zoom In", fn() {
+      state.zoom_in()
+    }),
+    toolbar_button(svg_icon(icon_reset, 16), None, "Fit to Canvas", fn() {
+      state.reset_viewport()
+    }),
     // セパレータ
     @element.span(style=sep_style, []),
-    // グリッドスナップ
-    @element.label(style="display: inline-flex; align-items: center; gap: 2px; cursor: pointer;", [
-      input(
-        type_="checkbox",
-        attrs=[("aria-label", @element.AttrString("Grid Snap"))],
-        on=events().change(fn(_) { state.toggle_grid() }),
-      ),
-      text("Grid Snap"),
-    ]),
+    // グリッドスナップ（トグルボタン + Popover）
+    {
+      toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
+      let snap_popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
+      let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
+      div(
+        style="position: relative; display: inline-block;",
+        [
+          @element.create_element(
+            "button",
+            [
+              ("style", @element.Dynamic(fn() {
+                let enabled = state.grid_enabled.get()
+                let base = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid; border-radius: 4px; min-width: 36px; height: 40px;"
+                if enabled {
+                  base + "background: #e3f2fd; border-color: #2196f3; color: #1976d2;"
+                } else {
+                  base + "background: #fff; border-color: #ccc; color: #666;"
+                }
+              })),
+              ("aria-label", @element.Static("Grid Snap")),
+              ("click", @element.Handler(fn(_) { state.toggle_grid() })),
+              ("mouseenter", @element.Handler(fn(e) { show_popover_at_button(snap_popover_id, e) })),
+              ("mouseleave", @element.Handler(fn(_) { hide_popover(snap_popover_id) })),
+            ],
+            [
+              svg_icon(icon_grid, 16),
+              @element.span(style="color: inherit; font-size: 9px; line-height: 1;", [text("Snap")]),
+            ],
+          ),
+          div(
+            style=snap_popover_style,
+            attrs=[
+              ("id", @element.AttrString(snap_popover_id)),
+              ("popover", @element.AttrString("manual")),
+            ],
+            [text("Grid Snap")],
+          ),
+        ],
+      )
+    },
     // セパレータ
     @element.span(style=sep_style, []),
     // エクスポート
-    button(
-      style=btn_style,
-      attrs=[("aria-label", @element.AttrString("Export SVG"))],
-      on=events().click(fn(_) {
-        let svg_str = elements_to_svg(
-          state.elements.get(),
-          canvas_width,
-          canvas_height,
-        )
-        download_file(svg_str, "drawing.svg", "image/svg+xml")
-      }),
-      [text("Export")],
-    ),
+    toolbar_button(svg_icon(icon_export, 16), None, "Export SVG", fn() {
+      let svg_str = elements_to_svg(
+        state.elements.get(),
+        canvas_width,
+        canvas_height,
+      )
+      download_file(svg_str, "drawing.svg", "image/svg+xml")
+    }),
   ])
 }
 
