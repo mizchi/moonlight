@@ -1439,27 +1439,27 @@ fn render_text_input_container(
         @model.Dark => "#ffffff"
         @model.Light => "#000000"
       }
-      let (text_x, text_y, max_width) : (Double, Double, Double) = match
+      let (text_x, text_y) : (Double, Double) = match
         state.find_element(edit_state.parent_id) {
         Some(parent) => {
           let bbox = parent.bounding_box()
           let center_x = bbox.x + bbox.width / 2.0
           let center_y = bbox.y + bbox.height / 2.0
-          (center_x, center_y, bbox.width * vp.zoom - 16.0)
+          (center_x, center_y)
         }
-        None => (edit_state.x, edit_state.y, 200.0)
+        None => (edit_state.x, edit_state.y)
       }
       let screen_pos = vp.scene_to_screen(text_x, text_y)
-      let clamped_width = if max_width < 40.0 { 40.0 } else { max_width }
+      let min_width = 40.0 * vp.zoom
       // フォントサイズをズーム率に合わせてスケール
       let base_font_size = match edit_state.font_size {
         Some(size) => size
         None => 16.0
       }
       let scaled_font_size = base_font_size * vp.zoom
-      let scaled_min_height = 19.0 * vp.zoom
-      let scaled_max_height = 100.0 * vp.zoom
-      let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); width: \{clamped_width}px; min-height: \{scaled_min_height}px; max-height: \{scaled_max_height}px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor;"
+      let scaled_height = scaled_font_size * 1.5
+      // 横に伸びるスタイル（折り返しなし）
+      let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: \{scaled_height}px; padding: 0; border: none; background: transparent; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap;"
       let textarea = create_textarea_ffi(
         style,
         edit_state.initial_text,

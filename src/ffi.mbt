@@ -139,9 +139,9 @@ pub extern "js" fn create_textarea_ffi(
   #|     onCommit(textarea.value);
   #|   });
   #|   textarea.addEventListener('input', () => {
-  #|     // 高さを自動調整
-  #|     textarea.style.height = 'auto';
-  #|     textarea.style.height = textarea.scrollHeight + 'px';
+  #|     // 横幅を自動調整（テキストに合わせて伸びる）
+  #|     textarea.style.width = 'auto';
+  #|     textarea.style.width = Math.max(textarea.scrollWidth, 40) + 'px';
   #|   });
   #|   // フォーカスを遅延設定
   #|   setTimeout(() => {
