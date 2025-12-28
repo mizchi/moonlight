@@ -400,9 +400,11 @@ pub fn EditorState::move_element(
         Some(conns) => {
           match conns.start {
             Some(conn) => {
-              let is_line = elements.iter().any(fn(e) {
-                e.id == conn.element_id && e.shape is @model.Line(_, _)
-              })
+              let is_line = elements
+                .iter()
+                .any(fn(e) {
+                  e.id == conn.element_id && e.shape is @model.Line(_, _)
+                })
               if not(is_line) &&
                 not(connected_non_line_ids.contains(conn.element_id)) {
                 connected_non_line_ids.push(conn.element_id)
@@ -412,9 +414,11 @@ pub fn EditorState::move_element(
           }
           match conns.end {
             Some(conn) => {
-              let is_line = elements.iter().any(fn(e) {
-                e.id == conn.element_id && e.shape is @model.Line(_, _)
-              })
+              let is_line = elements
+                .iter()
+                .any(fn(e) {
+                  e.id == conn.element_id && e.shape is @model.Line(_, _)
+                })
               if not(is_line) &&
                 not(connected_non_line_ids.contains(conn.element_id)) {
                 connected_non_line_ids.push(conn.element_id)
@@ -1058,8 +1062,8 @@ pub fn EditorState::get_viewport_center(self : EditorState) -> @model.Point {
   let vp = self.viewport.get()
   let canvas_w = self.canvas_width.get().to_double()
   let canvas_h = self.canvas_height.get().to_double()
-  let center_x = vp.scroll_x + (canvas_w / vp.zoom) / 2.0
-  let center_y = vp.scroll_y + (canvas_h / vp.zoom) / 2.0
+  let center_x = vp.scroll_x + canvas_w / vp.zoom / 2.0
+  let center_y = vp.scroll_y + canvas_h / vp.zoom / 2.0
   { x: center_x, y: center_y }
 }
 

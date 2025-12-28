@@ -39,8 +39,12 @@ fn save_state(state : EditorState) -> Unit {
     @model.Dark => "#1a1a2e"
     @model.Light => "#ffffff"
   }
-  let svg = elements_to_moonlight_svg(elements, canvas_width, canvas_height, bg_color)
-  save_to_indexeddb(db_name, store_name, scene_key, svg, fn() { () }, fn() { () })
+  let svg = elements_to_moonlight_svg(
+    elements, canvas_width, canvas_height, bg_color,
+  )
+  save_to_indexeddb(db_name, store_name, scene_key, svg, fn() { () }, fn() {
+    ()
+  })
 }
 
 ///|
@@ -74,6 +78,7 @@ fn setup_auto_save(state : EditorState) -> Unit {
     let _ = state.elements.get() // 依存関係を登録
     save_state(state)
   })
+
 }
 
 ///|
@@ -113,15 +118,10 @@ fn create_embedded_app() -> @element.DomNode {
   let state = EditorState::new_with_mode(canvas_width, canvas_height, Embedded)
   let history = @model.History::new()
   // IndexedDB から読み込み、なければサンプルを追加
-  load_state(
-    state,
-    new_id,
-    fn() { setup_auto_save(state) },
-    fn() {
-      add_sample_shapes(state, new_id)
-      setup_auto_save(state)
-    },
-  )
+  load_state(state, new_id, fn() { setup_auto_save(state) }, fn() {
+    add_sample_shapes(state, new_id)
+    setup_auto_save(state)
+  })
   embedded_editor_app(state, history, new_id)
 }
 
@@ -142,15 +142,10 @@ fn editor_app() -> @element.DomNode {
   let history = @model.History::new()
 
   // IndexedDB から読み込み、なければサンプルを追加
-  load_state(
-    state,
-    new_id,
-    fn() { setup_auto_save(state) },
-    fn() {
-      add_sample_shapes(state, new_id)
-      setup_auto_save(state)
-    },
-  )
+  load_state(state, new_id, fn() { setup_auto_save(state) }, fn() {
+    add_sample_shapes(state, new_id)
+    setup_auto_save(state)
+  })
 
   // ウィンドウサイズを監視してモバイル判定を更新
   observe_window_resize_ffi(fn(width, _height) {
@@ -207,7 +202,8 @@ fn editor_app() -> @element.DomNode {
 
   // SVG キャンバスを Luna VNode として作成（for_each による差分更新）
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    on_wheel,
   )
 
   // UI
@@ -1852,7 +1848,8 @@ pub fn render_editor_modal(
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
   let modal_svg = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    on_wheel,
   )
 
   // モーダルオーバーレイ
@@ -1942,7 +1939,8 @@ fn embedded_editor_app(
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = fn(_e : @js.Any) { () } // コンテキストメニュー無効
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu, on_wheel,
+    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    on_wheel,
   )
   div(style="width: 100%;", [
     // 埋め込みビュー

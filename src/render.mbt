@@ -504,10 +504,14 @@ pub fn element_to_moonlight_svg(el : @model.Element) -> String {
   // 接続情報
   if el.connections is Some(conns) {
     if conns.start is Some(start_conn) {
-      attrs.write_string(" data-connection-start=\"\{connection_to_string(start_conn)}\"")
+      attrs.write_string(
+        " data-connection-start=\"\{connection_to_string(start_conn)}\"",
+      )
     }
     if conns.end is Some(end_conn) {
-      attrs.write_string(" data-connection-end=\"\{connection_to_string(end_conn)}\"")
+      attrs.write_string(
+        " data-connection-end=\"\{connection_to_string(end_conn)}\"",
+      )
     }
   }
   // transform
@@ -591,12 +595,20 @@ fn generate_arrow_defs() -> String {
   let sb = StringBuilder::new()
   sb.write_string("  <defs>\n")
   // 始点矢印
-  sb.write_string("    <marker id=\"arrow-start\" markerWidth=\"10\" markerHeight=\"10\" refX=\"0\" refY=\"3\" orient=\"auto-start-reverse\">\n")
-  sb.write_string("      <path d=\"M0,0 L0,6 L9,3 z\" fill=\"currentColor\"/>\n")
+  sb.write_string(
+    "    <marker id=\"arrow-start\" markerWidth=\"10\" markerHeight=\"10\" refX=\"0\" refY=\"3\" orient=\"auto-start-reverse\">\n",
+  )
+  sb.write_string(
+    "      <path d=\"M0,0 L0,6 L9,3 z\" fill=\"currentColor\"/>\n",
+  )
   sb.write_string("    </marker>\n")
   // 終点矢印
-  sb.write_string("    <marker id=\"arrow-end\" markerWidth=\"10\" markerHeight=\"10\" refX=\"9\" refY=\"3\" orient=\"auto\">\n")
-  sb.write_string("      <path d=\"M0,0 L0,6 L9,3 z\" fill=\"currentColor\"/>\n")
+  sb.write_string(
+    "    <marker id=\"arrow-end\" markerWidth=\"10\" markerHeight=\"10\" refX=\"9\" refY=\"3\" orient=\"auto\">\n",
+  )
+  sb.write_string(
+    "      <path d=\"M0,0 L0,6 L9,3 z\" fill=\"currentColor\"/>\n",
+  )
   sb.write_string("    </marker>\n")
   sb.write_string("  </defs>\n")
   sb.to_string()
@@ -618,7 +630,9 @@ pub fn elements_to_moonlight_svg(
   sb.write_string(generate_arrow_defs())
   // 背景
   if bg_color != "transparent" {
-    sb.write_string("  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n")
+    sb.write_string(
+      "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n",
+    )
   }
   // 要素
   for el in elements {

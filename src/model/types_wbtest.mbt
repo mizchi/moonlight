@@ -1588,7 +1588,9 @@ test "compute_line_move_topology - single line no connections" {
   let line = Element::new("line-1", 0.0, 0.0, Line(100.0, 100.0))
   let elements = [line]
   // (0,0)→(100,100) を dx=50, dy=50 で移動
-  let result = compute_line_move_topology(elements, "line-1", 50.0, 50.0, 50.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "line-1", 50.0, 50.0, 50.0, 50.0,
+  )
   assert_eq(result.length(), 1)
   assert_eq(result[0].id, "line-1")
   assert_eq(result[0].x, 50.0)
@@ -1601,7 +1603,9 @@ test "compute_line_move_topology - single line no connections" {
 test "compute_line_move_topology - line not found returns empty" {
   let line = Element::new("line-1", 0.0, 0.0, Line(100.0, 100.0))
   let elements = [line]
-  let result = compute_line_move_topology(elements, "nonexistent", 50.0, 50.0, 50.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "nonexistent", 50.0, 50.0, 50.0, 50.0,
+  )
   assert_eq(result.length(), 0)
 }
 
@@ -1609,7 +1613,9 @@ test "compute_line_move_topology - line not found returns empty" {
 test "compute_line_move_topology - non-line element returns empty" {
   let rect = Element::new("rect-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
   let elements = [rect]
-  let result = compute_line_move_topology(elements, "rect-1", 50.0, 50.0, 50.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "rect-1", 50.0, 50.0, 50.0, 50.0,
+  )
   assert_eq(result.length(), 0)
 }
 
@@ -1629,7 +1635,9 @@ test "compute_line_move_topology - two lines connected A.end to B.start" {
   let elements = [line_a, line_b]
 
   // Line A を dy=50 で移動 (水平線を下に移動)
-  let result = compute_line_move_topology(elements, "line-a", 0.0, 50.0, 0.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "line-a", 0.0, 50.0, 0.0, 50.0,
+  )
 
   // Line A が更新される
   assert_eq(result.length(), 2)
@@ -1642,7 +1650,7 @@ test "compute_line_move_topology - two lines connected A.end to B.start" {
   // Line B の始点が A の新しい終点に追従
   let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
   assert_eq(b_coords.x, 100.0) // A の終点 x
-  assert_eq(b_coords.y, 50.0)  // A の終点 y (新位置)
+  assert_eq(b_coords.y, 50.0) // A の終点 y (新位置)
   assert_eq(b_coords.x2, 200.0) // 終点は変わらない
   assert_eq(b_coords.y2, 0.0)
 }
@@ -1664,7 +1672,9 @@ test "compute_line_move_topology - moved line start connected to other line" {
   let elements = [line_a, line_b]
 
   // Line B を移動しようとする
-  let result = compute_line_move_topology(elements, "line-b", 100.0, 50.0, 0.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "line-b", 100.0, 50.0, 0.0, 50.0,
+  )
 
   // Line B のみが結果に含まれる（A は移動対象ではない）
   assert_eq(result.length(), 1)
@@ -1703,7 +1713,9 @@ test "compute_line_move_topology - chain of three lines" {
   let elements = [line_a, line_b, line_c]
 
   // Line A を移動 - B と C も連鎖的に更新されるべき
-  let result = compute_line_move_topology(elements, "line-a", 0.0, 50.0, 0.0, 50.0)
+  let result = compute_line_move_topology(
+    elements, "line-a", 0.0, 50.0, 0.0, 50.0,
+  )
 
   // 3 つの Line が更新される
   assert_eq(result.length(), 3)
@@ -1750,7 +1762,9 @@ test "compute_line_move_topology - triangle formation" {
   let elements = [line_a, line_b, line_c]
 
   // Line A を dx=20 で移動（右に移動）
-  let result = compute_line_move_topology(elements, "line-a", 20.0, 0.0, 20.0, 0.0)
+  let result = compute_line_move_topology(
+    elements, "line-a", 20.0, 0.0, 20.0, 0.0,
+  )
 
   // 3つ全てが更新される
   assert_eq(result.length(), 3)
@@ -1807,7 +1821,9 @@ test "compute_line_move_topology - triangle move B" {
   // Line B を dx=30, dy=0 で移動しようとする
   // B.start は A.end (100, 0) に固定される
   // B.end は 50+30=80, 86+0=86 に移動
-  let result = compute_line_move_topology(elements, "line-b", 130.0, 0.0, 30.0, 0.0)
+  let result = compute_line_move_topology(
+    elements, "line-b", 130.0, 0.0, 30.0, 0.0,
+  )
 
   // B と C が更新される（A は移動対象外）
   assert_eq(result.length(), 2)
@@ -1815,7 +1831,7 @@ test "compute_line_move_topology - triangle move B" {
   // Line B - 始点は A.end (100, 0) に固定
   let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
   assert_eq(b_coords.x, 100.0) // 固定
-  assert_eq(b_coords.y, 0.0)   // 固定
+  assert_eq(b_coords.y, 0.0) // 固定
   // 終点は移動
   assert_eq(b_coords.x2, 80.0) // 50 + 30
   assert_eq(b_coords.y2, 86.0)
@@ -1855,7 +1871,9 @@ test "compute_line_move_topology - U shape formation" {
   let elements = [line_a, line_b, line_c]
 
   // Line A の終点（下端）を移動 → B と C も追従
-  let result = compute_line_move_topology(elements, "line-a", 0.0, 0.0, 0.0, 0.0)
+  let result = compute_line_move_topology(
+    elements, "line-a", 0.0, 0.0, 0.0, 0.0,
+  )
 
   // 結果確認
   assert_eq(result.length(), 3)
@@ -1895,7 +1913,9 @@ test "compute_line_move_topology - U shape move middle segment" {
 
   // Line B を dy=20 で下に移動しようとする
   // B の始点は A の終点に接続されているので固定
-  let result = compute_line_move_topology(elements, "line-b", 0.0, 120.0, 0.0, 20.0)
+  let result = compute_line_move_topology(
+    elements, "line-b", 0.0, 120.0, 0.0, 20.0,
+  )
 
   // B と C が更新される（A は移動対象ではないので含まれない）
   assert_eq(result.length(), 2)

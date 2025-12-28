@@ -11,7 +11,9 @@ pub fn import_svg_elements(
     return []
   }
   // Moonlight形式かチェック
-  let is_moonlight = not(@js.is_nullish(get_attribute(svg_el, "data-moonlight")))
+  let is_moonlight = not(
+    @js.is_nullish(get_attribute(svg_el, "data-moonlight")),
+  )
   let children = get_svg_children(svg_el)
   let elements : Array[@model.Element] = []
   let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
@@ -66,7 +68,11 @@ fn parse_moonlight_element(
     None
   } else {
     let s : String = parent_id_raw.cast()
-    if s == "" { None } else { Some(s) }
+    if s == "" {
+      None
+    } else {
+      Some(s)
+    }
   }
   // 接続情報
   let connections = parse_connections(el)
@@ -122,7 +128,10 @@ fn parse_plain_svg_element(
 
 ///|
 /// 図形をパース（タグ名に基づいて）
-fn parse_shape(el : @js.Any, tag : String) -> ((@model.ShapeType, Double, Double))? {
+fn parse_shape(
+  el : @js.Any,
+  tag : String,
+) -> (@model.ShapeType, Double, Double)? {
   match tag {
     "rect" => {
       // 背景用rect（data-idがなく、width/height が 100%）はスキップ
@@ -227,7 +236,11 @@ fn parse_style(el : @js.Any) -> @model.Style {
     None
   } else {
     let s : String = fill_raw.cast()
-    if s == "none" { None } else { Some(s) }
+    if s == "none" {
+      None
+    } else {
+      Some(s)
+    }
   }
   let stroke_raw = get_attribute(el, "stroke")
   let stroke : String? = if @js.is_nullish(stroke_raw) {
@@ -294,7 +307,10 @@ fn parse_connections(el : @js.Any) -> @model.LineConnections? {
 /// 接続文字列をパース (format: "element-id:anchor")
 fn parse_connection_string(s : String) -> @model.Connection? {
   // "element-id:anchor" 形式
-  let parts : Array[String] = s.split(":").map(fn(sv) { sv.to_string() }).collect()
+  let parts : Array[String] = s
+    .split(":")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
   if parts.length() != 2 {
     return None
   }
@@ -310,9 +326,15 @@ fn parse_connection_string(s : String) -> @model.Connection? {
 /// points 属性をパース
 fn parse_points(s : String) -> Array[@model.Point] {
   let points : Array[@model.Point] = []
-  let pairs : Array[String] = s.split(" ").map(fn(sv) { sv.to_string() }).collect()
+  let pairs : Array[String] = s
+    .split(" ")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
   for pair in pairs {
-    let coords : Array[String] = pair.split(",").map(fn(sv) { sv.to_string() }).collect()
+    let coords : Array[String] = pair
+      .split(",")
+      .map(fn(sv) { sv.to_string() })
+      .collect()
     if coords.length() == 2 {
       if parse_double(coords[0]) is Some(x) {
         if parse_double(coords[1]) is Some(y) {
@@ -376,6 +398,10 @@ fn update_connection_ids(
       }
       None => None
     }
-    elements[i] = { ..el, parent_id: new_parent_id, connections: new_connections }
+    elements[i] = {
+      ..el,
+      parent_id: new_parent_id,
+      connections: new_connections,
+    }
   }
 }

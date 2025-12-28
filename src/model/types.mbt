@@ -1193,6 +1193,30 @@ pub(all) struct LineCoords {
 } derive(Show, Eq)
 
 ///|
+/// LineCoords からアンカーポイントを計算
+fn get_anchor_from_coords(coords : LineCoords, anchor : Anchor) -> Point {
+  match anchor {
+    LineStart => { x: coords.x, y: coords.y }
+    LineEnd => { x: coords.x2, y: coords.y2 }
+    _ => { x: (coords.x + coords.x2) / 2.0, y: (coords.y + coords.y2) / 2.0 }
+  }
+}
+
+///|
+/// 接続先の Line のアンカー位置を取得
+fn find_connected_line_anchor(
+  elements : Array[Element],
+  conn : Connection,
+) -> Point? {
+  for target in elements {
+    if target.id == conn.element_id && target.shape is Line(_, _) {
+      return Some(target.get_anchor_point(conn.anchor))
+    }
+  }
+  None
+}
+
+///|
 /// Line 移動時の座標更新を計算（トポロジー検出）
 ///
 /// 移動した Line から BFS で接続グラフをたどり、
@@ -1205,7 +1229,6 @@ pub fn compute_line_move_topology(
   dx : Double,
   dy : Double,
 ) -> Array[LineCoords] {
-  // 移動した Line を探す
   let moved_line = elements.iter().find_first(fn(e) { e.id == moved_line_id })
   guard moved_line is Some(el) else { return [] }
   guard el.shape is Line(x2, y2) else { return [] }
@@ -1217,37 +1240,22 @@ pub fn compute_line_move_topology(
   let mut final_y2 = y2 + dy
 
   // 接続端点は接続先の Line の位置に固定
-  match el.connections {
-    Some(conns) => {
-      match conns.start {
-        Some(conn) =>
-          for target in elements {
-            if target.id == conn.element_id && target.shape is Line(_, _) {
-              let anchor_point = target.get_anchor_point(conn.anchor)
-              final_x = anchor_point.x
-              final_y = anchor_point.y
-              break
-            }
-          }
-        None => ()
-      }
-      match conns.end {
-        Some(conn) =>
-          for target in elements {
-            if target.id == conn.element_id && target.shape is Line(_, _) {
-              let anchor_point = target.get_anchor_point(conn.anchor)
-              final_x2 = anchor_point.x
-              final_y2 = anchor_point.y
-              break
-            }
-          }
-        None => ()
+  if el.connections is Some(conns) {
+    if conns.start is Some(conn) {
+      if find_connected_line_anchor(elements, conn) is Some(p) {
+        final_x = p.x
+        final_y = p.y
       }
     }
-    None => ()
+    if conns.end is Some(conn) {
+      if find_connected_line_anchor(elements, conn) is Some(p) {
+        final_x2 = p.x
+        final_y2 = p.y
+      }
+    }
   }
 
-  // 座標を Map で管理（更新可能にするため）
+  // 座標を Map で管理（複数回の更新に対応）
   let coords_map : Map[String, LineCoords] = {}
   coords_map[moved_line_id] = {
     id: moved_line_id,
@@ -1259,78 +1267,46 @@ pub fn compute_line_move_topology(
 
   // BFS で接続された Line を順次更新
   let queue : Array[String] = [moved_line_id]
-  let in_queue : Array[String] = [moved_line_id] // キューに追加済みかどうか
-
+  let in_queue : Array[String] = [moved_line_id]
   while queue.length() > 0 {
     let current_id = queue.remove(0)
-    // current_id の更新後座標を取得
-    guard coords_map.get(current_id) is Some(cc)
+    guard coords_map.get(current_id) is Some(current_coords)
 
     // current_id に接続している他の Line を探す
     for e in elements {
       guard e.shape is Line(e_x2, e_y2) else { continue }
-      guard e.id != current_id else { continue } // 自分自身はスキップ
+      guard e.id != current_id else { continue }
       guard e.connections is Some(conns) else { continue }
 
       // 既存の座標があればそれを使用、なければ元の座標
-      let existing = coords_map.get(e.id)
-      let mut new_ex = match existing {
-        Some(c) => c.x
-        None => e.x
+      let (base_x, base_y, base_x2, base_y2) = match coords_map.get(e.id) {
+        Some(c) => (c.x, c.y, c.x2, c.y2)
+        None => (e.x, e.y, e_x2, e_y2)
       }
-      let mut new_ey = match existing {
-        Some(c) => c.y
-        None => e.y
-      }
-      let mut new_ex2 = match existing {
-        Some(c) => c.x2
-        None => e_x2
-      }
-      let mut new_ey2 = match existing {
-        Some(c) => c.y2
-        None => e_y2
-      }
+      let mut new_x = base_x
+      let mut new_y = base_y
+      let mut new_x2 = base_x2
+      let mut new_y2 = base_y2
       let mut needs_update = false
 
       // 始点が current_id に接続している場合
-      match conns.start {
-        Some(conn) if conn.element_id == current_id => {
-          // current_id の更新後座標で仮の Element を作成してアンカー位置を計算
-          let temp_el : Element = {
-            ..el,
-            x: cc.x,
-            y: cc.y,
-            shape: Line(cc.x2, cc.y2),
-          }
-          let anchor_point = temp_el.get_anchor_point(conn.anchor)
-          new_ex = anchor_point.x
-          new_ey = anchor_point.y
-          needs_update = true
-        }
-        _ => ()
+      if conns.start is Some(conn) && conn.element_id == current_id {
+        let p = get_anchor_from_coords(current_coords, conn.anchor)
+        new_x = p.x
+        new_y = p.y
+        needs_update = true
       }
 
       // 終点が current_id に接続している場合
-      match conns.end {
-        Some(conn) if conn.element_id == current_id => {
-          let temp_el : Element = {
-            ..el,
-            x: cc.x,
-            y: cc.y,
-            shape: Line(cc.x2, cc.y2),
-          }
-          let anchor_point = temp_el.get_anchor_point(conn.anchor)
-          new_ex2 = anchor_point.x
-          new_ey2 = anchor_point.y
-          needs_update = true
-        }
-        _ => ()
+      if conns.end is Some(conn) && conn.element_id == current_id {
+        let p = get_anchor_from_coords(current_coords, conn.anchor)
+        new_x2 = p.x
+        new_y2 = p.y
+        needs_update = true
       }
 
       if needs_update {
-        // 座標を更新（既存があれば上書き）
-        coords_map[e.id] = { id: e.id, x: new_ex, y: new_ey, x2: new_ex2, y2: new_ey2 }
-        // まだキューに入っていなければ追加
+        coords_map[e.id] = { id: e.id, x: new_x, y: new_y, x2: new_x2, y2: new_y2 }
         if not(in_queue.contains(e.id)) {
           in_queue.push(e.id)
           queue.push(e.id)
@@ -1339,8 +1315,5 @@ pub fn compute_line_move_topology(
     }
   }
 
-  // Map から Array に変換
-  let result : Array[LineCoords] = []
-  coords_map.each(fn(_id, coords) { result.push(coords) })
-  result
+  coords_map.values().collect()
 }
