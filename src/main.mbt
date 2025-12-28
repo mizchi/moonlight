@@ -15,9 +15,65 @@ let clipboard : Ref[Array[@model.Element]] = { val: [] }
 let canvas_height : Int = 300
 
 ///|
+/// IndexedDB 設定
+let db_name : String = "moonlight-editor"
+
+///|
+let store_name : String = "scenes"
+
+///|
+let scene_key : String = "current"
+
+///|
 /// ID カウンター（Signal で管理）
 fn create_id_counter() -> @luna.Signal[Int] {
   @luna.signal(0)
+}
+
+///|
+/// 現在の状態を IndexedDB に保存
+fn save_state(state : EditorState) -> Unit {
+  let elements = state.elements.get()
+  let theme = state.theme_mode.get()
+  let bg_color = match theme {
+    @model.Dark => "#1a1a2e"
+    @model.Light => "#ffffff"
+  }
+  let svg = elements_to_moonlight_svg(elements, canvas_width, canvas_height, bg_color)
+  save_to_indexeddb(db_name, store_name, scene_key, svg, fn() { () }, fn() { () })
+}
+
+///|
+/// IndexedDB から状態を読み込み
+fn load_state(
+  state : EditorState,
+  new_id : () -> String,
+  on_loaded : () -> Unit,
+  on_not_found : () -> Unit,
+) -> Unit {
+  load_from_indexeddb(
+    db_name,
+    store_name,
+    scene_key,
+    fn(svg_str) {
+      let elements = import_svg_elements(svg_str, new_id)
+      if elements.length() > 0 {
+        state.elements.set(elements)
+      }
+      on_loaded()
+    },
+    on_not_found,
+    on_not_found,
+  )
+}
+
+///|
+/// 自動保存の Effect を設定
+fn setup_auto_save(state : EditorState) -> Unit {
+  let _ = @luna.effect(fn() {
+    let _ = state.elements.get() // 依存関係を登録
+    save_state(state)
+  })
 }
 
 ///|
@@ -56,7 +112,16 @@ fn create_embedded_app() -> @element.DomNode {
   }
   let state = EditorState::new_with_mode(canvas_width, canvas_height, Embedded)
   let history = @model.History::new()
-  add_sample_shapes(state, new_id)
+  // IndexedDB から読み込み、なければサンプルを追加
+  load_state(
+    state,
+    new_id,
+    fn() { setup_auto_save(state) },
+    fn() {
+      add_sample_shapes(state, new_id)
+      setup_auto_save(state)
+    },
+  )
   embedded_editor_app(state, history, new_id)
 }
 
@@ -76,8 +141,16 @@ fn editor_app() -> @element.DomNode {
   // 履歴管理
   let history = @model.History::new()
 
-  // サンプルの図形を追加
-  add_sample_shapes(state, new_id)
+  // IndexedDB から読み込み、なければサンプルを追加
+  load_state(
+    state,
+    new_id,
+    fn() { setup_auto_save(state) },
+    fn() {
+      add_sample_shapes(state, new_id)
+      setup_auto_save(state)
+    },
+  )
 
   // ウィンドウサイズを監視してモバイル判定を更新
   observe_window_resize_ffi(fn(width, _height) {

@@ -415,3 +415,72 @@ pub extern "js" fn get_attribute(el : @js.Any, name : String) -> @js.Any =
 /// 要素のテキスト内容を取得
 pub extern "js" fn get_text_content(el : @js.Any) -> String =
   #| (el) => el.textContent || ''
+
+// ============================================================
+// IndexedDB API
+// ============================================================
+
+///|
+/// IndexedDB に文字列を保存
+pub extern "js" fn save_to_indexeddb(
+  db_name : String,
+  store_name : String,
+  key : String,
+  value : String,
+  on_done : () -> Unit,
+  on_error : () -> Unit,
+) =
+  #| (dbName, storeName, key, value, onDone, onError) => {
+  #|   const request = indexedDB.open(dbName, 1);
+  #|   request.onupgradeneeded = (e) => {
+  #|     const db = e.target.result;
+  #|     if (!db.objectStoreNames.contains(storeName)) {
+  #|       db.createObjectStore(storeName);
+  #|     }
+  #|   };
+  #|   request.onsuccess = (e) => {
+  #|     const db = e.target.result;
+  #|     const tx = db.transaction(storeName, 'readwrite');
+  #|     const store = tx.objectStore(storeName);
+  #|     store.put(value, key);
+  #|     tx.oncomplete = () => { db.close(); onDone(); };
+  #|     tx.onerror = () => { db.close(); onError(); };
+  #|   };
+  #|   request.onerror = () => onError();
+  #| }
+
+///|
+/// IndexedDB から文字列を読み込み
+pub extern "js" fn load_from_indexeddb(
+  db_name : String,
+  store_name : String,
+  key : String,
+  on_success : (String) -> Unit,
+  on_not_found : () -> Unit,
+  on_error : () -> Unit,
+) =
+  #| (dbName, storeName, key, onSuccess, onNotFound, onError) => {
+  #|   const request = indexedDB.open(dbName, 1);
+  #|   request.onupgradeneeded = (e) => {
+  #|     const db = e.target.result;
+  #|     if (!db.objectStoreNames.contains(storeName)) {
+  #|       db.createObjectStore(storeName);
+  #|     }
+  #|   };
+  #|   request.onsuccess = (e) => {
+  #|     const db = e.target.result;
+  #|     const tx = db.transaction(storeName, 'readonly');
+  #|     const store = tx.objectStore(storeName);
+  #|     const getReq = store.get(key);
+  #|     getReq.onsuccess = () => {
+  #|       db.close();
+  #|       if (getReq.result === undefined) {
+  #|         onNotFound();
+  #|       } else {
+  #|         onSuccess(getReq.result);
+  #|       }
+  #|     };
+  #|     getReq.onerror = () => { db.close(); onError(); };
+  #|   };
+  #|   request.onerror = () => onError();
+  #| }
