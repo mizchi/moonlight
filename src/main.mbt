@@ -1296,6 +1296,7 @@ fn setup_keyboard_shortcuts(
     let key : String = e._get("key").cast()
     let ctrl_key : Bool = e._get("ctrlKey").cast()
     let meta_key : Bool = e._get("metaKey").cast()
+    let shift_key : Bool = e._get("shiftKey").cast()
     let is_cmd = ctrl_key || meta_key
 
     // マウス位置を取得
@@ -1544,6 +1545,50 @@ fn setup_keyboard_shortcuts(
           let _ = e._call("preventDefault", [])
           let _ = redo_command(history, state)
 
+        }
+      "s" =>
+        if is_cmd {
+          let _ = e._call("preventDefault", [])
+          // Ctrl+S: SVGファイルをダウンロード
+          let svg_str = elements_to_moonlight_svg(
+            state.elements.get(),
+            state.doc_width.get().to_int(),
+            state.doc_height.get().to_int(),
+            state.get_theme().background,
+          )
+          download_file(svg_str, "moonlight.svg", "image/svg+xml")
+        }
+      "C" =>
+        // Ctrl+Shift+C: SVGテキストをクリップボードにコピー
+        if is_cmd && shift_key {
+          let _ = e._call("preventDefault", [])
+          let svg_str = elements_to_moonlight_svg(
+            state.elements.get(),
+            state.doc_width.get().to_int(),
+            state.doc_height.get().to_int(),
+            state.get_theme().background,
+          )
+          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
+        }
+      "V" =>
+        // Ctrl+Shift+V: クリップボードからSVGをインポート
+        if is_cmd && shift_key {
+          let _ = e._call("preventDefault", [])
+          read_clipboard_text(
+            fn(text) {
+              let imported = import_svg_elements(text, new_id)
+              for el in imported {
+                execute_command(history, state, @model.AddElement(el))
+              }
+              if imported.length() > 0 {
+                let ids = imported
+                  .filter(fn(el) { el.parent_id is None })
+                  .map(fn(el) { el.id })
+                state.select_multiple(ids)
+              }
+            },
+            fn() { () },
+          )
         }
       _ => ()
     }
@@ -2160,18 +2205,56 @@ fn render_embedded_toolbar(
     },
     // セパレータ
     @components.toolbar_separator(theme),
-    // エクスポート
+    // エクスポート（Moonlight SVG形式でダウンロード）
     @components.toolbar_button(
       @components.svg_icon(@components.icon_export, 16),
       None,
-      "Export SVG",
+      "Download SVG (Ctrl+S)",
       fn() {
-        let svg_str = elements_to_svg(
+        let svg_str = elements_to_moonlight_svg(
           state.elements.get(),
-          canvas_width,
-          canvas_height,
+          state.doc_width.get().to_int(),
+          state.doc_height.get().to_int(),
+          state.get_theme().background,
         )
-        download_file(svg_str, "drawing.svg", "image/svg+xml")
+        download_file(svg_str, "moonlight.svg", "image/svg+xml")
+      },
+      theme~,
+    ),
+    // コピー（SVGテキスト）
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_copy, 16),
+      None,
+      "Copy SVG (Ctrl+Shift+C)",
+      fn() {
+        let svg_str = elements_to_moonlight_svg(
+          state.elements.get(),
+          state.doc_width.get().to_int(),
+          state.doc_height.get().to_int(),
+          state.get_theme().background,
+        )
+        copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
+      },
+      theme~,
+    ),
+    // インポート
+    @components.toolbar_button(
+      @components.svg_icon(@components.icon_import, 16),
+      None,
+      "Import SVG (Ctrl+Shift+V)",
+      fn() {
+        open_file_dialog(".svg", fn(text) {
+          let imported = import_svg_elements(text, new_id)
+          for el in imported {
+            execute_command(history, state, @model.AddElement(el))
+          }
+          if imported.length() > 0 {
+            let ids = imported
+              .filter(fn(el) { el.parent_id is None })
+              .map(fn(el) { el.id })
+            state.select_multiple(ids)
+          }
+        })
       },
       theme~,
     ),

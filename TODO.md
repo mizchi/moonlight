@@ -11,6 +11,13 @@
 - [x] Luna mbt への反映
 - [x] 図形コンポーネントへの切り出し, UIを用意する。
 - [ ] WebComponents
+- [x] SVG Export (Moonlight形式 - data-* 属性でメタデータ埋め込み)
+  - Ctrl+S: SVGファイルダウンロード
+  - Ctrl+Shift+C: SVGテキストをクリップボードにコピー
+  - ツールバーボタン: Export, Copy
+- [x] SVG Import (Moonlight形式 + プレーンSVG基本図形対応)
+  - Ctrl+Shift+V: クリップボードからインポート
+  - ツールバーボタン: Import (ファイル選択ダイアログ)
 - [ ] export page を作る
 - [x] shift おしながらクリックで複数選択して、移動できる。ツールチップ側には選択中の要素をリストで表示する
 - [x] Ctrl-C で選択要素をコピーして、　Ctrl-V で右下にややずらした位置に複製

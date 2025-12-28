@@ -897,6 +897,22 @@ pub fn parse_anchor(anchor_str : String) -> Anchor? {
   }
 }
 
+///|
+/// Anchor を文字列に変換
+pub fn anchor_to_string(anchor : Anchor) -> String {
+  match anchor {
+    Center => "center"
+    Top => "top"
+    Bottom => "bottom"
+    Left => "left"
+    Right => "right"
+    TopLeft => "top-left"
+    TopRight => "top-right"
+    BottomLeft => "bottom-left"
+    BottomRight => "bottom-right"
+  }
+}
+
 // ============================================================
 // 接続ライン計算（純粋関数）
 // ============================================================

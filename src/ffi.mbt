@@ -300,3 +300,118 @@ pub extern "js" fn update_svg_css_vars_ffi(
   #|   svg.style.setProperty('--ml-fill', fill);
   #|   svg.style.setProperty('--ml-text', textColor);
   #| }
+
+// ============================================================
+// クリップボード API
+// ============================================================
+
+///|
+/// テキストをクリップボードにコピー
+pub extern "js" fn copy_text_to_clipboard(
+  text : String,
+  on_done : () -> Unit,
+  on_error : () -> Unit,
+) =
+  #| (text, onDone, onError) => {
+  #|   navigator.clipboard.writeText(text)
+  #|     .then(() => onDone())
+  #|     .catch(() => onError());
+  #| }
+
+///|
+/// SVGをPNG画像としてクリップボードにコピー
+pub extern "js" fn copy_svg_as_image(
+  svg_str : String,
+  width : Int,
+  height : Int,
+  on_done : () -> Unit,
+  on_error : () -> Unit,
+) =
+  #| (svg, width, height, onDone, onError) => {
+  #|   const img = new Image();
+  #|   const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+  #|   const url = URL.createObjectURL(svgBlob);
+  #|   img.onload = () => {
+  #|     const canvas = document.createElement('canvas');
+  #|     canvas.width = width;
+  #|     canvas.height = height;
+  #|     const ctx = canvas.getContext('2d');
+  #|     ctx.drawImage(img, 0, 0);
+  #|     canvas.toBlob(blob => {
+  #|       URL.revokeObjectURL(url);
+  #|       if (!blob) { onError(); return; }
+  #|       const item = new ClipboardItem({ 'image/png': blob });
+  #|       navigator.clipboard.write([item])
+  #|         .then(() => onDone())
+  #|         .catch(() => onError());
+  #|     }, 'image/png');
+  #|   };
+  #|   img.onerror = () => {
+  #|     URL.revokeObjectURL(url);
+  #|     onError();
+  #|   };
+  #|   img.src = url;
+  #| }
+
+///|
+/// クリップボードからテキストを読み込み
+pub extern "js" fn read_clipboard_text(
+  on_success : (String) -> Unit,
+  on_error : () -> Unit,
+) =
+  #| (onSuccess, onError) => {
+  #|   navigator.clipboard.readText()
+  #|     .then(text => onSuccess(text))
+  #|     .catch(() => onError());
+  #| }
+
+///|
+/// ファイル選択ダイアログを開く
+pub extern "js" fn open_file_dialog(
+  accept : String,
+  on_file : (String) -> Unit,
+) =
+  #| (accept, onFile) => {
+  #|   const input = document.createElement('input');
+  #|   input.type = 'file';
+  #|   input.accept = accept;
+  #|   input.onchange = async (e) => {
+  #|     const file = e.target.files[0];
+  #|     if (file) {
+  #|       const text = await file.text();
+  #|       onFile(text);
+  #|     }
+  #|   };
+  #|   input.click();
+  #| }
+
+///|
+/// SVG文字列をパースしてDOM要素を返す
+pub extern "js" fn parse_svg_string(svg_str : String) -> @js.Any =
+  #| (svg) => {
+  #|   const parser = new DOMParser();
+  #|   const doc = parser.parseFromString(svg, 'image/svg+xml');
+  #|   const parseError = doc.querySelector('parsererror');
+  #|   if (parseError) return null;
+  #|   return doc.documentElement;
+  #| }
+
+///|
+/// SVG要素の子要素リストを取得
+pub extern "js" fn get_svg_children(svg : @js.Any) -> @js.Any =
+  #| (svg) => Array.from(svg.children)
+
+///|
+/// 要素のタグ名を取得
+pub extern "js" fn get_tag_name(el : @js.Any) -> String =
+  #| (el) => el.tagName.toLowerCase()
+
+///|
+/// 要素の属性を取得（存在しない場合はnull）
+pub extern "js" fn get_attribute(el : @js.Any, name : String) -> @js.Any =
+  #| (el, name) => el.getAttribute(name)
+
+///|
+/// 要素のテキスト内容を取得
+pub extern "js" fn get_text_content(el : @js.Any) -> String =
+  #| (el) => el.textContent || ''

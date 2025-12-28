@@ -54,6 +54,18 @@ pub let icon_grid : String = "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z
 pub let icon_export : String = "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5l5-5M12 15V3"
 
 ///|
+/// インポートアイコン
+pub let icon_import : String = "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5l-5 5M12 3v12"
+
+///|
+/// コピーアイコン
+pub let icon_copy : String = "M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.24a2 2 0 0 0-.59-1.41l-2.83-2.83A2 2 0 0 0 15.17 2H10a2 2 0 0 0-2 2zM16 2v4a2 2 0 0 0 2 2h4M4 12v8a2 2 0 0 0 2 2h8"
+
+///|
+/// 画像アイコン
+pub let icon_image : String = "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 9.5A1.5 1.5 0 1 0 7 8a1.5 1.5 0 0 0 1.5 1.5zM21 15l-5-5L5 21"
+
+///|
 /// ダークモードアイコン（月）
 pub let icon_dark_mode : String = "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
 
