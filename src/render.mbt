@@ -153,11 +153,17 @@ pub fn render_element(
     }
     @model.Line(x2, y2) => {
       // グループ要素でラップ（ヒットエリア + 線）
-      let group = create_svg_element(
-        "g",
-        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
-        [],
-      )
+      // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
+      let stroke_color = el.style.stroke.unwrap_or("#000000")
+      let group_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("data-element-type", "line"),
+        ("cursor", "move"),
+      ]
+      if stroke_color.has_prefix("var(") {
+        group_attrs.push(("style", "color: \{stroke_color}"))
+      }
+      let group = create_svg_element("g", group_attrs, [])
       // 透明なヒットエリア（クリックしやすくするため、24px幅）
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
@@ -194,8 +200,7 @@ pub fn render_element(
         ("pointer-events", "none"),
       ]
       add_style_attrs(line_attrs, el.style)
-      // 矢印マーカーを追加
-      let stroke_color = el.style.stroke.unwrap_or("#000000")
+      // 矢印マーカーを追加（stroke_color は上で定義済み）
       add_marker_attrs(line_attrs, el.style, stroke_color)
       if el.transform is Some(t) {
         line_attrs.push(("transform", t))
@@ -932,6 +937,8 @@ pub fn render_element_node(
       create_svg_node("ellipse", attrs, [], [])
     }
     @model.Line(x2, y2) => {
+      // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
+      let stroke_color = el.style.stroke.unwrap_or("#000000")
       // 透明なヒットエリア
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
@@ -968,19 +975,21 @@ pub fn render_element_node(
         ("pointer-events", "none"),
       ]
       add_style_attrs(line_attrs, el.style)
-      let stroke_color = el.style.stroke.unwrap_or("#000000")
       add_marker_attrs(line_attrs, el.style, stroke_color)
       if el.transform is Some(t) {
         line_attrs.push(("transform", t))
       }
       children.push(create_svg_node("line", line_attrs, [], []))
-      // グループ
-      create_svg_node(
-        "g",
-        [("data-id", el.id), ("data-element-type", "line"), ("cursor", "move")],
-        [],
-        children,
-      )
+      // グループ（CSS変数の場合はcolor属性を追加）
+      let group_attrs : Array[(String, String)] = [
+        ("data-id", el.id),
+        ("data-element-type", "line"),
+        ("cursor", "move"),
+      ]
+      if stroke_color.has_prefix("var(") {
+        group_attrs.push(("style", "color: \{stroke_color}"))
+      }
+      create_svg_node("g", group_attrs, [], children)
     }
     @model.Polyline(points) => {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
@@ -1519,6 +1528,12 @@ extern "js" fn update_line_children_ffi(
   stroke_width : Double,
 ) =
   #| (group, x1, y1, x2, y2, stroke, strokeWidth) => {
+  #|   // CSS変数の場合、グループにcolor属性を設定してcurrentColorマーカーが継承できるようにする
+  #|   if (stroke.startsWith('var(')) {
+  #|     group.style.color = stroke;
+  #|   } else {
+  #|     group.style.color = '';
+  #|   }
   #|   const children = group.children;
   #|   for (let i = 0; i < children.length; i++) {
   #|     const child = children[i];
@@ -1633,6 +1648,8 @@ fn create_line_vnode_with_ref(
   y2 : Double,
   el_ref : Ref[@js.Any?],
 ) -> @element.DomNode {
+  // stroke が CSS変数の場合、color も設定して currentColor マーカーが継承できるようにする
+  let stroke_color = el.style.stroke.unwrap_or("#000000")
   // 子要素を作成
   let children : Array[@element.DomNode] = []
 
@@ -1657,17 +1674,19 @@ fn create_line_vnode_with_ref(
     ("pointer-events", "none"),
   ]
   add_style_attrs(line_attrs, el.style)
-  let stroke_color = el.style.stroke.unwrap_or("#000000")
   add_marker_attrs(line_attrs, el.style, stroke_color)
   children.push(create_svg_node("line", line_attrs, [], []))
 
-  // グループを作成（__ref 付き）
+  // グループを作成（__ref 付き、CSS変数の場合はcolor属性を追加）
   let group_attrs : Array[(String, @element.AttrValue)] = [
     ("data-id", @element.Static(el.id)),
     ("data-element-type", @element.Static("line")),
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
+  if stroke_color.has_prefix("var(") {
+    group_attrs.push(("style", @element.Static("color: \{stroke_color}")))
+  }
   @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
 }
 
