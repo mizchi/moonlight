@@ -1740,10 +1740,6 @@ fn render_embedded_toolbar(
     {
       let snap_popover_id = "tooltip-grid-snap"
       let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
-      let is_dark = state.theme_mode.get() == @model.Dark
-      let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
-      let enabled_border = if is_dark { "#4a9eff" } else { "#2196f3" }
-      let enabled_color = if is_dark { "#60a5fa" } else { "#1976d2" }
       div(style="position: relative; display: inline-block;", [
         @element.create_element(
           "button",
@@ -1752,13 +1748,22 @@ fn render_embedded_toolbar(
               "style",
               @element.Dynamic(fn() {
                 let enabled = state.grid_enabled.get()
+                let is_dark = state.theme_mode.get() == @model.Dark
+                let current_theme = if is_dark {
+                  @model.Theme::dark()
+                } else {
+                  @model.Theme::light()
+                }
                 let base = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid; border-radius: 4px; min-width: 36px; height: 40px;"
                 if enabled {
+                  let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
+                  let enabled_border = if is_dark { "#4a9eff" } else { "#2196f3" }
+                  let enabled_color = if is_dark { "#60a5fa" } else { "#1976d2" }
                   base +
                   "background: \{enabled_bg}; border-color: \{enabled_border}; color: \{enabled_color};"
                 } else {
                   base +
-                  "background: \{theme.ui_bg}; border-color: \{theme.ui_border}; color: \{theme.ui_text_muted};"
+                  "background: \{current_theme.ui_bg}; border-color: \{current_theme.ui_border}; color: \{current_theme.ui_text_muted};"
                 }
               }),
             ),
@@ -1858,11 +1863,25 @@ fn render_svg_canvas_node(
   // Canvas 背景（境界外グレー + ドキュメント境界）
   children.push(render_canvas_background_vnode(state))
 
-  // グリッド線
+  // グリッド線（grid_enabled に応じて表示/非表示）
   children.push(
-    @element.show(fn() { state.grid_enabled.get() }, fn() {
-      render_grid_vnode(state)
-    }),
+    @element.create_element_ns(
+      @element.svg_ns,
+      "g",
+      [
+        (
+          "style",
+          @element.Dynamic(fn() {
+            if state.grid_enabled.get() {
+              "visibility: visible;"
+            } else {
+              "visibility: hidden;"
+            }
+          }),
+        ),
+      ],
+      [render_grid_vnode(state)],
+    ),
   )
 
   // 要素を for_each で描画（ID ベースの差分更新）
