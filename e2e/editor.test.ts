@@ -530,35 +530,41 @@ test.describe('Moonlight SVG Editor', () => {
       await expect(textarea).toHaveValue('Text');
     });
 
-    // Skip - text update may have timing issues with Effect-based rendering
-    test.skip('should update text content after editing and pressing Enter', async ({ page }) => {
+    test('should update text content after editing and pressing Enter', async ({ page }) => {
       // Add a text element first
       await page.getByRole('button', { name: 'Text' }).click();
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
 
-      // Find the text element
-      const textElement = page.locator('svg text').last();
-      await expect(textElement).toHaveText('Text');
+      // Find the text element by data-id for stability
+      const textElement = page.locator('svg g[data-element-type="text"]').last();
+      const textContent = textElement.locator('text');
+      await expect(textContent).toHaveText('Text');
 
       // Get text element bounding box for double-click
       const bbox = await textElement.boundingBox();
       expect(bbox).not.toBeNull();
 
-      // Double-click on text element
+      // Double-click on text element to start editing
       await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
 
-      // Find textarea and clear it, then type new text
+      // Find textarea and verify it's visible with correct initial value
       const textarea = page.locator('textarea');
       await expect(textarea).toBeVisible();
-      await textarea.fill('Updated Text');
+      await expect(textarea).toHaveValue('Text');
+
+      // Clear and type new text (using keyboard instead of fill)
+      await textarea.selectText();
+      await page.keyboard.type('Updated Text');
+      await page.waitForTimeout(100);
+      await expect(textarea).toHaveValue('Updated Text');
 
       // Press Enter to confirm
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(300);
 
       // Verify text was updated
-      await expect(textElement).toHaveText('Updated Text');
+      await expect(textContent).toHaveText('Updated Text');
 
       // Textarea should be hidden
       await expect(textarea).not.toBeVisible();
@@ -592,6 +598,52 @@ test.describe('Moonlight SVG Editor', () => {
 
       // Verify original text is preserved
       await expect(textElement).toHaveText('Text');
+
+      // Textarea should be hidden
+      await expect(textarea).not.toBeVisible();
+    });
+
+    test('should edit text inside a shape (Shape内のテキスト)', async ({ page }) => {
+      // Rectangle elements include a text child element
+      // First add a new Rectangle which includes text inside
+      await page.getByRole('button', { name: 'Rectangle' }).click();
+      await page.waitForTimeout(200);
+
+      // Find the newly added rectangle (last one)
+      const rectElement = page.locator('svg rect[data-id]').last();
+      await expect(rectElement).toBeVisible();
+
+      // Get the data-id to find associated text
+      const rectId = await rectElement.getAttribute('data-id');
+      expect(rectId).not.toBeNull();
+
+      // Find text element with matching parent_id or associated with this rect
+      // In this codebase, text elements for shapes have parent_id pointing to the shape
+      // Look for text elements that are related (the text added with Rectangle should be near it)
+      const lastTextElement = page.locator('svg g[data-element-type="text"]').last();
+
+      // Double-click on the rectangle to edit its text
+      const bbox = await rectElement.boundingBox();
+      expect(bbox).not.toBeNull();
+
+      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
+      await page.waitForTimeout(200);
+
+      // Textarea should appear
+      const textarea = page.locator('textarea');
+      await expect(textarea).toBeVisible();
+
+      // Clear and type new text
+      await textarea.selectText();
+      await page.keyboard.type('Updated Shape Text');
+
+      // Press Enter to confirm
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(200);
+
+      // Verify text is updated in the text element
+      const textContent = lastTextElement.locator('text');
+      await expect(textContent).toHaveText('Updated Shape Text');
 
       // Textarea should be hidden
       await expect(textarea).not.toBeVisible();

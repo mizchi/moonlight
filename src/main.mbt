@@ -1468,12 +1468,9 @@ fn render_text_input_container(
       // リアルタイム更新用のコールバック
       let editing_id = edit_state.editing_id
       let initial_text = edit_state.initial_text
-      let on_input = fn(value : String) {
-        // 編集中のテキスト要素をリアルタイムで更新（選択ハンドル更新のため）
-        match editing_id {
-          Some(id) => state.update_text_raw(id, value)
-          None => ()
-        }
+      // 入力中のリアルタイム更新は一時的に無効化（textareaが消える問題を調査中）
+      let on_input = fn(_value : String) {
+        ()
       }
       let on_escape = fn(_value : String) {
         // キャンセル時は元のテキストに戻す
