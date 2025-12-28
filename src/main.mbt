@@ -814,8 +814,32 @@ fn setup_keyboard_shortcuts(
         execute_command(history, state, @model.AddElement(new_circle))
         state.select(Some(el_id))
       }
-      // 3: Arrow をマウス位置に挿入
+      // 3: Ellipse をマウス位置に挿入
       "3" => {
+        let el_id = new_id()
+        let new_ellipse = @model.Element::new(
+          el_id,
+          pos.x,
+          pos.y,
+          @model.Ellipse(60.0, 35.0),
+        ).with_style(state.get_default_style())
+        execute_command(history, state, @model.AddElement(new_ellipse))
+        state.select(Some(el_id))
+      }
+      // 4: Line をマウス位置に挿入
+      "4" => {
+        let el_id = new_id()
+        let new_line = @model.Element::new(
+          el_id,
+          pos.x - 50.0,
+          pos.y,
+          @model.Line(pos.x + 50.0, pos.y),
+        ).with_style(state.get_line_style())
+        execute_command(history, state, @model.AddElement(new_line))
+        state.select(Some(el_id))
+      }
+      // 5: Arrow をマウス位置に挿入
+      "5" => {
         let el_id = new_id()
         let new_arrow = @model.Element::new(
           el_id,
@@ -826,8 +850,8 @@ fn setup_keyboard_shortcuts(
         execute_command(history, state, @model.AddElement(new_arrow))
         state.select(Some(el_id))
       }
-      // 4: Text をマウス位置に挿入
-      "4" => {
+      // 6: Text をマウス位置に挿入
+      "6" => {
         let el_id = new_id()
         let new_text = @model.Element::new(
           el_id,
@@ -1356,7 +1380,7 @@ fn render_embedded_toolbar(
       execute_command(history, state, @model.AddElement(new_circle))
       state.select(Some(el_id))
     }),
-    toolbar_button(svg_icon(icon_ellipse, 16), None, "Ellipse", fn() {
+    toolbar_button(svg_icon(icon_ellipse, 16), Some("3"), "Ellipse", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
       let offset = id_counter.val.to_double() * 20.0
@@ -1369,7 +1393,7 @@ fn render_embedded_toolbar(
       execute_command(history, state, @model.AddElement(new_ellipse))
       state.select(Some(el_id))
     }),
-    toolbar_button(svg_icon(icon_line, 16), None, "Line", fn() {
+    toolbar_button(svg_icon(icon_line, 16), Some("4"), "Line", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
       let offset = id_counter.val.to_double() * 20.0
@@ -1382,7 +1406,7 @@ fn render_embedded_toolbar(
       execute_command(history, state, @model.AddElement(new_line))
       state.select(Some(el_id))
     }),
-    toolbar_button(svg_icon(icon_arrow, 16), Some("3"), "Arrow", fn() {
+    toolbar_button(svg_icon(icon_arrow, 16), Some("5"), "Arrow", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
       let offset = id_counter.val.to_double() * 20.0
@@ -1395,7 +1419,7 @@ fn render_embedded_toolbar(
       execute_command(history, state, @model.AddElement(new_arrow))
       state.select(Some(el_id))
     }),
-    toolbar_button(svg_icon(icon_text, 16), Some("4"), "Text", fn() {
+    toolbar_button(svg_icon(icon_text, 16), Some("6"), "Text", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
       let offset = id_counter.val.to_double() * 20.0

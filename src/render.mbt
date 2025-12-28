@@ -82,8 +82,12 @@ fn add_style_attrs(attrs : Array[(String, String)], style : @model.Style) -> Uni
 ///|
 /// 矢印マーカー属性を追加（Line 用）
 fn add_marker_attrs(attrs : Array[(String, String)], style : @model.Style, stroke_color : String) -> Unit {
-  // 色に基づいたマーカー ID を使用
-  let color_suffix = stroke_color.replace(old="#", new="")
+  // CSS変数の場合は currentColor を使用、それ以外は色に基づいたマーカー ID を使用
+  let color_suffix = if stroke_color.has_prefix("var(") {
+    "current"
+  } else {
+    stroke_color.replace(old="#", new="")
+  }
   if style.marker_start is Some(@model.Arrow) {
     attrs.push(("marker-start", "url(#arrow-start-\{color_suffix})"))
   }
@@ -342,6 +346,11 @@ fn create_arrow_marker(id : String, color : String, is_start : Bool) -> @js.Any 
 /// SVG 定義（マーカー）を作成
 pub fn create_arrow_defs() -> @js.Any {
   let defs = create_svg_element("defs", [], [])
+  // currentColor マーカー（CSS変数用）
+  let start_current = create_arrow_marker("arrow-start-current", "currentColor", true)
+  let end_current = create_arrow_marker("arrow-end-current", "currentColor", false)
+  append_child_ffi(defs, start_current)
+  append_child_ffi(defs, end_current)
   // よく使う色のマーカーを事前定義
   let colors = [
     "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
@@ -1095,11 +1104,15 @@ fn create_arrow_marker_node(id : String, color : String, is_start : Bool) -> @el
 ///|
 /// SVG defs を DomNode として作成
 pub fn create_arrow_defs_node() -> @element.DomNode {
+  let markers : Array[@element.DomNode] = []
+  // currentColor マーカー（CSS変数用）
+  markers.push(create_arrow_marker_node("arrow-start-current", "currentColor", true))
+  markers.push(create_arrow_marker_node("arrow-end-current", "currentColor", false))
+  // よく使う色のマーカーを事前定義
   let colors = [
     "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff",
     "#ffff00", "#ff00ff", "#00ffff", "#808080", "#c0c0c0",
   ]
-  let markers : Array[@element.DomNode] = []
   for color in colors {
     let suffix = color.replace(old="#", new="")
     markers.push(create_arrow_marker_node("arrow-start-\{suffix}", color, true))
