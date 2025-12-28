@@ -1643,15 +1643,16 @@ extern "js" fn update_text_children_with_style(
 ) =
   #| (group, x, y, content, fontSize, fill, stroke, strokeWidth) => {
   #|   const children = group.children;
-  #|   // ヒットエリアのサイズを計算
+  #|   // ヒットエリアのサイズを計算（係数0.55に統一）
   #|   const lines = content.split('\n');
   #|   const lineCount = lines.length;
   #|   const lineHeight = fontSize * 1.2;
   #|   const totalHeight = lineCount * lineHeight;
   #|   const maxLineLen = lines.reduce((max, line) => Math.max(max, line.length), 0);
-  #|   const estimatedWidth = maxLineLen * fontSize * 0.6;
-  #|   const hitWidth = Math.max(estimatedWidth, 40);
-  #|   const hitHeight = Math.max(totalHeight, 24);
+  #|   const estimatedWidth = maxLineLen * fontSize * 0.55;
+  #|   const minWidth = fontSize * 2.0;
+  #|   const hitWidth = Math.max(estimatedWidth, minWidth);
+  #|   const hitHeight = Math.max(totalHeight, fontSize * 1.2);
   #|   for (let i = 0; i < children.length; i++) {
   #|     const child = children[i];
   #|     if (child.tagName === 'rect') {
@@ -1664,6 +1665,7 @@ extern "js" fn update_text_children_with_style(
   #|       // テキスト要素
   #|       child.setAttribute('x', x);
   #|       child.setAttribute('y', y);
+  #|       child.setAttribute('font-size', fontSize);
   #|       // スタイル更新
   #|       child.setAttribute('fill', fill);
   #|       if (stroke) {
