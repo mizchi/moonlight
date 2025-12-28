@@ -123,27 +123,33 @@ pub extern "js" fn create_textarea_ffi(
   #|   textarea.rows = 1;
   #|   textarea.value = initialValue;
   #|   let isComposing = false;
+  #|   let isClosed = false;
   #|   textarea.addEventListener('compositionstart', () => { isComposing = true; });
   #|   textarea.addEventListener('compositionend', () => { isComposing = false; });
   #|   textarea.addEventListener('keydown', (e) => {
   #|     if (e.key === 'Enter' && !isComposing) {
   #|       // Enter（Shift有無問わず、IMEコンポジション中でない場合）: 確定
   #|       e.preventDefault();
+  #|       isClosed = true;
   #|       onCommit(textarea.value);
   #|     } else if (e.key === 'Escape') {
   #|       // Escape: キャンセル（初期値に戻す）
   #|       e.preventDefault();
+  #|       isClosed = true;
   #|       onEscape(initialValue);
   #|     }
   #|   });
   #|   textarea.addEventListener('blur', () => {
+  #|     if (isClosed) return;
+  #|     isClosed = true;
   #|     onCommit(textarea.value);
   #|   });
   #|   textarea.addEventListener('input', () => {
   #|     // 横幅を自動調整（テキストに合わせて伸びる）
   #|     textarea.style.width = 'auto';
   #|     textarea.style.width = Math.max(textarea.scrollWidth, 40) + 'px';
-  #|     // リアルタイムでテキスト要素を更新
+  #|     // リアルタイムでテキスト要素を更新（閉じられていなければ）
+  #|     if (isClosed) return;
   #|     onInput(textarea.value);
   #|   });
   #|   // フォーカスを遅延設定
