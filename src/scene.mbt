@@ -856,12 +856,39 @@ pub fn EditorState::update_text_raw(
 }
 
 ///|
+/// 要素を1つ前面に移動
+pub fn EditorState::bring_forward(self : EditorState, id : String) -> (Int, Int)? {
+  let els = self.elements.get()
+  if self.get_element_index(id) is Some(from_idx) {
+    let to_idx = from_idx + 1
+    if to_idx < els.length() {
+      self.reorder_element_raw(id, to_idx)
+      return Some((from_idx, to_idx))
+    }
+  }
+  None
+}
+
+///|
 /// 要素を最前面に移動
 pub fn EditorState::bring_to_front(self : EditorState, id : String) -> (Int, Int)? {
   let els = self.elements.get()
   if self.get_element_index(id) is Some(from_idx) {
     let to_idx = els.length() - 1
     if from_idx != to_idx {
+      self.reorder_element_raw(id, to_idx)
+      return Some((from_idx, to_idx))
+    }
+  }
+  None
+}
+
+///|
+/// 要素を1つ背面に移動
+pub fn EditorState::send_backward(self : EditorState, id : String) -> (Int, Int)? {
+  if self.get_element_index(id) is Some(from_idx) {
+    if from_idx > 0 {
+      let to_idx = from_idx - 1
       self.reorder_element_raw(id, to_idx)
       return Some((from_idx, to_idx))
     }
@@ -1344,6 +1371,19 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
       } else {
         // 親要素がリサイズされた場合、子テキストの位置を中央に調整
         self.center_child_elements(resize.element_id)
+      }
+      // 長さゼロの線は削除
+      if el.shape is @model.Line(x2, y2) {
+        let dx = x2 - el.x
+        let dy = y2 - el.y
+        let length = (dx * dx + dy * dy).sqrt()
+        if length < 5.0 {
+          self.remove_element(resize.element_id)
+          self.pending_connection.set(None)
+          self.resize_state.set(None)
+          self.select(None)
+          return
+        }
       }
     }
   }
@@ -1903,6 +1943,21 @@ pub fn EditorState::update_placement(
 /// 配置モードを終了（確定）
 pub fn EditorState::end_placement(self : EditorState) -> Unit {
   guard self.placement_state.get() is Some(placement)
+  guard self.find_element(placement.element_id) is Some(el)
+
+  // 長さゼロの線は削除
+  if el.shape is @model.Line(x2, y2) {
+    let dx = x2 - el.x
+    let dy = y2 - el.y
+    let length = (dx * dx + dy * dy).sqrt()
+    if length < 5.0 {
+      // 最小長さ未満は削除
+      self.remove_element(placement.element_id)
+      self.placement_state.set(None)
+      self.select(None)
+      return
+    }
+  }
 
   // Line/Arrow の場合は接続情報を保存
   if placement.is_line {

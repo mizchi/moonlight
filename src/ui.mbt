@@ -949,7 +949,64 @@ pub fn render_context_menu(
       // 要素上でクリックした場合のみメニューを表示
       if menu.target_id is Some(id) {
         @element.fragment([
-          // Bring to Front
+          // Color section header
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 11px;", [
+            text("Colors"),
+          ]),
+          // Fill color
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            div(style="display: flex; align-items: center; gap: 6px; font-size: 12px;", [
+              @element.span(style="width: 32px; color: #666;", [text("Fill")]),
+              @element.fragment(
+                fill_presets.map(fn(color) {
+                  let is_transparent = color == "transparent"
+                  let bg = if is_transparent {
+                    "linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px"
+                  } else {
+                    color
+                  }
+                  button(
+                    style="width: 18px; height: 18px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0; background: \{bg};",
+                    on=events().click(fn(_) {
+                      if state.find_element(id) is Some(el) {
+                        let fill_value : String? = if is_transparent { None } else { Some(color) }
+                        let new_style = { ..el.style, fill: fill_value }
+                        execute_command(history, state, @model.UpdateStyle(id, el.style, new_style))
+                      }
+                      state.hide_context_menu()
+                    }),
+                    [],
+                  )
+                }),
+              ),
+            ]),
+          ]),
+          // Stroke color
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            div(style="display: flex; align-items: center; gap: 6px; font-size: 12px;", [
+              @element.span(style="width: 32px; color: #666;", [text("Stroke")]),
+              @element.fragment(
+                stroke_presets.map(fn(color) {
+                  button(
+                    style="width: 18px; height: 18px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0; background: \{color};",
+                    on=events().click(fn(_) {
+                      if state.find_element(id) is Some(el) {
+                        let new_style = { ..el.style, stroke: Some(color) }
+                        execute_command(history, state, @model.UpdateStyle(id, el.style, new_style))
+                      }
+                      state.hide_context_menu()
+                    }),
+                    [],
+                  )
+                }),
+              ),
+            ]),
+          ]),
+          // Layer section header
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 11px;", [
+            text("Layer"),
+          ]),
+          // Bring to Very Front
           div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
             button(
               style=menu_button_style,
@@ -964,7 +1021,37 @@ pub fn render_context_menu(
               [text("Bring to Front")],
             ),
           ]),
-          // Send to Back
+          // Bring Forward
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                if state.bring_forward(id) is Some((from_idx, to_idx)) {
+                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
+                  history.undo_stack.push(cmd)
+                  history.redo_stack.clear()
+                }
+                state.hide_context_menu()
+              }),
+              [text("Bring Forward")],
+            ),
+          ]),
+          // Send Backward
+          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+            button(
+              style=menu_button_style,
+              on=events().click(fn(_) {
+                if state.send_backward(id) is Some((from_idx, to_idx)) {
+                  let cmd = @model.ReorderElement(id, from_idx, to_idx)
+                  history.undo_stack.push(cmd)
+                  history.redo_stack.clear()
+                }
+                state.hide_context_menu()
+              }),
+              [text("Send Backward")],
+            ),
+          ]),
+          // Send to Very Back
           div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
             button(
               style=menu_button_style,
