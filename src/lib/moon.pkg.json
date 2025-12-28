@@ -1,0 +1,15 @@
+{
+  "supported-targets": ["js"],
+  "import": [
+    "internal/app/model",
+    "mizchi/luna",
+    {
+      "path": "mizchi/js/core",
+      "alias": "js"
+    },
+    {
+      "path": "mizchi/js/browser/dom",
+      "alias": "js_dom"
+    }
+  ]
+}

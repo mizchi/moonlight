@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight - Embed Mode</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+    .editor-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    #editor {
+      width: 100%;
+      min-height: 300px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #output {
+      background: #1a1a2e;
+      color: #00ff00;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Moonlight Editor - Embed Mode Demo</h1>
+
+  <div class="controls">
+    <button id="btn-export">Export SVG</button>
+    <button id="btn-clear">Clear</button>
+    <button id="btn-destroy">Destroy</button>
+  </div>
+
+  <div class="editor-container">
+    <div id="editor"></div>
+  </div>
+
+  <h2>Output</h2>
+  <div id="output">Ready...</div>
+
+  <script type="module" src="/embed.ts"></script>
+</body>
+</html>

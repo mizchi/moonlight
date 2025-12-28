@@ -60,6 +60,10 @@ pub struct EditorState {
   panel_visible : @luna.Signal[Bool] // パネル表示/非表示
   mode : EditorMode // エディタモード
   modal_open : @luna.Signal[Bool] // モーダル表示状態（埋め込みモード用）
+  // 埋め込みモード用の追加フィールド
+  has_focus : @luna.Signal[Bool] // フォーカスがあるか（キーボードイベント制御用）
+  is_readonly : @luna.Signal[Bool] // 読み取り専用モード
+  show_toolbar : @luna.Signal[Bool] // ツールバー表示/非表示
 }
 
 ///|
@@ -105,6 +109,10 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     panel_visible: @luna.signal(true),
     mode: Full,
     modal_open: @luna.signal(false),
+    // 埋め込みモード用
+    has_focus: @luna.signal(true), // Full モードではデフォルトで true
+    is_readonly: @luna.signal(false),
+    show_toolbar: @luna.signal(true),
   }
 }
 
