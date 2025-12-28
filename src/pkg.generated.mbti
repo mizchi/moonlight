@@ -77,6 +77,8 @@ pub fn render_canvas_background(Double, Double, @model.Viewport, Int, Int, Bool)
 
 pub fn render_canvas_background_vnode(EditorState) -> @element.DomNode
 
+pub fn render_connected_anchor_highlights(Array[@model.Element], @model.Element) -> Array[@core.Any]
+
 pub fn render_connected_point(@model.Point) -> @core.Any
 
 pub fn render_connection_highlight(@model.Point) -> @core.Any
@@ -202,6 +204,7 @@ pub fn EditorState::find_element(Self, String) -> @model.Element?
 pub fn EditorState::find_nearest_connection_point(Self, @model.Point, Array[String], Double) -> (@model.Element, @model.Anchor, @model.Point)?
 pub fn EditorState::fit_to_canvas(Self) -> Unit
 pub fn EditorState::get_arrow_style(Self) -> @model.Style
+pub fn EditorState::get_arrow_style_initial(Self) -> @model.Style
 pub fn EditorState::get_children(Self, String) -> Array[@model.Element]
 pub fn EditorState::get_default_style(Self) -> @model.Style
 pub fn EditorState::get_element_index(Self, String) -> Int?
@@ -245,7 +248,7 @@ pub fn EditorState::start_box_select(Self, Double, Double) -> Unit
 pub fn EditorState::start_drag(Self, String, Double, Double) -> Unit
 pub fn EditorState::start_multi_drag(Self, Double, Double) -> Unit
 pub fn EditorState::start_pan(Self, Double, Double) -> Unit
-pub fn EditorState::start_placement(Self, String, String, @model.Anchor, @model.Point, Bool) -> Unit
+pub fn EditorState::start_placement(Self, String, String, @model.Anchor, @model.Point, Bool, is_arrow? : Bool) -> Unit
 pub fn EditorState::start_resize(Self, String, @model.HandlePosition, Double, Double) -> Unit
 pub fn EditorState::start_text_edit(Self, String, Double, Double) -> Unit
 pub fn EditorState::start_text_edit_existing(Self, String, String, Double, Double, String, Double?) -> Unit
@@ -276,6 +279,8 @@ pub(all) struct PlacementState {
   anchor : @model.Anchor
   anchor_point : @model.Point
   is_line : Bool
+  is_arrow : Bool
+  has_moved : Bool
 }
 
 // Type aliases

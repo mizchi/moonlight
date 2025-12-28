@@ -753,6 +753,31 @@ pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
 }
 
 ///|
+/// 選択要素に接続しているラインのアンカーポイントを黄色でハイライト描画
+pub fn render_connected_anchor_highlights(
+  elements : Array[@model.Element],
+  selected_el : @model.Element,
+) -> Array[@js.Any] {
+  let result : Array[@js.Any] = []
+  // 接続ポイントを収集
+  let points = get_connected_points(elements, selected_el)
+  // 各接続ポイントを黄色でハイライト
+  for point in points {
+    let attrs : Array[(String, String)] = [
+      ("cx", @model.num_str(point.x)),
+      ("cy", @model.num_str(point.y)),
+      ("r", "8"),
+      ("fill", "rgba(255, 200, 0, 0.5)"),
+      ("stroke", "#ffc800"),
+      ("stroke-width", "2"),
+      ("pointer-events", "none"),
+    ]
+    result.push(create_svg_element("circle", attrs, []))
+  }
+  result
+}
+
+///|
 /// ドロップシャドウフィルタを作成
 fn create_drop_shadow_filter(
   id : String,
@@ -1976,6 +2001,13 @@ pub fn render_selection_overlay(state : EditorState) -> @element.DomNode {
         result
       }
       if found_el is Some(el) {
+        // 接続されたアンカーポイントを黄色でハイライト（先に描画）
+        let connected_highlights = render_connected_anchor_highlights(
+          elements, el,
+        )
+        for highlight in connected_highlights {
+          append_child_ffi(container, highlight)
+        }
         // アンカーポイント
         let anchors = render_element_anchors(el)
         for anchor in anchors {
