@@ -141,6 +141,92 @@ fn editor_app() -> @element.DomNode {
 // ============================================================
 
 ///|
+/// 矢印キー方向に応じて図形をリサイズ
+/// 戻り値: (新しい shape, 新しい x, 新しい y)
+fn resize_shape_by_arrow(
+  shape : @model.ShapeType,
+  x : Double,
+  y : Double,
+  key : String,
+  step : Double,
+) -> (@model.ShapeType, Double, Double) {
+  let min_size = 10.0 // 最小サイズ
+  match shape {
+    @model.Rect(w, h, rx, ry) =>
+      match key {
+        "ArrowRight" => (@model.Rect(w + step, h, rx, ry), x, y)
+        "ArrowLeft" => {
+          let new_w = if w + step >= min_size { w + step } else { min_size }
+          (@model.Rect(new_w, h, rx, ry), x - step, y)
+        }
+        "ArrowDown" => (@model.Rect(w, h + step, rx, ry), x, y)
+        "ArrowUp" => {
+          let new_h = if h + step >= min_size { h + step } else { min_size }
+          (@model.Rect(w, new_h, rx, ry), x, y - step)
+        }
+        _ => (shape, x, y)
+      }
+    @model.Circle(r) => {
+      // 円は全方向同じ（半径を増加）
+      let new_r = if r + step >= min_size / 2.0 {
+        r + step
+      } else {
+        min_size / 2.0
+      }
+      (@model.Circle(new_r), x, y)
+    }
+    @model.Ellipse(rx, ry) =>
+      match key {
+        "ArrowRight" | "ArrowLeft" => {
+          let new_rx = if rx + step >= min_size / 2.0 {
+            rx + step
+          } else {
+            min_size / 2.0
+          }
+          (@model.Ellipse(new_rx, ry), x, y)
+        }
+        "ArrowDown" | "ArrowUp" => {
+          let new_ry = if ry + step >= min_size / 2.0 {
+            ry + step
+          } else {
+            min_size / 2.0
+          }
+          (@model.Ellipse(rx, new_ry), x, y)
+        }
+        _ => (shape, x, y)
+      }
+    @model.Line(x2, y2) =>
+      match key {
+        "ArrowRight" => (@model.Line(x2 + step, y2), x, y)
+        "ArrowLeft" => (@model.Line(x2, y2), x - step, y)
+        "ArrowDown" => (@model.Line(x2, y2 + step), x, y)
+        "ArrowUp" => (@model.Line(x2, y2), x, y - step)
+        _ => (shape, x, y)
+      }
+    @model.Text(content, font_size) => {
+      // テキストはフォントサイズを変更
+      let size = font_size.unwrap_or(16.0)
+      match key {
+        "ArrowRight" | "ArrowDown" => {
+          let new_size = size + step / 2.0
+          (@model.Text(content, Some(new_size)), x, y)
+        }
+        "ArrowLeft" | "ArrowUp" => {
+          let new_size = if size - step / 2.0 >= 8.0 {
+            size - step / 2.0
+          } else {
+            8.0
+          }
+          (@model.Text(content, Some(new_size)), x, y)
+        }
+        _ => (shape, x, y)
+      }
+    }
+    _ => (shape, x, y) // Polyline, Path はそのまま
+  }
+}
+
+///|
 /// サンプル図形を追加
 fn add_sample_shapes(state : EditorState, new_id : () -> String) -> Unit {
   let default_style = state.get_default_style()
@@ -232,63 +318,100 @@ fn setup_keyboard_listener(
     if state.context_menu.get() is Some(_) {
       return
     }
-    // Arrow キーでパン（選択なし時）または要素移動（選択あり時）
+    // Arrow キーでパン（選択なし時）または要素移動/リサイズ（選択あり時）
     let selected_ids = state.selected_ids.get()
     let has_selection = selected_ids.length() > 0
+    let shift_key : Bool = e._get("shiftKey").cast()
     match key {
       "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" =>
         if has_selection {
-          // 選択要素がある場合は要素を移動
           let step = if state.grid_enabled.get() {
             grid_size
           } else {
             default_step
           }
-          let (dx, dy) : (Double, Double) = match key {
-            "ArrowUp" => (0.0, -step)
-            "ArrowDown" => (0.0, step)
-            "ArrowLeft" => (-step, 0.0)
-            "ArrowRight" => (step, 0.0)
-            _ => (0.0, 0.0)
-          }
-          // 選択中の全要素を移動
-          for id in selected_ids {
-            if state.find_element(id) is Some(el) {
-              let old_x = el.x
-              let old_y = el.y
-              let new_x = old_x + dx
-              let new_y = old_y + dy
-              // 要素を移動
-              state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
-              // 子要素（テキストなど）も一緒に移動
-              let children = state.get_children(id)
-              for child in children {
-                let child_old_x = child.x
-                let child_old_y = child.y
-                let child_new_x = child_old_x + dx
-                let child_new_y = child_old_y + dy
-                state.update_element(child.id, fn(c) {
-                  { ..c, x: child_new_x, y: child_new_y }
-                })
-                // 子要素の移動もUndoスタックに記録
-                let child_cmd = @model.MoveElement(
-                  child.id,
-                  child_old_x,
-                  child_old_y,
-                  child_new_x,
-                  child_new_y,
+          if shift_key {
+            // Shift+矢印: リサイズ
+            for id in selected_ids {
+              if state.find_element(id) is Some(el) {
+                let old_shape = el.shape
+                let (new_shape, new_x, new_y) = resize_shape_by_arrow(
+                  el.shape,
+                  el.x,
+                  el.y,
+                  key,
+                  step,
                 )
-                history.undo_stack.push(child_cmd)
+                // 要素を更新
+                state.update_element(id, fn(e) {
+                  { ..e, shape: new_shape, x: new_x, y: new_y }
+                })
+                // Undo スタックに記録
+                if new_x != el.x || new_y != el.y {
+                  // 位置も変わった場合は移動も記録
+                  let move_cmd = @model.MoveElement(
+                    id,
+                    el.x,
+                    el.y,
+                    new_x,
+                    new_y,
+                  )
+                  history.undo_stack.push(move_cmd)
+                }
+                let cmd = @model.ResizeElement(id, old_shape, new_shape)
+                history.undo_stack.push(cmd)
               }
-              // 接続されているラインを更新
-              state.update_connected_lines(id)
-              // Undo スタックに記録
-              let cmd = @model.MoveElement(id, old_x, old_y, new_x, new_y)
-              history.undo_stack.push(cmd)
             }
+            history.redo_stack.clear()
+            keyboard_event.preventDefault()
+          } else {
+            // 通常の矢印: 移動
+            let (dx, dy) : (Double, Double) = match key {
+              "ArrowUp" => (0.0, -step)
+              "ArrowDown" => (0.0, step)
+              "ArrowLeft" => (-step, 0.0)
+              "ArrowRight" => (step, 0.0)
+              _ => (0.0, 0.0)
+            }
+            // 選択中の全要素を移動
+            for id in selected_ids {
+              if state.find_element(id) is Some(el) {
+                let old_x = el.x
+                let old_y = el.y
+                let new_x = old_x + dx
+                let new_y = old_y + dy
+                // 要素を移動
+                state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+                // 子要素（テキストなど）も一緒に移動
+                let children = state.get_children(id)
+                for child in children {
+                  let child_old_x = child.x
+                  let child_old_y = child.y
+                  let child_new_x = child_old_x + dx
+                  let child_new_y = child_old_y + dy
+                  state.update_element(child.id, fn(c) {
+                    { ..c, x: child_new_x, y: child_new_y }
+                  })
+                  // 子要素の移動もUndoスタックに記録
+                  let child_cmd = @model.MoveElement(
+                    child.id,
+                    child_old_x,
+                    child_old_y,
+                    child_new_x,
+                    child_new_y,
+                  )
+                  history.undo_stack.push(child_cmd)
+                }
+                // 接続されているラインを更新
+                state.update_connected_lines(id)
+                // Undo スタックに記録
+                let cmd = @model.MoveElement(id, old_x, old_y, new_x, new_y)
+                history.undo_stack.push(cmd)
+              }
+            }
+            history.redo_stack.clear()
+            keyboard_event.preventDefault()
           }
-          history.redo_stack.clear()
-          keyboard_event.preventDefault()
         } else {
           // 選択なしの場合はパン
           let zoom = state.viewport.get().zoom
