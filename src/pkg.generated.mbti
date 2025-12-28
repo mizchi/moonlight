@@ -73,6 +73,8 @@ pub fn is_composing_ffi() -> Bool
 
 pub fn is_input_focused_ffi() -> Bool
 
+pub fn load_from_indexeddb(String, String, String, (String) -> Unit, () -> Unit, () -> Unit) -> Unit
+
 pub fn observe_resize_ffi(@core.Any, (Double, Double) -> Unit) -> Unit
 
 pub fn observe_window_resize_ffi((Int, Int) -> Unit) -> Unit
@@ -150,6 +152,8 @@ pub fn render_svg_container(Int, Int, (@core.Any) -> Unit, (@core.Any) -> Unit, 
 pub fn render_svg_container_with_viewport(Int, Int, @model.Viewport, (@core.Any) -> Unit, (@core.Any) -> Unit, (@core.Any) -> Unit, (@core.Any) -> Unit, (@core.Any) -> Unit, Array[@core.Any]) -> @core.Any
 
 pub fn render_text_input(EditorState, (String) -> Unit, () -> Unit) -> @element.DomNode
+
+pub fn save_to_indexeddb(String, String, String, String, () -> Unit, () -> Unit) -> Unit
 
 pub fn schedule_focus_with_value_ffi(String, String) -> Int
 
