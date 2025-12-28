@@ -51,13 +51,16 @@ pub fn render_floating_panel(
 ) -> @element.DomNode {
   div(
     dyn_style=fn() {
+      let theme = state.get_theme()
       let is_mobile = state.is_mobile.get()
+      let is_dark = state.theme_mode.get() == @model.Dark
+      let shadow = if is_dark { "rgba(0,0,0,0.4)" } else { "rgba(0,0,0,0.15)" }
       if is_mobile {
         // モバイル: 画面下部にスライド表示
-        "position: fixed; bottom: 0; left: 0; right: 0; max-height: 50vh; background: rgba(255,255,255,0.98); border-top: 1px solid #ccc; border-radius: 12px 12px 0 0; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); z-index: 100;"
+        "position: fixed; bottom: 0; left: 0; right: 0; max-height: 50vh; background: \{theme.ui_bg}; border-top: 1px solid \{theme.ui_border}; border-radius: 12px 12px 0 0; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 -2px 12px \{shadow}; z-index: 100; color: \{theme.ui_text};"
       } else {
         // デスクトップ: 右端にフローティング表示
-        "position: fixed; top: 56px; right: 12px; width: \{sidebar_width}px; max-height: calc(100vh - 80px); background: rgba(255,255,255,0.98); border: 1px solid #ccc; border-radius: 8px; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 2px 12px rgba(0,0,0,0.15); z-index: 100;"
+        "position: fixed; top: 56px; right: 12px; width: \{sidebar_width}px; max-height: calc(100vh - 80px); background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 8px; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 2px 12px \{shadow}; z-index: 100; color: \{theme.ui_text};"
       }
     },
     [
@@ -89,11 +92,12 @@ pub fn render_floating_panel(
 ///|
 /// パンくずリストをレンダリング
 fn render_breadcrumb(state : EditorState) -> @element.DomNode {
+  let theme = state.get_theme()
   let breadcrumb_style =
-    "display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-size: 12px;"
+    "display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid \{theme.ui_border}; padding-bottom: 8px; font-size: 12px;"
   let link_style =
-    "color: #0066cc; cursor: pointer; background: none; border: none; padding: 0; font-size: 12px;"
-  let current_style = "color: #333; font-weight: bold;"
+    "color: \{theme.ui_accent}; cursor: pointer; background: none; border: none; padding: 0; font-size: 12px;"
+  let current_style = "color: \{theme.ui_text}; font-weight: bold;"
   // 選択なしの場合はパンくずを非表示
   show(
     fn() { state.selected_ids.get().length() > 0 },
@@ -941,8 +945,15 @@ pub fn render_context_menu(
   new_id : () -> String,
 ) -> @element.DomNode {
   guard state.context_menu.get() is Some(menu)
+  let theme = state.get_theme()
+  let is_dark = state.theme_mode.get() == @model.Dark
+  let shadow = if is_dark { "rgba(0,0,0,0.4)" } else { "rgba(0,0,0,0.1)" }
   let style =
-    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 140px; z-index: 1000;"
+    "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 4px; box-shadow: 2px 2px 10px \{shadow}; min-width: 140px; z-index: 1000; color: \{theme.ui_text};"
+  let section_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border};"
+  let header_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border}; color: \{theme.ui_text_muted}; font-size: 11px;"
+  let label_style = "width: 32px; color: \{theme.ui_text_muted};"
+  let swatch_border = if is_dark { "#666" } else { "#999" }
   div(
     style~,
     [
@@ -950,17 +961,17 @@ pub fn render_context_menu(
       if menu.target_id is Some(id) {
         @element.fragment([
           // Color section header
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 11px;", [
+          div(style=header_style, [
             text("Colors"),
           ]),
           // Stroke color
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             div(style="display: flex; align-items: center; gap: 6px; font-size: 12px;", [
-              @element.span(style="width: 32px; color: #666;", [text("Stroke")]),
+              @element.span(style=label_style, [text("Stroke")]),
               @element.fragment(
                 stroke_presets.map(fn(color) {
                   button(
-                    style="width: 18px; height: 18px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0; background: \{color};",
+                    style="width: 18px; height: 18px; border: 1px solid \{swatch_border}; border-radius: 2px; cursor: pointer; padding: 0; background: \{color};",
                     on=events().click(fn(_) {
                       if state.find_element(id) is Some(el) {
                         let new_style = { ..el.style, stroke: Some(color) }
@@ -975,19 +986,20 @@ pub fn render_context_menu(
             ]),
           ]),
           // Fill color
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             div(style="display: flex; align-items: center; gap: 6px; font-size: 12px;", [
-              @element.span(style="width: 32px; color: #666;", [text("Fill")]),
+              @element.span(style=label_style, [text("Fill")]),
               @element.fragment(
                 fill_presets.map(fn(color) {
                   let is_transparent = color == "transparent"
+                  let checker = if is_dark { "#555" } else { "#ccc" }
                   let bg = if is_transparent {
-                    "linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px"
+                    "linear-gradient(45deg, \{checker} 25%, transparent 25%, transparent 75%, \{checker} 75%), linear-gradient(45deg, \{checker} 25%, transparent 25%, transparent 75%, \{checker} 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px"
                   } else {
                     color
                   }
                   button(
-                    style="width: 18px; height: 18px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0; background: \{bg};",
+                    style="width: 18px; height: 18px; border: 1px solid \{swatch_border}; border-radius: 2px; cursor: pointer; padding: 0; background: \{bg};",
                     on=events().click(fn(_) {
                       if state.find_element(id) is Some(el) {
                         let fill_value : String? = if is_transparent { None } else { Some(color) }
@@ -1003,13 +1015,13 @@ pub fn render_context_menu(
             ]),
           ]),
           // Layer section header
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 11px;", [
+          div(style=header_style, [
             text("Layer"),
           ]),
           // Bring to Very Front
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             button(
-              style=menu_button_style,
+              style=menu_button_style + " color: \{theme.ui_text};",
               on=events().click(fn(_) {
                 if state.bring_to_front(id) is Some((from_idx, to_idx)) {
                   let cmd = @model.ReorderElement(id, from_idx, to_idx)
@@ -1022,9 +1034,9 @@ pub fn render_context_menu(
             ),
           ]),
           // Bring Forward
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             button(
-              style=menu_button_style,
+              style=menu_button_style + " color: \{theme.ui_text};",
               on=events().click(fn(_) {
                 if state.bring_forward(id) is Some((from_idx, to_idx)) {
                   let cmd = @model.ReorderElement(id, from_idx, to_idx)
@@ -1037,9 +1049,9 @@ pub fn render_context_menu(
             ),
           ]),
           // Send Backward
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             button(
-              style=menu_button_style,
+              style=menu_button_style + " color: \{theme.ui_text};",
               on=events().click(fn(_) {
                 if state.send_backward(id) is Some((from_idx, to_idx)) {
                   let cmd = @model.ReorderElement(id, from_idx, to_idx)
@@ -1052,9 +1064,9 @@ pub fn render_context_menu(
             ),
           ]),
           // Send to Very Back
-          div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+          div(style=section_style, [
             button(
-              style=menu_button_style,
+              style=menu_button_style + " color: \{theme.ui_text};",
               on=events().click(fn(_) {
                 if state.send_to_back(id) is Some((from_idx, to_idx)) {
                   let cmd = @model.ReorderElement(id, from_idx, to_idx)
@@ -1069,7 +1081,7 @@ pub fn render_context_menu(
           // Delete
           div(style="padding: 4px 12px;", [
             button(
-              style=menu_button_style + " color: #c53030;",
+              style=menu_button_style + " color: #e53e3e;",
               on=events().click(fn(_) {
                 if state.find_element(id) is Some(el) {
                   execute_command(history, state, @model.RemoveElement(el))
@@ -1097,14 +1109,18 @@ fn render_insert_menu(
   insert_x : Double,
   insert_y : Double,
 ) -> @element.DomNode {
+  let theme = state.get_theme()
+  let section_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border};"
+  let header_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border}; color: \{theme.ui_text_muted}; font-size: 12px;"
+  let btn_style = menu_button_style + " color: \{theme.ui_text};"
   @element.fragment([
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 12px;", [
+    div(style=header_style, [
       text("Insert"),
     ]),
     // Rectangle
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+    div(style=section_style, [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),
@@ -1119,9 +1135,9 @@ fn render_insert_menu(
       ),
     ]),
     // Circle
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+    div(style=section_style, [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),
@@ -1136,9 +1152,9 @@ fn render_insert_menu(
       ),
     ]),
     // Ellipse
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+    div(style=section_style, [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),
@@ -1153,9 +1169,9 @@ fn render_insert_menu(
       ),
     ]),
     // Line
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+    div(style=section_style, [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),
@@ -1170,9 +1186,9 @@ fn render_insert_menu(
       ),
     ]),
     // Arrow
-    div(style="padding: 4px 12px; border-bottom: 1px solid #eee;", [
+    div(style=section_style, [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),
@@ -1189,7 +1205,7 @@ fn render_insert_menu(
     // Text
     div(style="padding: 4px 12px;", [
       button(
-        style=menu_button_style,
+        style=btn_style,
         on=events().click(fn(_) {
           let el = @model.Element::new(
             new_id(),

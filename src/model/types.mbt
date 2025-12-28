@@ -63,6 +63,13 @@ pub(all) struct Theme {
   stroke : String // デフォルト線色（実際の値）
   fill : String // デフォルト塗りつぶし色（実際の値）
   text : String // テキスト色（実際の値）
+  // UI用
+  ui_bg : String // UIパネル背景
+  ui_bg_hover : String // UIホバー背景
+  ui_border : String // UIボーダー
+  ui_text : String // UIテキスト
+  ui_text_muted : String // UI補助テキスト
+  ui_accent : String // UIアクセント
 } derive(Show, Eq)
 
 ///|
@@ -76,13 +83,35 @@ pub let css_var_text : String = "var(--ml-text)"
 ///|
 /// ライトテーマのデフォルト
 pub fn Theme::light() -> Theme {
-  { background: "#ffffff", stroke: "#000000", fill: "transparent", text: "#000000" }
+  {
+    background: "#ffffff",
+    stroke: "#000000",
+    fill: "transparent",
+    text: "#000000",
+    ui_bg: "rgba(255,255,255,0.98)",
+    ui_bg_hover: "#f3f4f6",
+    ui_border: "#d1d5db",
+    ui_text: "#1f2937",
+    ui_text_muted: "#6b7280",
+    ui_accent: "#2563eb",
+  }
 }
 
 ///|
 /// ダークテーマのデフォルト
 pub fn Theme::dark() -> Theme {
-  { background: "#1a1a1a", stroke: "#ffffff", fill: "transparent", text: "#ffffff" }
+  {
+    background: "#1a1a1a",
+    stroke: "#ffffff",
+    fill: "transparent",
+    text: "#ffffff",
+    ui_bg: "rgba(31,31,31,0.98)",
+    ui_bg_hover: "#374151",
+    ui_border: "#4b5563",
+    ui_text: "#f3f4f6",
+    ui_text_muted: "#9ca3af",
+    ui_accent: "#60a5fa",
+  }
 }
 
 ///|

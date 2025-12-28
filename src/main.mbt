@@ -1368,11 +1368,12 @@ fn toolbar_button(
   shortcut : String?,
   tooltip : String,
   on_click : () -> Unit,
+  theme~ : @model.Theme = @model.Theme::light(),
 ) -> @element.DomNode {
   toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
   let popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
-  let btn_style = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: #fff; min-width: 36px; height: 40px; position: relative;"
-  let shortcut_style = "color: #999; font-size: 9px; font-family: system-ui, sans-serif; line-height: 1;"
+  let btn_style = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid \{theme.ui_border}; border-radius: 4px; background: \{theme.ui_bg}; min-width: 36px; height: 40px; position: relative; color: \{theme.ui_text};"
+  let shortcut_style = "color: \{theme.ui_text_muted}; font-size: 9px; font-family: system-ui, sans-serif; line-height: 1;"
   let popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
 
   div(
@@ -1412,7 +1413,8 @@ fn render_embedded_toolbar(
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
-  let sep_style = "width: 1px; height: 24px; background: #ddd; margin: 0 2px;"
+  let theme = state.get_theme()
+  let sep_style = "width: 1px; height: 24px; background: \{theme.ui_border}; margin: 0 2px;"
   let id_counter : Ref[Int] = { val: 0 }
 
   // アイコンパス定義
@@ -1444,7 +1446,7 @@ fn render_embedded_toolbar(
       ).with_style(state.get_default_style())
       execute_command(history, state, @model.AddElement(new_rect))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_circle, 16), Some("2"), "Circle", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
@@ -1457,7 +1459,7 @@ fn render_embedded_toolbar(
       ).with_style(state.get_default_style())
       execute_command(history, state, @model.AddElement(new_circle))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_ellipse, 16), Some("3"), "Ellipse", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
@@ -1470,7 +1472,7 @@ fn render_embedded_toolbar(
       ).with_style(state.get_default_style())
       execute_command(history, state, @model.AddElement(new_ellipse))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_line, 16), Some("4"), "Line", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
@@ -1483,7 +1485,7 @@ fn render_embedded_toolbar(
       ).with_style(state.get_line_style())
       execute_command(history, state, @model.AddElement(new_line))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_arrow, 16), Some("5"), "Arrow", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
@@ -1496,7 +1498,7 @@ fn render_embedded_toolbar(
       ).with_style(state.get_arrow_style())
       execute_command(history, state, @model.AddElement(new_arrow))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_text, 16), Some("6"), "Text", fn() {
       id_counter.val = id_counter.val + 1
       let el_id = new_id()
@@ -1509,24 +1511,24 @@ fn render_embedded_toolbar(
       ).with_style(state.get_text_style())
       execute_command(history, state, @model.AddElement(new_text))
       state.select(Some(el_id))
-    }),
+    }, theme~),
     // セパレータ
     @element.span(style=sep_style, []),
     // Undo/Redo
     toolbar_button(svg_icon(icon_undo, 16), Some("⌘Z"), "Undo", fn() {
       let _ = undo_command(history, state)
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_redo, 16), Some("⌘Y"), "Redo", fn() {
       let _ = redo_command(history, state)
-    }),
+    }, theme~),
     // セパレータ
     @element.span(style=sep_style, []),
     // ズームコントロール
     toolbar_button(svg_icon(icon_zoom_out, 16), None, "Zoom Out", fn() {
       state.zoom_out()
-    }),
+    }, theme~),
     @element.span(
-      style="min-width: 44px; text-align: center; font-size: 11px; font-weight: 500;",
+      style="min-width: 44px; text-align: center; font-size: 11px; font-weight: 500; color: \{theme.ui_text};",
       [
         text_dyn(fn() {
           let zoom = state.viewport.get().zoom
@@ -1536,10 +1538,10 @@ fn render_embedded_toolbar(
     ),
     toolbar_button(svg_icon(icon_zoom_in, 16), None, "Zoom In", fn() {
       state.zoom_in()
-    }),
+    }, theme~),
     toolbar_button(svg_icon(icon_reset, 16), None, "Fit to Canvas", fn() {
       state.reset_viewport()
-    }),
+    }, theme~),
     // セパレータ
     @element.span(style=sep_style, []),
     // グリッドスナップ（トグルボタン + Popover）
@@ -1547,6 +1549,10 @@ fn render_embedded_toolbar(
       toolbar_btn_id_counter.val = toolbar_btn_id_counter.val + 1
       let snap_popover_id = "tooltip-\{toolbar_btn_id_counter.val}"
       let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
+      let is_dark = state.theme_mode.get() == @model.Dark
+      let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
+      let enabled_border = if is_dark { "#4a9eff" } else { "#2196f3" }
+      let enabled_color = if is_dark { "#60a5fa" } else { "#1976d2" }
       div(
         style="position: relative; display: inline-block;",
         [
@@ -1557,9 +1563,9 @@ fn render_embedded_toolbar(
                 let enabled = state.grid_enabled.get()
                 let base = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid; border-radius: 4px; min-width: 36px; height: 40px;"
                 if enabled {
-                  base + "background: #e3f2fd; border-color: #2196f3; color: #1976d2;"
+                  base + "background: \{enabled_bg}; border-color: \{enabled_border}; color: \{enabled_color};"
                 } else {
-                  base + "background: #fff; border-color: #ccc; color: #666;"
+                  base + "background: \{theme.ui_bg}; border-color: \{theme.ui_border}; color: \{theme.ui_text_muted};"
                 }
               })),
               ("aria-label", @element.Static("Grid Snap")),
@@ -1593,7 +1599,7 @@ fn render_embedded_toolbar(
         canvas_height,
       )
       download_file(svg_str, "drawing.svg", "image/svg+xml")
-    }),
+    }, theme~),
   ])
 }
 
