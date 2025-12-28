@@ -1666,6 +1666,21 @@ extern "js" fn update_text_children_with_style(
   #|       child.setAttribute('x', x);
   #|       child.setAttribute('y', y);
   #|       child.setAttribute('font-size', fontSize);
+  #|       // テキスト内容を更新
+  #|       if (lineCount === 1) {
+  #|         child.textContent = content;
+  #|       } else {
+  #|         // 複数行の場合はtspanを再構築
+  #|         child.innerHTML = '';
+  #|         const startOffset = -(lineCount - 1) * lineHeight / 2;
+  #|         lines.forEach((line, i) => {
+  #|           const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+  #|           tspan.setAttribute('x', x);
+  #|           tspan.setAttribute('dy', i === 0 ? startOffset : lineHeight);
+  #|           tspan.textContent = line;
+  #|           child.appendChild(tspan);
+  #|         });
+  #|       }
   #|       // スタイル更新
   #|       child.setAttribute('fill', fill);
   #|       if (stroke) {
