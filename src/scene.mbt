@@ -16,6 +16,16 @@ pub(all) struct PendingConnection {
 }
 
 ///|
+/// 配置モード状態（ショートカットキーからの要素挿入時）
+pub(all) struct PlacementState {
+  element_id : String // 配置中の要素ID
+  anchor_element_id : String // アンカー元の要素ID
+  anchor : @model.Anchor // アンカー位置
+  anchor_point : @model.Point // アンカー座標
+  is_line : Bool // Line/Arrow かどうか（接続情報を保存するか）
+}
+
+///|
 /// エディタの状態
 pub struct EditorState {
   width : Int // 初期ビューポート幅
@@ -38,6 +48,7 @@ pub struct EditorState {
   pan_start : @luna.Signal[(Double, Double)?] // パン開始位置（スクリーン座標）
   text_edit : @luna.Signal[@model.TextEditState?] // テキスト編集状態
   pending_connection : @luna.Signal[PendingConnection?] // ドラッグ中の接続プレビュー
+  placement_state : @luna.Signal[PlacementState?] // 配置モード状態
   mouse_scene_pos : @luna.Signal[@model.Point] // マウス位置（シーン座標）
   preview_bg : @luna.Signal[String] // プレビュー背景色
   embed_bg : @luna.Signal[String] // 埋め込み時の背景色（デフォルト: transparent）
@@ -77,6 +88,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     pan_start: @luna.signal(None),
     text_edit: @luna.signal(None),
     pending_connection: @luna.signal(None),
+    placement_state: @luna.signal(None),
     mouse_scene_pos: @luna.signal({ x: 0.0, y: 0.0 }),
     preview_bg: @luna.signal("#ffffff"),
     embed_bg: @luna.signal("transparent"),
@@ -1787,4 +1799,136 @@ pub fn EditorState::find_nearest_connection_point(
     Some((el, anchor, point, _)) => Some((el, anchor, point))
     None => None
   }
+}
+
+// ============================================================
+// 配置モード関数
+// ============================================================
+
+///|
+/// 配置モードを開始
+pub fn EditorState::start_placement(
+  self : EditorState,
+  element_id : String,
+  anchor_element_id : String,
+  anchor : @model.Anchor,
+  anchor_point : @model.Point,
+  is_line : Bool,
+) -> Unit {
+  self.placement_state.set(
+    Some({ element_id, anchor_element_id, anchor, anchor_point, is_line }),
+  )
+  self.select(Some(element_id))
+}
+
+///|
+/// 配置モード中のマウス位置に応じて要素を更新
+pub fn EditorState::update_placement(
+  self : EditorState,
+  mouse_pos : @model.Point,
+) -> Unit {
+  guard self.placement_state.get() is Some(placement)
+  guard self.find_element(placement.element_id) is Some(el)
+
+  // グリッドスナップを適用
+  let grid_enabled = self.grid_enabled.get()
+  let grid_size = self.grid_size.get()
+  let snap_value = fn(v : Double) -> Double {
+    if grid_enabled {
+      let size = grid_size.to_double()
+      (v / size).round() * size
+    } else {
+      v
+    }
+  }
+
+  let anchor_x = placement.anchor_point.x
+  let anchor_y = placement.anchor_point.y
+  let mouse_x = snap_value(mouse_pos.x)
+  let mouse_y = snap_value(mouse_pos.y)
+
+  match el.shape {
+    @model.Line(_, _) => {
+      // Line/Arrow: 終点をマウス位置に更新（始点はアンカー位置で固定）
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, shape: @model.Line(mouse_x, mouse_y) }
+      })
+    }
+    @model.Circle(_) => {
+      // Circle: アンカーを中心として、マウス距離で半径を決定
+      let dx = mouse_x - anchor_x
+      let dy = mouse_y - anchor_y
+      let raw_radius = (dx * dx + dy * dy).sqrt()
+      let radius = if raw_radius < 5.0 { 5.0 } else { raw_radius }
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, x: anchor_x, y: anchor_y, shape: @model.Circle(radius) }
+      })
+    }
+    @model.Ellipse(_, _) => {
+      // Ellipse: アンカーを中心として、マウス位置で rx/ry を決定
+      let raw_rx = (mouse_x - anchor_x).abs()
+      let raw_ry = (mouse_y - anchor_y).abs()
+      let rx = if raw_rx < 5.0 { 5.0 } else { raw_rx }
+      let ry = if raw_ry < 5.0 { 5.0 } else { raw_ry }
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, x: anchor_x, y: anchor_y, shape: @model.Ellipse(rx, ry) }
+      })
+    }
+    @model.Rect(_, _, corner_rx, corner_ry) => {
+      // Rect: アンカーを固定点として、マウス位置で対角を決定
+      let min_x = if anchor_x < mouse_x { anchor_x } else { mouse_x }
+      let min_y = if anchor_y < mouse_y { anchor_y } else { mouse_y }
+      let raw_width = (mouse_x - anchor_x).abs()
+      let raw_height = (mouse_y - anchor_y).abs()
+      let width = if raw_width < 10.0 { 10.0 } else { raw_width }
+      let height = if raw_height < 10.0 { 10.0 } else { raw_height }
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, x: min_x, y: min_y, shape: @model.Rect(width, height, corner_rx, corner_ry) }
+      })
+    }
+    @model.Text(content, font_size) => {
+      // Text: マウス位置に配置
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, x: mouse_x, y: mouse_y, shape: @model.Text(content, font_size) }
+      })
+    }
+    _ => {
+      // その他: マウス位置に配置
+      self.update_element(placement.element_id, fn(e) { { ..e, x: mouse_x, y: mouse_y } })
+    }
+  }
+}
+
+///|
+/// 配置モードを終了（確定）
+pub fn EditorState::end_placement(self : EditorState) -> Unit {
+  guard self.placement_state.get() is Some(placement)
+
+  // Line/Arrow の場合は接続情報を保存
+  if placement.is_line {
+    let connections : @model.LineConnections = {
+      start: Some({ element_id: placement.anchor_element_id, anchor: placement.anchor }),
+      end: None,
+    }
+    self.update_line_connection(placement.element_id, connections)
+  }
+
+  self.placement_state.set(None)
+}
+
+///|
+/// 配置モードをキャンセル（要素を削除）
+pub fn EditorState::cancel_placement(self : EditorState) -> Unit {
+  guard self.placement_state.get() is Some(placement)
+
+  // 配置中の要素を削除
+  self.remove_element(placement.element_id)
+  self.placement_state.set(None)
+  self.select(None)
+}
+
+///|
+/// 配置モード中かどうか
+pub fn EditorState::is_placing(self : EditorState) -> Bool {
+  self.placement_state.get() is Some(_)
 }

@@ -208,8 +208,13 @@ fn setup_keyboard_listener(
     }
     let key : String = e._get("key").cast()
     let keyboard_event : @js_dom.KeyboardEvent = e.cast()
-    // Escape キーでコンテキストメニューを閉じる
+    // Escape キーで配置モードキャンセル、またはコンテキストメニューを閉じる
     if key == "Escape" {
+      if state.is_placing() {
+        state.cancel_placement()
+        keyboard_event.preventDefault()
+        return
+      }
       if state.context_menu.get() is Some(_) {
         state.hide_context_menu()
         keyboard_event.preventDefault()
@@ -319,6 +324,12 @@ fn create_mousedown_handler(
     // コンテキストメニューが開いている場合は閉じるだけで他のアクションを実行しない
     if state.context_menu.get() is Some(_) {
       state.hide_context_menu()
+      return
+    }
+
+    // 配置モード中はクリックで確定
+    if state.is_placing() {
+      state.end_placement()
       return
     }
 
@@ -591,7 +602,10 @@ fn create_mousemove_handler(
       state.pan_move(screen_x, screen_y)
       return
     }
-    if state.is_resizing() {
+    if state.is_placing() {
+      // 配置モード中は要素をマウス位置に追従
+      state.update_placement({ x: scene_x, y: scene_y })
+    } else if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
     } else if state.is_multi_dragging() {
       state.multi_drag_move(scene_x, scene_y)
@@ -757,6 +771,57 @@ fn create_contextmenu_handler(
 }
 
 ///|
+/// アンカー近くで要素を作成し、配置モードを開始するヘルパー
+fn try_start_placement(
+  state : EditorState,
+  history : @model.History,
+  element : @model.Element,
+  is_line : Bool,
+  anchor_threshold : Double,
+) -> Bool {
+  let pos = state.mouse_scene_pos.get()
+  // アンカー検索
+  let anchor_result = state.find_nearest_connection_point(pos, [], anchor_threshold)
+  match anchor_result {
+    Some((anchor_el, anchor, anchor_point)) => {
+      // アンカーポイントを基準に要素を配置（形状に応じて初期サイズを設定）
+      let placed_element = match element.shape {
+        @model.Line(_, _) => {
+          // Line/Arrow: 始点をアンカー位置に設定
+          { ..element, x: anchor_point.x, y: anchor_point.y }
+        }
+        @model.Circle(_) => {
+          // Circle: アンカーを中心、最小半径で開始
+          { ..element, x: anchor_point.x, y: anchor_point.y, shape: @model.Circle(5.0) }
+        }
+        @model.Ellipse(_, _) => {
+          // Ellipse: アンカーを中心、最小サイズで開始
+          { ..element, x: anchor_point.x, y: anchor_point.y, shape: @model.Ellipse(5.0, 5.0) }
+        }
+        @model.Rect(_, _, rx, ry) => {
+          // Rect: アンカーを起点、最小サイズで開始
+          { ..element, x: anchor_point.x, y: anchor_point.y, shape: @model.Rect(10.0, 10.0, rx, ry) }
+        }
+        _ => {
+          // その他: そのまま配置
+          { ..element, x: anchor_point.x, y: anchor_point.y }
+        }
+      }
+      execute_command(history, state, @model.AddElement(placed_element))
+      state.start_placement(
+        element.id,
+        anchor_el.id,
+        anchor,
+        anchor_point,
+        is_line,
+      )
+      true
+    }
+    None => false
+  }
+}
+
+///|
 /// キーボードショートカットを設定
 fn setup_keyboard_shortcuts(
   state : EditorState,
@@ -790,7 +855,7 @@ fn setup_keyboard_shortcuts(
         }
       }
       "Escape" => state.select(None)
-      // 1: Rectangle をマウス位置に挿入
+      // 1: Rectangle をマウス位置に挿入（アンカー近くなら配置モード）
       "1" => {
         let el_id = new_id()
         let new_rect = @model.Element::new(
@@ -799,10 +864,13 @@ fn setup_keyboard_shortcuts(
           pos.y - 30.0,
           @model.Rect(80.0, 60.0, None, None),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_rect))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_rect, false, 20.0)) {
+          // アンカー近くでなければ即時配置
+          execute_command(history, state, @model.AddElement(new_rect))
+          state.select(Some(el_id))
+        }
       }
-      // 2: Circle をマウス位置に挿入
+      // 2: Circle をマウス位置に挿入（アンカー近くなら配置モード）
       "2" => {
         let el_id = new_id()
         let new_circle = @model.Element::new(
@@ -811,10 +879,12 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Circle(40.0),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_circle))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_circle, false, 20.0)) {
+          execute_command(history, state, @model.AddElement(new_circle))
+          state.select(Some(el_id))
+        }
       }
-      // 3: Ellipse をマウス位置に挿入
+      // 3: Ellipse をマウス位置に挿入（アンカー近くなら配置モード）
       "3" => {
         let el_id = new_id()
         let new_ellipse = @model.Element::new(
@@ -823,10 +893,12 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Ellipse(60.0, 35.0),
         ).with_style(state.get_default_style())
-        execute_command(history, state, @model.AddElement(new_ellipse))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_ellipse, false, 20.0)) {
+          execute_command(history, state, @model.AddElement(new_ellipse))
+          state.select(Some(el_id))
+        }
       }
-      // 4: Line をマウス位置に挿入
+      // 4: Line をマウス位置に挿入（アンカー近くなら配置モード）
       "4" => {
         let el_id = new_id()
         let new_line = @model.Element::new(
@@ -835,10 +907,12 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Line(pos.x + 50.0, pos.y),
         ).with_style(state.get_line_style())
-        execute_command(history, state, @model.AddElement(new_line))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_line, true, 20.0)) {
+          execute_command(history, state, @model.AddElement(new_line))
+          state.select(Some(el_id))
+        }
       }
-      // 5: Arrow をマウス位置に挿入
+      // 5: Arrow をマウス位置に挿入（アンカー近くなら配置モード）
       "5" => {
         let el_id = new_id()
         let new_arrow = @model.Element::new(
@@ -847,10 +921,12 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Line(pos.x + 50.0, pos.y),
         ).with_style(state.get_arrow_style())
-        execute_command(history, state, @model.AddElement(new_arrow))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_arrow, true, 20.0)) {
+          execute_command(history, state, @model.AddElement(new_arrow))
+          state.select(Some(el_id))
+        }
       }
-      // 6: Text をマウス位置に挿入
+      // 6: Text をマウス位置に挿入（アンカー近くなら配置モード）
       "6" => {
         let el_id = new_id()
         let new_text = @model.Element::new(
@@ -859,8 +935,10 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Text("Text", Some(16.0)),
         ).with_style(state.get_text_style())
-        execute_command(history, state, @model.AddElement(new_text))
-        state.select(Some(el_id))
+        if not(try_start_placement(state, history, new_text, false, 20.0)) {
+          execute_command(history, state, @model.AddElement(new_text))
+          state.select(Some(el_id))
+        }
       }
       "d" =>
         if is_cmd {
@@ -1534,8 +1612,20 @@ fn render_svg_canvas_node(
   on_wheel : (@js.Any) -> Unit,
 ) -> @element.DomNode {
   // 要素 ID リスト（for_each のキーとして使用）
+  // Line/Arrow を最後に描画（常に上に表示）するためソート
   let element_ids = @luna.memo(fn() {
-    state.elements.get().map(fn(el) { el.id })
+    let elements = state.elements.get()
+    let non_lines : Array[String] = []
+    let lines : Array[String] = []
+    for el in elements {
+      if el.shape is @model.Line(_, _) {
+        lines.push(el.id)
+      } else {
+        non_lines.push(el.id)
+      }
+    }
+    non_lines.append(lines)
+    non_lines
   })
 
   // SVG 子要素
