@@ -2,6 +2,8 @@
 package "internal/app/model"
 
 // Values
+pub fn anchor_to_string(Anchor) -> String
+
 pub fn apply_command_pure(Command, Array[Element], Array[String]) -> CommandResult
 
 pub fn apply_element_move(Array[Element], String, Double, Double) -> Array[Element]

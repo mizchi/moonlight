@@ -16,6 +16,8 @@ pub let icon_bring_forward : String
 
 pub let icon_circle : String
 
+pub let icon_copy : String
+
 pub let icon_dark_mode : String
 
 pub let icon_delete : String
@@ -27,6 +29,10 @@ pub let icon_ellipse : String
 pub let icon_export : String
 
 pub let icon_grid : String
+
+pub let icon_image : String
+
+pub let icon_import : String
 
 pub let icon_line : String
 

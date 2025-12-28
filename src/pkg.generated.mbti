@@ -17,6 +17,10 @@ pub fn add_keyup_listener((@core.Any) -> Unit) -> Unit
 
 pub fn clear_children_ffi(@core.Any) -> Unit
 
+pub fn copy_svg_as_image(String, Int, Int, () -> Unit, () -> Unit) -> Unit
+
+pub fn copy_text_to_clipboard(String, () -> Unit, () -> Unit) -> Unit
+
 pub fn create_arrow_defs() -> @core.Any
 
 pub fn create_arrow_defs_node() -> @element.DomNode
@@ -29,11 +33,17 @@ pub fn create_textarea_ffi(String, String, (String) -> Unit, (String) -> Unit, (
 
 pub fn download_file(String, String, String) -> Unit
 
+pub fn element_to_moonlight_svg(@model.Element) -> String
+
 pub fn element_to_svg_string(@model.Element) -> String
+
+pub fn elements_to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
 
 pub fn elements_to_svg(Array[@model.Element], Int, Int) -> String
 
 pub fn execute_command(@model.History, EditorState, @model.Command) -> Unit
+
+pub fn get_attribute(@core.Any, String) -> @core.Any
 
 pub fn get_child_at_ffi(@core.Any, Int) -> @core.Any
 
@@ -45,9 +55,17 @@ pub fn get_current_time() -> Double
 
 pub fn get_event_target_value(@core.Any) -> String
 
+pub fn get_svg_children(@core.Any) -> @core.Any
+
+pub fn get_tag_name(@core.Any) -> String
+
+pub fn get_text_content(@core.Any) -> String
+
 pub fn get_url_search_ffi() -> String
 
 pub fn hide_popover(String) -> Unit
+
+pub fn import_svg_elements(String, () -> String) -> Array[@model.Element]
 
 pub fn insert_before_ffi(@core.Any, @core.Any, @core.Any) -> Unit
 
@@ -59,7 +77,13 @@ pub fn observe_resize_ffi(@core.Any, (Double, Double) -> Unit) -> Unit
 
 pub fn observe_window_resize_ffi((Int, Int) -> Unit) -> Unit
 
+pub fn open_file_dialog(String, (String) -> Unit) -> Unit
+
 pub fn parse_double(String) -> Double?
+
+pub fn parse_svg_string(String) -> @core.Any
+
+pub fn read_clipboard_text((String) -> Unit, () -> Unit) -> Unit
 
 pub fn redo_command(@model.History, EditorState) -> Bool
 
@@ -239,6 +263,7 @@ pub fn EditorState::reorder_element_raw(Self, String, Int) -> Unit
 pub fn EditorState::reset_viewport(Self) -> Unit
 pub fn EditorState::resize_move(Self, Double, Double) -> Unit
 pub fn EditorState::select(Self, String?) -> Unit
+pub fn EditorState::select_all(Self) -> Unit
 pub fn EditorState::select_multiple(Self, Array[String]) -> Unit
 pub fn EditorState::send_backward(Self, String) -> (Int, Int)?
 pub fn EditorState::send_to_back(Self, String) -> (Int, Int)?
