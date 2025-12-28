@@ -871,17 +871,7 @@ pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
       anchor == @model.BottomRight {
       continue
     }
-    let anchor_name = match anchor {
-      @model.Center => "center"
-      @model.Top => "top"
-      @model.Bottom => "bottom"
-      @model.Left => "left"
-      @model.Right => "right"
-      @model.TopLeft => "top-left"
-      @model.TopRight => "top-right"
-      @model.BottomLeft => "bottom-left"
-      @model.BottomRight => "bottom-right"
-    }
+    let anchor_name = @model.anchor_to_string(anchor)
     let attrs : Array[(String, String)] = [
       ("cx", @model.num_str(point.x)),
       ("cy", @model.num_str(point.y)),
@@ -1505,17 +1495,7 @@ pub fn render_element_anchors_nodes(
       anchor == @model.BottomRight {
       continue
     }
-    let anchor_name = match anchor {
-      @model.Center => "center"
-      @model.Top => "top"
-      @model.Bottom => "bottom"
-      @model.Left => "left"
-      @model.Right => "right"
-      @model.TopLeft => "top-left"
-      @model.TopRight => "top-right"
-      @model.BottomLeft => "bottom-left"
-      @model.BottomRight => "bottom-right"
-    }
+    let anchor_name = @model.anchor_to_string(anchor)
     result.push(
       create_svg_node(
         "circle",

@@ -1088,6 +1088,7 @@ fn create_mousemove_handler(
     // マウス位置を更新（キーバインドでの挿入用）
     let (scene_x, scene_y) = get_scene_coords(e)
     state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
+    state.mouse_in_canvas.set(true)
     if state.is_panning.get() {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.pan_move(screen_x, screen_y)
@@ -1238,6 +1239,8 @@ fn create_mouseup_handler(
 /// mouseleave ハンドラを作成（マウスが画面外に出た時に状態をリセット）
 fn create_mouseleave_handler(state : EditorState) -> (@js.Any) -> Unit {
   fn(_e) {
+    // マウスがキャンバス外に出たことを記録
+    state.mouse_in_canvas.set(false)
     // すべてのドラッグ・選択状態をリセット
     if state.is_panning.get() {
       state.end_pan()
@@ -2060,7 +2063,6 @@ fn render_embedded_toolbar(
   new_id : () -> String,
 ) -> @element.DomNode {
   let theme = state.get_theme()
-  let id_counter : Ref[Int] = { val: 0 }
   div(style="display: flex; gap: 3px; align-items: center;", [
     // 図形追加ボタン
     @components.toolbar_button(
@@ -2068,14 +2070,15 @@ fn render_embedded_toolbar(
       Some("1"),
       "Rectangle",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
+        let width = 80.0
+        let height = 60.0
         let new_rect = @model.Element::new(
           el_id,
-          150.0 + offset,
-          150.0 + offset,
-          @model.Rect(80.0, 60.0, None, None),
+          pos.x - width / 2.0,
+          pos.y - height / 2.0,
+          @model.Rect(width, height, None, None),
         ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_rect))
         state.select(Some(el_id))
@@ -2087,13 +2090,12 @@ fn render_embedded_toolbar(
       Some("2"),
       "Circle",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
         let new_circle = @model.Element::new(
           el_id,
-          200.0 + offset,
-          200.0 + offset,
+          pos.x,
+          pos.y,
           @model.Circle(40.0),
         ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_circle))
@@ -2106,13 +2108,12 @@ fn render_embedded_toolbar(
       Some("3"),
       "Ellipse",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
         let new_ellipse = @model.Element::new(
           el_id,
-          180.0 + offset,
-          120.0 + offset,
+          pos.x,
+          pos.y,
           @model.Ellipse(60.0, 35.0),
         ).with_style(state.get_default_style())
         execute_command(history, state, @model.AddElement(new_ellipse))
@@ -2125,14 +2126,15 @@ fn render_embedded_toolbar(
       Some("4"),
       "Line",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
+        let dx = 100.0
+        let dy = 50.0
         let new_line = @model.Element::new(
           el_id,
-          50.0 + offset,
-          220.0,
-          @model.Line(180.0 + offset, 260.0),
+          pos.x - dx / 2.0,
+          pos.y - dy / 2.0,
+          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
         ).with_style(state.get_line_style())
         execute_command(history, state, @model.AddElement(new_line))
         state.select(Some(el_id))
@@ -2144,14 +2146,15 @@ fn render_embedded_toolbar(
       Some("5"),
       "Arrow",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
+        let dx = 100.0
+        let dy = 50.0
         let new_arrow = @model.Element::new(
           el_id,
-          50.0 + offset,
-          240.0,
-          @model.Line(180.0 + offset, 280.0),
+          pos.x - dx / 2.0,
+          pos.y - dy / 2.0,
+          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
         ).with_style(state.get_arrow_style())
         execute_command(history, state, @model.AddElement(new_arrow))
         state.select(Some(el_id))
@@ -2163,14 +2166,15 @@ fn render_embedded_toolbar(
       Some("6"),
       "Text",
       fn() {
-        id_counter.val = id_counter.val + 1
         let el_id = new_id()
-        let offset = id_counter.val.to_double() * 20.0
+        let pos = state.get_placement_position()
+        let font_size = 24.0
+        // テキストは左上基準、概算で中央配置（"Text"の幅≒50px）
         let new_text = @model.Element::new(
           el_id,
-          100.0 + offset,
-          200.0 + offset * 0.75,
-          @model.Text("Text", Some(24.0)),
+          pos.x - 25.0,
+          pos.y + font_size / 3.0,
+          @model.Text("Text", Some(font_size)),
         ).with_style(state.get_text_style())
         execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))

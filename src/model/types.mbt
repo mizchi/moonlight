@@ -20,6 +20,8 @@ pub(all) enum Anchor {
   TopRight
   BottomLeft
   BottomRight
+  LineStart // 線の始点
+  LineEnd // 線の終点
 } derive(Show, Eq)
 
 ///|
@@ -300,28 +302,38 @@ pub fn Element::hit_test(self : Element, p : Point) -> Bool {
 ///|
 /// 指定アンカーの座標を取得
 pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
-  let bbox = self.bounding_box()
-  let cx = bbox.x + bbox.width / 2.0
-  let cy = bbox.y + bbox.height / 2.0
-  match anchor {
-    Center => { x: cx, y: cy }
-    Top => { x: cx, y: bbox.y }
-    Bottom => { x: cx, y: bbox.y + bbox.height }
-    Left => { x: bbox.x, y: cy }
-    Right => { x: bbox.x + bbox.width, y: cy }
-    TopLeft => { x: bbox.x, y: bbox.y }
-    TopRight => { x: bbox.x + bbox.width, y: bbox.y }
-    BottomLeft => { x: bbox.x, y: bbox.y + bbox.height }
-    BottomRight => { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+  // Line の場合は始点・終点を直接返す
+  match (self.shape, anchor) {
+    (Line(_, _), LineStart) => { x: self.x, y: self.y }
+    (Line(x2, y2), LineEnd) => { x: x2, y: y2 }
+    _ => {
+      let bbox = self.bounding_box()
+      let cx = bbox.x + bbox.width / 2.0
+      let cy = bbox.y + bbox.height / 2.0
+      match anchor {
+        Center => { x: cx, y: cy }
+        Top => { x: cx, y: bbox.y }
+        Bottom => { x: cx, y: bbox.y + bbox.height }
+        Left => { x: bbox.x, y: cy }
+        Right => { x: bbox.x + bbox.width, y: cy }
+        TopLeft => { x: bbox.x, y: bbox.y }
+        TopRight => { x: bbox.x + bbox.width, y: bbox.y }
+        BottomLeft => { x: bbox.x, y: bbox.y + bbox.height }
+        BottomRight => { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+        // Line 以外の要素に LineStart/LineEnd が指定された場合は中心を返す
+        LineStart | LineEnd => { x: cx, y: cy }
+      }
+    }
   }
 }
 
 ///|
 /// 全てのアンカー位置を取得
 pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
-  // 円・楕円は四隅のアンカーを持たない（上下左右と中心のみ）
+  // 図形タイプに応じたアンカーを返す
   let anchors : Array[Anchor] = match self.shape {
     Circle(_) | Ellipse(_, _) => [Center, Top, Bottom, Left, Right]
+    Line(_, _) => [LineStart, LineEnd] // Line は始点と終点のみ
     _ =>
       [
         Center,
@@ -893,6 +905,8 @@ pub fn parse_anchor(anchor_str : String) -> Anchor? {
     "top-right" => Some(TopRight)
     "bottom-left" => Some(BottomLeft)
     "bottom-right" => Some(BottomRight)
+    "line-start" => Some(LineStart)
+    "line-end" => Some(LineEnd)
     _ => None
   }
 }
@@ -910,6 +924,8 @@ pub fn anchor_to_string(anchor : Anchor) -> String {
     TopRight => "top-right"
     BottomLeft => "bottom-left"
     BottomRight => "bottom-right"
+    LineStart => "line-start"
+    LineEnd => "line-end"
   }
 }
 
@@ -1111,7 +1127,6 @@ pub(all) struct NearestConnectionResult {
 
 ///|
 /// 指定座標から最も近い接続ポイントを探す（純粋関数）
-/// - Line 要素は除外される
 /// - 子要素（parent_id がある要素）は除外される
 /// - exclude_ids に含まれる要素は除外される
 pub fn find_nearest_connection(
@@ -1124,8 +1139,6 @@ pub fn find_nearest_connection(
   for el in elements {
     // 除外リストに含まれる要素はスキップ
     guard not(exclude_ids.contains(el.id)) else { continue }
-    // Line 要素はスキップ（Lineには接続しない）
-    guard not(el.shape is Line(_, _)) else { continue }
     // 子要素はスキップ
     guard el.parent_id is None else { continue }
     // 最寄りのアンカーを探す
@@ -1163,4 +1176,171 @@ pub fn escape_xml(s : String) -> String {
 /// 数値を文字列に変換
 pub fn num_str(value : Double) -> String {
   value.to_string()
+}
+
+// ============================================================
+// Line 接続トポロジー
+// ============================================================
+
+///|
+/// Line の更新後座標
+pub(all) struct LineCoords {
+  id : String
+  x : Double
+  y : Double
+  x2 : Double
+  y2 : Double
+} derive(Show, Eq)
+
+///|
+/// Line 移動時の座標更新を計算（トポロジー検出）
+///
+/// 移動した Line から BFS で接続グラフをたどり、
+/// 影響を受ける全ての Line の新しい座標を計算する
+pub fn compute_line_move_topology(
+  elements : Array[Element],
+  moved_line_id : String,
+  new_x : Double,
+  new_y : Double,
+  dx : Double,
+  dy : Double,
+) -> Array[LineCoords] {
+  // 移動した Line を探す
+  let moved_line = elements.iter().find_first(fn(e) { e.id == moved_line_id })
+  guard moved_line is Some(el) else { return [] }
+  guard el.shape is Line(x2, y2) else { return [] }
+
+  // 移動した Line の新しい座標を計算
+  let mut final_x = new_x
+  let mut final_y = new_y
+  let mut final_x2 = x2 + dx
+  let mut final_y2 = y2 + dy
+
+  // 接続端点は接続先の Line の位置に固定
+  match el.connections {
+    Some(conns) => {
+      match conns.start {
+        Some(conn) =>
+          for target in elements {
+            if target.id == conn.element_id && target.shape is Line(_, _) {
+              let anchor_point = target.get_anchor_point(conn.anchor)
+              final_x = anchor_point.x
+              final_y = anchor_point.y
+              break
+            }
+          }
+        None => ()
+      }
+      match conns.end {
+        Some(conn) =>
+          for target in elements {
+            if target.id == conn.element_id && target.shape is Line(_, _) {
+              let anchor_point = target.get_anchor_point(conn.anchor)
+              final_x2 = anchor_point.x
+              final_y2 = anchor_point.y
+              break
+            }
+          }
+        None => ()
+      }
+    }
+    None => ()
+  }
+
+  // 座標を Map で管理（更新可能にするため）
+  let coords_map : Map[String, LineCoords] = {}
+  coords_map[moved_line_id] = {
+    id: moved_line_id,
+    x: final_x,
+    y: final_y,
+    x2: final_x2,
+    y2: final_y2,
+  }
+
+  // BFS で接続された Line を順次更新
+  let queue : Array[String] = [moved_line_id]
+  let in_queue : Array[String] = [moved_line_id] // キューに追加済みかどうか
+
+  while queue.length() > 0 {
+    let current_id = queue.remove(0)
+    // current_id の更新後座標を取得
+    guard coords_map.get(current_id) is Some(cc)
+
+    // current_id に接続している他の Line を探す
+    for e in elements {
+      guard e.shape is Line(e_x2, e_y2) else { continue }
+      guard e.id != current_id else { continue } // 自分自身はスキップ
+      guard e.connections is Some(conns) else { continue }
+
+      // 既存の座標があればそれを使用、なければ元の座標
+      let existing = coords_map.get(e.id)
+      let mut new_ex = match existing {
+        Some(c) => c.x
+        None => e.x
+      }
+      let mut new_ey = match existing {
+        Some(c) => c.y
+        None => e.y
+      }
+      let mut new_ex2 = match existing {
+        Some(c) => c.x2
+        None => e_x2
+      }
+      let mut new_ey2 = match existing {
+        Some(c) => c.y2
+        None => e_y2
+      }
+      let mut needs_update = false
+
+      // 始点が current_id に接続している場合
+      match conns.start {
+        Some(conn) if conn.element_id == current_id => {
+          // current_id の更新後座標で仮の Element を作成してアンカー位置を計算
+          let temp_el : Element = {
+            ..el,
+            x: cc.x,
+            y: cc.y,
+            shape: Line(cc.x2, cc.y2),
+          }
+          let anchor_point = temp_el.get_anchor_point(conn.anchor)
+          new_ex = anchor_point.x
+          new_ey = anchor_point.y
+          needs_update = true
+        }
+        _ => ()
+      }
+
+      // 終点が current_id に接続している場合
+      match conns.end {
+        Some(conn) if conn.element_id == current_id => {
+          let temp_el : Element = {
+            ..el,
+            x: cc.x,
+            y: cc.y,
+            shape: Line(cc.x2, cc.y2),
+          }
+          let anchor_point = temp_el.get_anchor_point(conn.anchor)
+          new_ex2 = anchor_point.x
+          new_ey2 = anchor_point.y
+          needs_update = true
+        }
+        _ => ()
+      }
+
+      if needs_update {
+        // 座標を更新（既存があれば上書き）
+        coords_map[e.id] = { id: e.id, x: new_ex, y: new_ey, x2: new_ex2, y2: new_ey2 }
+        // まだキューに入っていなければ追加
+        if not(in_queue.contains(e.id)) {
+          in_queue.push(e.id)
+          queue.push(e.id)
+        }
+      }
+    }
+  }
+
+  // Map から Array に変換
+  let result : Array[LineCoords] = []
+  coords_map.each(fn(_id, coords) { result.push(coords) })
+  result
 }

@@ -1577,3 +1577,339 @@ test "find_nearest_connection - picks closer element" {
   assert_eq(r.element.id, "rect-2")
   assert_eq(r.anchor, Left)
 }
+
+// ============================================================
+// compute_line_move_topology tests
+// ============================================================
+
+///|
+test "compute_line_move_topology - single line no connections" {
+  // 接続なしの単独 Line を移動
+  let line = Element::new("line-1", 0.0, 0.0, Line(100.0, 100.0))
+  let elements = [line]
+  // (0,0)→(100,100) を dx=50, dy=50 で移動
+  let result = compute_line_move_topology(elements, "line-1", 50.0, 50.0, 50.0, 50.0)
+  assert_eq(result.length(), 1)
+  assert_eq(result[0].id, "line-1")
+  assert_eq(result[0].x, 50.0)
+  assert_eq(result[0].y, 50.0)
+  assert_eq(result[0].x2, 150.0) // 100 + 50
+  assert_eq(result[0].y2, 150.0) // 100 + 50
+}
+
+///|
+test "compute_line_move_topology - line not found returns empty" {
+  let line = Element::new("line-1", 0.0, 0.0, Line(100.0, 100.0))
+  let elements = [line]
+  let result = compute_line_move_topology(elements, "nonexistent", 50.0, 50.0, 50.0, 50.0)
+  assert_eq(result.length(), 0)
+}
+
+///|
+test "compute_line_move_topology - non-line element returns empty" {
+  let rect = Element::new("rect-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
+  let elements = [rect]
+  let result = compute_line_move_topology(elements, "rect-1", 50.0, 50.0, 50.0, 50.0)
+  assert_eq(result.length(), 0)
+}
+
+///|
+test "compute_line_move_topology - two lines connected A.end to B.start" {
+  // Line A: (0,0) → (100,0)
+  // Line B: (100,0) → (200,0)  B の始点が A の終点に接続
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 100.0, 0.0, Line(200.0, 0.0)),
+    connections: Some(line_b_conns),
+  }
+  let elements = [line_a, line_b]
+
+  // Line A を dy=50 で移動 (水平線を下に移動)
+  let result = compute_line_move_topology(elements, "line-a", 0.0, 50.0, 0.0, 50.0)
+
+  // Line A が更新される
+  assert_eq(result.length(), 2)
+  let a_coords = result.iter().find_first(fn(c) { c.id == "line-a" }).unwrap()
+  assert_eq(a_coords.x, 0.0)
+  assert_eq(a_coords.y, 50.0)
+  assert_eq(a_coords.x2, 100.0)
+  assert_eq(a_coords.y2, 50.0) // 0 + 50
+
+  // Line B の始点が A の新しい終点に追従
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 100.0) // A の終点 x
+  assert_eq(b_coords.y, 50.0)  // A の終点 y (新位置)
+  assert_eq(b_coords.x2, 200.0) // 終点は変わらない
+  assert_eq(b_coords.y2, 0.0)
+}
+
+///|
+test "compute_line_move_topology - moved line start connected to other line" {
+  // Line A: (0,0) → (100,0)
+  // Line B: (100,0) → (200,0) で B の始点が A の終点に接続
+  // B を移動すると、B の始点は A の終点に固定される
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 100.0, 0.0, Line(200.0, 0.0)),
+    connections: Some(line_b_conns),
+  }
+  let elements = [line_a, line_b]
+
+  // Line B を移動しようとする
+  let result = compute_line_move_topology(elements, "line-b", 100.0, 50.0, 0.0, 50.0)
+
+  // Line B のみが結果に含まれる（A は移動対象ではない）
+  assert_eq(result.length(), 1)
+  let b_coords = result[0]
+  assert_eq(b_coords.id, "line-b")
+  // 始点は A の終点に固定される (100, 0)
+  assert_eq(b_coords.x, 100.0)
+  assert_eq(b_coords.y, 0.0)
+  // 終点は dx, dy で移動
+  assert_eq(b_coords.x2, 200.0)
+  assert_eq(b_coords.y2, 50.0) // 0 + 50
+}
+
+///|
+test "compute_line_move_topology - chain of three lines" {
+  // A: (0,0) → (100,0)
+  // B: (100,0) → (100,100) - B.start connected to A.end
+  // C: (100,100) → (200,100) - C.start connected to B.end
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 100.0, 0.0, Line(100.0, 100.0)),
+    connections: Some(line_b_conns),
+  }
+  let line_c_conns : LineConnections = {
+    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    end: None,
+  }
+  let line_c = {
+    ..Element::new("line-c", 100.0, 100.0, Line(200.0, 100.0)),
+    connections: Some(line_c_conns),
+  }
+  let elements = [line_a, line_b, line_c]
+
+  // Line A を移動 - B と C も連鎖的に更新されるべき
+  let result = compute_line_move_topology(elements, "line-a", 0.0, 50.0, 0.0, 50.0)
+
+  // 3 つの Line が更新される
+  assert_eq(result.length(), 3)
+
+  // Line A
+  let a_coords = result.iter().find_first(fn(c) { c.id == "line-a" }).unwrap()
+  assert_eq(a_coords.y, 50.0)
+  assert_eq(a_coords.y2, 50.0)
+
+  // Line B - 始点が A の終点に追従
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 100.0)
+  assert_eq(b_coords.y, 50.0) // A の新しい終点に追従
+
+  // Line C - 始点が B の終点に追従
+  let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
+  assert_eq(c_coords.x, 100.0)
+  assert_eq(c_coords.y, 100.0) // B の終点は変わらないので C も変わらない
+}
+
+///|
+test "compute_line_move_topology - triangle formation" {
+  // 三角形を形成する3つの Line
+  // A: (0,0) → (100,0)    上辺
+  // B: (100,0) → (50,86)  右辺 - B.start connected to A.end
+  // C: (50,86) → (0,0)    左辺 - C.start connected to B.end, C.end connected to A.start
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 100.0, 0.0, Line(50.0, 86.0)),
+    connections: Some(line_b_conns),
+  }
+  let line_c_conns : LineConnections = {
+    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    end: Some({ element_id: "line-a", anchor: LineStart }),
+  }
+  let line_c = {
+    ..Element::new("line-c", 50.0, 86.0, Line(0.0, 0.0)),
+    connections: Some(line_c_conns),
+  }
+  let elements = [line_a, line_b, line_c]
+
+  // Line A を dx=20 で移動（右に移動）
+  let result = compute_line_move_topology(elements, "line-a", 20.0, 0.0, 20.0, 0.0)
+
+  // 3つ全てが更新される
+  assert_eq(result.length(), 3)
+
+  // Line A が移動
+  let a_coords = result.iter().find_first(fn(c) { c.id == "line-a" }).unwrap()
+  assert_eq(a_coords.x, 20.0)
+  assert_eq(a_coords.y, 0.0)
+  assert_eq(a_coords.x2, 120.0) // 100 + 20
+  assert_eq(a_coords.y2, 0.0)
+
+  // Line B の始点が A の終点に追従
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 120.0) // A の新しい終点
+  assert_eq(b_coords.y, 0.0)
+  // B の終点は変わらない
+  assert_eq(b_coords.x2, 50.0)
+  assert_eq(b_coords.y2, 86.0)
+
+  // Line C の始点が B の終点に、終点が A の始点に追従
+  let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
+  // C の始点は B の終点に追従（B.end は変わらないので同じ）
+  assert_eq(c_coords.x, 50.0)
+  assert_eq(c_coords.y, 86.0)
+  // C の終点は A の新しい始点に追従
+  assert_eq(c_coords.x2, 20.0) // A の新しい始点
+  assert_eq(c_coords.y2, 0.0)
+}
+
+///|
+test "compute_line_move_topology - triangle move B" {
+  // 三角形で B を移動した場合
+  // B.start は A.end に接続されているので固定
+  // B.end は自由に動く → C.start が追従すべき
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 100.0, 0.0, Line(50.0, 86.0)),
+    connections: Some(line_b_conns),
+  }
+  let line_c_conns : LineConnections = {
+    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    end: Some({ element_id: "line-a", anchor: LineStart }),
+  }
+  let line_c = {
+    ..Element::new("line-c", 50.0, 86.0, Line(0.0, 0.0)),
+    connections: Some(line_c_conns),
+  }
+  let elements = [line_a, line_b, line_c]
+
+  // Line B を dx=30, dy=0 で移動しようとする
+  // B.start は A.end (100, 0) に固定される
+  // B.end は 50+30=80, 86+0=86 に移動
+  let result = compute_line_move_topology(elements, "line-b", 130.0, 0.0, 30.0, 0.0)
+
+  // B と C が更新される（A は移動対象外）
+  assert_eq(result.length(), 2)
+
+  // Line B - 始点は A.end (100, 0) に固定
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 100.0) // 固定
+  assert_eq(b_coords.y, 0.0)   // 固定
+  // 終点は移動
+  assert_eq(b_coords.x2, 80.0) // 50 + 30
+  assert_eq(b_coords.y2, 86.0)
+
+  // Line C - 始点が B の新しい終点に追従
+  let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
+  assert_eq(c_coords.x, 80.0) // B の新しい終点
+  assert_eq(c_coords.y, 86.0)
+  // 終点は A.start (0, 0) のまま
+  assert_eq(c_coords.x2, 0.0)
+  assert_eq(c_coords.y2, 0.0)
+}
+
+///|
+test "compute_line_move_topology - U shape formation" {
+  // コの字を形成する3つの Line
+  // A: (0,0) → (0,100)    左縦
+  // B: (0,100) → (100,100) 底辺 - B.start connected to A.end
+  // C: (100,100) → (100,0) 右縦 - C.start connected to B.end
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(0.0, 100.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 0.0, 100.0, Line(100.0, 100.0)),
+    connections: Some(line_b_conns),
+  }
+  let line_c_conns : LineConnections = {
+    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    end: None,
+  }
+  let line_c = {
+    ..Element::new("line-c", 100.0, 100.0, Line(100.0, 0.0)),
+    connections: Some(line_c_conns),
+  }
+  let elements = [line_a, line_b, line_c]
+
+  // Line A の終点（下端）を移動 → B と C も追従
+  let result = compute_line_move_topology(elements, "line-a", 0.0, 0.0, 0.0, 0.0)
+
+  // 結果確認
+  assert_eq(result.length(), 3)
+
+  // Line B は A の終点に接続 → A の終点 (0, 100) に追従
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 0.0)
+  assert_eq(b_coords.y, 100.0)
+
+  // Line C は B の終点に接続 → B の終点 (100, 100) に追従
+  let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
+  assert_eq(c_coords.x, 100.0)
+  assert_eq(c_coords.y, 100.0)
+}
+
+///|
+test "compute_line_move_topology - U shape move middle segment" {
+  // コの字の底辺（B）を移動する場合
+  let line_a = Element::new("line-a", 0.0, 0.0, Line(0.0, 100.0))
+  let line_b_conns : LineConnections = {
+    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    end: None,
+  }
+  let line_b = {
+    ..Element::new("line-b", 0.0, 100.0, Line(100.0, 100.0)),
+    connections: Some(line_b_conns),
+  }
+  let line_c_conns : LineConnections = {
+    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    end: None,
+  }
+  let line_c = {
+    ..Element::new("line-c", 100.0, 100.0, Line(100.0, 0.0)),
+    connections: Some(line_c_conns),
+  }
+  let elements = [line_a, line_b, line_c]
+
+  // Line B を dy=20 で下に移動しようとする
+  // B の始点は A の終点に接続されているので固定
+  let result = compute_line_move_topology(elements, "line-b", 0.0, 120.0, 0.0, 20.0)
+
+  // B と C が更新される（A は移動対象ではないので含まれない）
+  assert_eq(result.length(), 2)
+
+  // Line B - 始点は A の終点 (0, 100) に固定される
+  let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
+  assert_eq(b_coords.x, 0.0)
+  assert_eq(b_coords.y, 100.0) // 固定
+  // 終点は移動
+  assert_eq(b_coords.x2, 100.0)
+  assert_eq(b_coords.y2, 120.0) // 100 + 20
+
+  // Line C - 始点が B の新しい終点に追従
+  let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
+  assert_eq(c_coords.x, 100.0)
+  assert_eq(c_coords.y, 120.0) // B の新しい終点
+}

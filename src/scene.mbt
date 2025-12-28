@@ -52,6 +52,7 @@ pub struct EditorState {
   pending_connection : @luna.Signal[PendingConnection?] // ドラッグ中の接続プレビュー
   placement_state : @luna.Signal[PlacementState?] // 配置モード状態
   mouse_scene_pos : @luna.Signal[@model.Point] // マウス位置（シーン座標）
+  mouse_in_canvas : @luna.Signal[Bool] // マウスがキャンバス内にいるか
   preview_bg : @luna.Signal[String] // プレビュー背景色
   embed_bg : @luna.Signal[String] // 埋め込み時の背景色（デフォルト: transparent）
   theme_mode : @luna.Signal[@model.ThemeMode] // テーマモード
@@ -96,6 +97,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     pending_connection: @luna.signal(None),
     placement_state: @luna.signal(None),
     mouse_scene_pos: @luna.signal({ x: 0.0, y: 0.0 }),
+    mouse_in_canvas: @luna.signal(false),
     preview_bg: @luna.signal("#ffffff"),
     embed_bg: @luna.signal("transparent"),
     theme_mode: @luna.signal(@model.Light),
@@ -384,123 +386,77 @@ pub fn EditorState::move_element(
   guard self.find_element(id) is Some(el)
   let dx = new_x - el.x
   let dy = new_y - el.y
-  // Line の場合は両端点を同時に移動し、接続された要素も一緒に移動
+  // Line の場合はトポロジー検出で接続グラフを更新
   match el.shape {
-    @model.Line(x2, y2) => {
-      // 接続されている要素のIDを収集（重複を避ける）
-      let connected_ids : Array[String] = []
+    @model.Line(_, _) => {
+      let elements = self.elements.get()
+      // モデル層の純粋関数でトポロジー計算
+      let line_updates = @model.compute_line_move_topology(
+        elements, id, new_x, new_y, dx, dy,
+      )
+      // 接続されている非 Line 要素のIDを収集
+      let connected_non_line_ids : Array[String] = []
       match el.connections {
         Some(conns) => {
           match conns.start {
-            Some(conn) =>
-              if not(connected_ids.contains(conn.element_id)) {
-                connected_ids.push(conn.element_id)
+            Some(conn) => {
+              let is_line = elements.iter().any(fn(e) {
+                e.id == conn.element_id && e.shape is @model.Line(_, _)
+              })
+              if not(is_line) &&
+                not(connected_non_line_ids.contains(conn.element_id)) {
+                connected_non_line_ids.push(conn.element_id)
               }
+            }
             None => ()
           }
           match conns.end {
-            Some(conn) =>
-              if not(connected_ids.contains(conn.element_id)) {
-                connected_ids.push(conn.element_id)
+            Some(conn) => {
+              let is_line = elements.iter().any(fn(e) {
+                e.id == conn.element_id && e.shape is @model.Line(_, _)
+              })
+              if not(is_line) &&
+                not(connected_non_line_ids.contains(conn.element_id)) {
+                connected_non_line_ids.push(conn.element_id)
               }
+            }
             None => ()
           }
         }
         None => ()
       }
-      // 現在の要素リストから子要素を事前に収集
-      let elements = self.elements.get()
+      // 子要素を収集
       let connected_children_ids : Array[String] = []
-      for connected_id in connected_ids {
+      for connected_id in connected_non_line_ids {
         for e in elements {
           if e.parent_id == Some(connected_id) {
             connected_children_ids.push(e.id)
           }
         }
       }
-      // 全ての更新を1回で実行
-      let line_id = id
-      let new_x2 = x2 + dx
-      let new_y2 = y2 + dy
+      // 全ての更新を適用
       self.elements.update(fn(els) {
         els.map(fn(e) {
-          // ドラッグ中のライン自体を更新
-          if e.id == line_id {
-            return {
-              ..e,
-              x: new_x,
-              y: new_y,
-              shape: @model.Line(new_x2, new_y2),
+          // 更新対象の Line
+          for coords in line_updates {
+            if e.id == coords.id {
+              return {
+                ..e,
+                x: coords.x,
+                y: coords.y,
+                shape: @model.Line(coords.x2, coords.y2),
+              }
             }
           }
-          // 接続された要素を移動
-          if connected_ids.contains(e.id) {
+          // 接続された非 Line 要素を移動
+          if connected_non_line_ids.contains(e.id) {
             return { ..e, x: e.x + dx, y: e.y + dy }
           }
           // 接続要素の子要素を移動
           if connected_children_ids.contains(e.id) {
             return { ..e, x: e.x + dx, y: e.y + dy }
           }
-          // 接続要素に繋がっている他のライン（自分自身を除く）を更新
-          guard e.shape is @model.Line(e_x2, e_y2) else { return e }
-          guard e.connections is Some(conns) else { return e }
-          let mut new_ex = e.x
-          let mut new_ey = e.y
-          let mut new_ex2 = e_x2
-          let mut new_ey2 = e_y2
-          // 始点の接続を確認
-          match conns.start {
-            Some(conn) =>
-              if connected_ids.contains(conn.element_id) {
-                // 接続先の要素を探して新しいアンカー位置を計算
-                for target in els {
-                  if target.id == conn.element_id {
-                    let moved_target = {
-                      ..target,
-                      x: target.x + dx,
-                      y: target.y + dy,
-                    }
-                    let anchor_point = moved_target.get_anchor_point(
-                      conn.anchor,
-                    )
-                    new_ex = anchor_point.x
-                    new_ey = anchor_point.y
-                    break
-                  }
-                }
-              }
-            None => ()
-          }
-          // 終点の接続を確認
-          match conns.end {
-            Some(conn) =>
-              if connected_ids.contains(conn.element_id) {
-                for target in els {
-                  if target.id == conn.element_id {
-                    let moved_target = {
-                      ..target,
-                      x: target.x + dx,
-                      y: target.y + dy,
-                    }
-                    let anchor_point = moved_target.get_anchor_point(
-                      conn.anchor,
-                    )
-                    new_ex2 = anchor_point.x
-                    new_ey2 = anchor_point.y
-                    break
-                  }
-                }
-              }
-            None => ()
-          }
-          if new_ex != e.x ||
-            new_ey != e.y ||
-            new_ex2 != e_x2 ||
-            new_ey2 != e_y2 {
-            { ..e, x: new_ex, y: new_ey, shape: @model.Line(new_ex2, new_ey2) }
-          } else {
-            e
-          }
+          e
         })
       })
     }
@@ -1094,6 +1050,27 @@ pub fn EditorState::fit_to_canvas(self : EditorState) -> Unit {
   let scroll_x = -(vb_width - doc_w) / 2.0
   let scroll_y = -(vb_height - doc_h) / 2.0
   self.viewport.set({ scroll_x, scroll_y, zoom: fit_zoom })
+}
+
+///|
+/// ビューポートの中央座標を取得（シーン座標）
+pub fn EditorState::get_viewport_center(self : EditorState) -> @model.Point {
+  let vp = self.viewport.get()
+  let canvas_w = self.canvas_width.get().to_double()
+  let canvas_h = self.canvas_height.get().to_double()
+  let center_x = vp.scroll_x + (canvas_w / vp.zoom) / 2.0
+  let center_y = vp.scroll_y + (canvas_h / vp.zoom) / 2.0
+  { x: center_x, y: center_y }
+}
+
+///|
+/// 要素配置位置を取得（マウスがキャンバス内ならマウス位置、そうでなければ画面中央）
+pub fn EditorState::get_placement_position(self : EditorState) -> @model.Point {
+  if self.mouse_in_canvas.get() {
+    self.mouse_scene_pos.get()
+  } else {
+    self.get_viewport_center()
+  }
 }
 
 ///|
@@ -1980,7 +1957,7 @@ pub fn EditorState::update_line_connection(
 }
 
 ///|
-/// 指定座標から最も近い接続ポイントを探す（線を除く全要素から）
+/// 指定座標から最も近い接続ポイントを探す（全要素から）
 pub fn EditorState::find_nearest_connection_point(
   self : EditorState,
   point : @model.Point,
