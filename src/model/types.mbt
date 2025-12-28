@@ -280,7 +280,11 @@ pub fn Element::bounding_box(self : Element) -> BoundingBox {
       let char_count = content.iter().count().to_double()
       let estimated_width = char_count * size * 0.55
       let min_width = size * 2.0 // 最小幅はフォントサイズの2倍
-      let width = if estimated_width < min_width { min_width } else { estimated_width }
+      let width = if estimated_width < min_width {
+        min_width
+      } else {
+        estimated_width
+      }
       let height = size * 1.2 // 行の高さ
       { x: self.x - width / 2.0, y: self.y - height / 2.0, width, height }
     }
