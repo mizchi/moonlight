@@ -52,7 +52,11 @@ pub extern "js" fn update_viewbox_ffi(svg : @js.Any, viewbox : String) =
 
 ///|
 /// ファイルをダウンロード
-pub extern "js" fn download_file(content : String, filename : String, mime_type : String) =
+pub extern "js" fn download_file(
+  content : String,
+  filename : String,
+  mime_type : String,
+) =
   #| (content, filename, mimeType) => {
   #|   const blob = new Blob([content], { type: mimeType });
   #|   const url = URL.createObjectURL(blob);
@@ -72,12 +76,18 @@ pub extern "js" fn get_current_time() -> Double =
 
 ///|
 /// 指定セレクタの要素にフォーカスを遅延設定（初期値付き）
-pub extern "js" fn schedule_focus_with_value_ffi(selector : String, value : String) -> Int =
+pub extern "js" fn schedule_focus_with_value_ffi(
+  selector : String,
+  value : String,
+) -> Int =
   #| (selector, value) => setTimeout(() => { const el = document.querySelector(selector); if (el) { el.value = value; el.focus(); el.select(); } }, 0)
 
 ///|
 /// 指定セレクタのテキストエリアにフォーカスを遅延設定（IMEコンポジション対応）
-pub extern "js" fn schedule_textarea_focus_ffi(selector : String, value : String) -> Int =
+pub extern "js" fn schedule_textarea_focus_ffi(
+  selector : String,
+  value : String,
+) -> Int =
   #| (selector, value) => setTimeout(() => {
   #|   const el = document.querySelector(selector);
   #|   if (el) {
@@ -207,12 +217,19 @@ pub extern "js" fn remove_element_ffi(el : @js.Any) =
 
 ///|
 /// 指定した子要素の前に挿入
-pub extern "js" fn insert_before_ffi(parent : @js.Any, new_child : @js.Any, ref_child : @js.Any) =
+pub extern "js" fn insert_before_ffi(
+  parent : @js.Any,
+  new_child : @js.Any,
+  ref_child : @js.Any,
+) =
   #| (parent, newChild, refChild) => parent.insertBefore(newChild, refChild)
 
 ///|
 /// ResizeObserver で要素のサイズ変更を監視
-pub extern "js" fn observe_resize_ffi(el : @js.Any, callback : (Double, Double) -> Unit) =
+pub extern "js" fn observe_resize_ffi(
+  el : @js.Any,
+  callback : (Double, Double) -> Unit,
+) =
   #| (el, callback) => {
   #|   const observer = new ResizeObserver((entries) => {
   #|     for (const entry of entries) {
@@ -250,7 +267,10 @@ pub extern "js" fn get_child_at_ffi(parent : @js.Any, index : Int) -> @js.Any =
 
 ///|
 /// SVG の背景スタイルを更新
-pub extern "js" fn update_svg_background_ffi(svg : @js.Any, background : String) =
+pub extern "js" fn update_svg_background_ffi(
+  svg : @js.Any,
+  background : String,
+) =
   #| (svg, background) => svg.style.background = background
 
 ///|

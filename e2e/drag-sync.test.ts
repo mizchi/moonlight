@@ -16,7 +16,7 @@ test.describe('Drag synchronization', () => {
 
     // Drag the rect first (without selecting)
     // Use force:true because child text hit area may intercept
-    await rect.dragTo(page.locator('svg'), {
+    await rect.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 250, y: 200 },
       force: true
     });
@@ -56,7 +56,7 @@ test.describe('Drag synchronization', () => {
 
     // Drag the rect first
     // Use force:true because child text hit area may intercept
-    await rect.dragTo(page.locator('svg'), {
+    await rect.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 250, y: 200 },
       force: true
     });

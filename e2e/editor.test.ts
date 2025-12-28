@@ -14,13 +14,14 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('text=#el-5')).toBeVisible();
   });
 
-  test('should have Add Rectangle and Add Circle buttons', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Add Rectangle' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add Circle' })).toBeVisible();
+  test('should have Rectangle and Circle buttons', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Rectangle' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Circle' })).toBeVisible();
   });
 
   test('should have an SVG element', async ({ page }) => {
-    const svg = page.locator('svg');
+    // Use the main canvas SVG (has viewBox attribute)
+    const svg = page.locator('svg[viewBox]').first();
     await expect(svg).toBeVisible();
     await expect(svg).toHaveAttribute('width', '100%');
     await expect(svg).toHaveAttribute('height', '100%');
@@ -51,7 +52,7 @@ test.describe('Moonlight SVG Editor', () => {
     const shapeRects = page.locator('svg rect[data-id][cursor="move"]');
     const initialCount = await shapeRects.count();
 
-    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await page.getByRole('button', { name: 'Rectangle' }).click();
 
     await expect(shapeRects).toHaveCount(initialCount + 1);
   });
@@ -59,7 +60,7 @@ test.describe('Moonlight SVG Editor', () => {
   test('should add a circle when clicking Add Circle', async ({ page }) => {
     const initialCount = await page.locator('svg circle[data-id]').count();
 
-    await page.getByRole('button', { name: 'Add Circle' }).click();
+    await page.getByRole('button', { name: 'Circle' }).click();
 
     await expect(page.locator('svg circle[data-id]')).toHaveCount(initialCount + 1);
   });
@@ -67,7 +68,7 @@ test.describe('Moonlight SVG Editor', () => {
   test('should add an ellipse when clicking Add Ellipse', async ({ page }) => {
     const initialCount = await page.locator('svg ellipse').count();
 
-    await page.getByRole('button', { name: 'Add Ellipse' }).click();
+    await page.getByRole('button', { name: 'Ellipse' }).click();
 
     await expect(page.locator('svg ellipse')).toHaveCount(initialCount + 1);
   });
@@ -76,7 +77,7 @@ test.describe('Moonlight SVG Editor', () => {
     // Line is wrapped in a group with data-element-type="line"
     const initialCount = await page.locator('svg g[data-element-type="line"]').count();
 
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
 
     await expect(page.locator('svg g[data-element-type="line"]')).toHaveCount(initialCount + 1);
   });
@@ -84,7 +85,7 @@ test.describe('Moonlight SVG Editor', () => {
   test('should add text when clicking Add Text', async ({ page }) => {
     const initialCount = await page.locator('svg text').count();
 
-    await page.getByRole('button', { name: 'Add Text' }).click();
+    await page.getByRole('button', { name: 'Text' }).click();
 
     await expect(page.locator('svg text')).toHaveCount(initialCount + 1);
     // Check that the text content is correct
@@ -98,7 +99,7 @@ test.describe('Moonlight SVG Editor', () => {
     const initialX = await rect.getAttribute('x');
 
     // Drag the shape (use force:true because child text hit area may intercept)
-    await rect.dragTo(page.locator('svg'), {
+    await rect.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 400, y: 300 },
       force: true
     });
@@ -126,8 +127,8 @@ test.describe('Moonlight SVG Editor', () => {
     await rect.click({ button: 'right', force: true });
     await expect(page.locator('button:has-text("Delete")')).toBeVisible();
 
-    // Left-click on SVG to hide menu
-    await page.locator('svg').click({ position: { x: 10, y: 10 } });
+    // Left-click on SVG to hide menu (use main canvas SVG)
+    await page.locator('svg[viewBox]').first().click({ position: { x: 10, y: 10 } });
 
     // Check context menu is hidden
     await expect(page.locator('button:has-text("Delete")')).not.toBeVisible();
@@ -151,8 +152,8 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should show insert menu when right-clicking empty area', async ({ page }) => {
-    // Get SVG bounding box
-    const svg = page.locator('svg');
+    // Get SVG bounding box (use main canvas SVG)
+    const svg = page.locator('svg[viewBox]').first();
     const box = await svg.boundingBox();
     if (!box) throw new Error('SVG not found');
 
@@ -163,14 +164,18 @@ test.describe('Moonlight SVG Editor', () => {
       position: { x: box.width - 20, y: box.height - 20 }
     });
 
-    // Check insert menu is shown (use exact match to avoid toolbar buttons)
-    await expect(page.locator('text=Insert')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Rectangle', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Ellipse', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Line', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Arrow', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Text', exact: true })).toBeVisible();
+    // Check insert menu is shown - look for header and menu buttons
+    const insertHeader = page.locator('text=Insert');
+    await expect(insertHeader).toBeVisible();
+    // Insert menu buttons don't have aria-label, use hasText filter
+    // (toolbar buttons have aria-label, insert menu buttons have text content)
+    const menuContainer = page.locator('div').filter({ has: insertHeader });
+    await expect(menuContainer.locator('button').filter({ hasText: 'Rectangle' })).toBeVisible();
+    await expect(menuContainer.locator('button').filter({ hasText: 'Circle' })).toBeVisible();
+    await expect(menuContainer.locator('button').filter({ hasText: 'Ellipse' })).toBeVisible();
+    await expect(menuContainer.locator('button').filter({ hasText: 'Line' })).toBeVisible();
+    await expect(menuContainer.locator('button').filter({ hasText: 'Arrow' })).toBeVisible();
+    await expect(menuContainer.locator('button').filter({ hasText: 'Text' })).toBeVisible();
   });
 
   // Skip z-order tests - with for_each rendering, DOM order may not change as expected
@@ -225,20 +230,21 @@ test.describe('Moonlight SVG Editor', () => {
   });
 
   test('should have zoom controls', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Zoom Out' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Zoom In' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reset Zoom' })).toBeVisible();
+    // Use getByLabel since toolbar buttons have aria-label
+    await expect(page.getByLabel('Zoom Out')).toBeVisible();
+    await expect(page.getByLabel('Zoom In')).toBeVisible();
+    await expect(page.getByLabel('Fit to Canvas')).toBeVisible();
     // Zoom percentage is displayed (may vary due to fit_to_canvas)
     await expect(page.locator('text=/%/')).toBeVisible();
   });
 
   test('should zoom in when clicking + button', async ({ page }) => {
     // Reset zoom first to get consistent state
-    await page.getByRole('button', { name: 'Reset Zoom' }).click();
+    await page.getByLabel('Fit to Canvas').click();
     const initialZoomText = await page.locator('text=/%/').textContent();
     const initialZoom = parseInt(initialZoomText?.replace('%', '') || '100');
 
-    await page.getByRole('button', { name: 'Zoom In' }).click();
+    await page.getByLabel('Zoom In').click();
     // Zoom step is 1%, so zoom should increase by approximately 1%
     const newZoomText = await page.locator('text=/%/').textContent();
     const newZoom = parseInt(newZoomText?.replace('%', '') || '100');
@@ -247,11 +253,11 @@ test.describe('Moonlight SVG Editor', () => {
 
   test('should zoom out when clicking - button', async ({ page }) => {
     // Reset zoom first to get consistent state
-    await page.getByRole('button', { name: 'Reset Zoom' }).click();
+    await page.getByLabel('Fit to Canvas').click();
     const initialZoomText = await page.locator('text=/%/').textContent();
     const initialZoom = parseInt(initialZoomText?.replace('%', '') || '100');
 
-    await page.getByRole('button', { name: 'Zoom Out' }).click();
+    await page.getByLabel('Zoom Out').click();
     // Zoom step is 1%, so zoom should decrease by approximately 1%
     const newZoomText = await page.locator('text=/%/').textContent();
     const newZoom = parseInt(newZoomText?.replace('%', '') || '100');
@@ -261,13 +267,13 @@ test.describe('Moonlight SVG Editor', () => {
   test('should reset zoom when clicking Reset button', async ({ page }) => {
     // Zoom in first multiple times
     for (let i = 0; i < 10; i++) {
-      await page.getByRole('button', { name: 'Zoom In' }).click();
+      await page.getByLabel('Zoom In').click();
     }
     const zoomedText = await page.locator('text=/%/').textContent();
     const zoomedValue = parseInt(zoomedText?.replace('%', '') || '100');
 
     // Reset
-    await page.getByRole('button', { name: 'Reset Zoom' }).click();
+    await page.getByLabel('Fit to Canvas').click();
     const resetText = await page.locator('text=/%/').textContent();
     const resetValue = parseInt(resetText?.replace('%', '') || '100');
 
@@ -275,9 +281,9 @@ test.describe('Moonlight SVG Editor', () => {
     expect(resetValue).toBeLessThan(zoomedValue);
   });
 
-  test('should have grid snap checkbox', async ({ page }) => {
-    await expect(page.getByText('Grid Snap')).toBeVisible();
-    await expect(page.locator('input[type="checkbox"]')).toBeVisible();
+  test('should have grid snap button', async ({ page }) => {
+    // Grid Snap is now a toggle button with text "Snap" and aria-label "Grid Snap"
+    await expect(page.getByRole('button', { name: 'Grid Snap' })).toBeVisible();
   });
 
   test('should undo adding a shape', async ({ page }) => {
@@ -285,7 +291,7 @@ test.describe('Moonlight SVG Editor', () => {
     const initialRectCount = await shapeRects.count();
 
     // Add a rectangle
-    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await page.getByRole('button', { name: 'Rectangle' }).click();
     await expect(shapeRects).toHaveCount(initialRectCount + 1);
 
     // Undo
@@ -298,7 +304,7 @@ test.describe('Moonlight SVG Editor', () => {
     const initialRectCount = await shapeRects.count();
 
     // Add a rectangle
-    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await page.getByRole('button', { name: 'Rectangle' }).click();
     await expect(shapeRects).toHaveCount(initialRectCount + 1);
 
     // Undo
@@ -333,7 +339,7 @@ test.describe('Moonlight SVG Editor', () => {
     const initialX = await rect.getAttribute('x');
 
     // Drag the shape (use force:true)
-    await rect.dragTo(page.locator('svg'), {
+    await rect.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 400, y: 300 },
       force: true
     });
@@ -370,7 +376,7 @@ test.describe('Moonlight SVG Editor', () => {
 
     // Get SE handle and drag it
     const seHandle = page.locator('svg rect[data-handle="se"]');
-    await seHandle.dragTo(page.locator('svg'), {
+    await seHandle.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 300, y: 250 }
     });
 
@@ -390,7 +396,7 @@ test.describe('Moonlight SVG Editor', () => {
 
     // Get SE handle and drag it
     const seHandle = page.locator('svg rect[data-handle="se"]');
-    await seHandle.dragTo(page.locator('svg'), {
+    await seHandle.dragTo(page.locator('svg[viewBox]').first(), {
       targetPosition: { x: 300, y: 250 }
     });
 
@@ -455,7 +461,7 @@ test.describe('Moonlight SVG Editor', () => {
     const initialRectCount = await shapeRects.count();
 
     // Add a shape
-    await page.getByRole('button', { name: 'Add Rectangle' }).click();
+    await page.getByRole('button', { name: 'Rectangle' }).click();
     await expect(shapeRects).toHaveCount(initialRectCount + 1);
 
     // Press Ctrl+Z
@@ -467,7 +473,7 @@ test.describe('Moonlight SVG Editor', () => {
 
   test('should snap resize to grid when grid is enabled', async ({ page }) => {
     // Enable grid snap
-    await page.getByLabel('Grid Snap').click();
+    await page.getByRole('button', { name: 'Grid Snap' }).click();
     await page.waitForTimeout(50);
 
     // Select first rect (use force:true)
@@ -503,7 +509,7 @@ test.describe('Moonlight SVG Editor', () => {
   test.describe('Text editing', () => {
     test('should show inline textarea on double-click text element', async ({ page }) => {
       // Add a text element first
-      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.getByRole('button', { name: 'Text' }).click();
       await page.waitForTimeout(100);
 
       // Find the text element
@@ -527,7 +533,7 @@ test.describe('Moonlight SVG Editor', () => {
     // Skip - text update may have timing issues with Effect-based rendering
     test.skip('should update text content after editing and pressing Enter', async ({ page }) => {
       // Add a text element first
-      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.getByRole('button', { name: 'Text' }).click();
       await page.waitForTimeout(100);
 
       // Find the text element
@@ -560,7 +566,7 @@ test.describe('Moonlight SVG Editor', () => {
 
     test('should cancel text editing on Escape', async ({ page }) => {
       // Add a text element first
-      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.getByRole('button', { name: 'Text' }).click();
       await page.waitForTimeout(100);
 
       // Find the text element
@@ -594,7 +600,7 @@ test.describe('Moonlight SVG Editor', () => {
     // Skip - text update may have timing issues with Effect-based rendering
     test.skip('should support multiline text with Shift+Enter', async ({ page }) => {
       // Add a text element first
-      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.getByRole('button', { name: 'Text' }).click();
       await page.waitForTimeout(100);
 
       // Find the text element
@@ -628,7 +634,7 @@ test.describe('Moonlight SVG Editor', () => {
     // Skip - text update may have timing issues with Effect-based rendering
     test.skip('should undo text edit', async ({ page }) => {
       // Add a text element first
-      await page.getByRole('button', { name: 'Add Text' }).click();
+      await page.getByRole('button', { name: 'Text' }).click();
       await page.waitForTimeout(100);
 
       // Find the text element and get its data-id for stable reference

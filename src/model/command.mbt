@@ -73,7 +73,9 @@ pub fn apply_command_pure(
       { elements: new_els, selected_ids }
     }
     RemoveElement(element) => {
-      let new_els = elements.filter(fn(el) { el.id != element.id && el.parent_id != Some(element.id) })
+      let new_els = elements.filter(fn(el) {
+        el.id != element.id && el.parent_id != Some(element.id)
+      })
       let new_selected = selected_ids.filter(fn(id) { id != element.id })
       { elements: new_els, selected_ids: new_selected }
     }
@@ -120,7 +122,11 @@ pub fn apply_command_pure(
         }
       })
       let new_selected = selected_ids.map(fn(id) {
-        if id == old_id { new_id } else { id }
+        if id == old_id {
+          new_id
+        } else {
+          id
+        }
       })
       { elements: new_els, selected_ids: new_selected }
     }
@@ -201,7 +207,11 @@ pub fn unapply_command_pure(
         }
       })
       let new_selected = selected_ids.map(fn(id) {
-        if id == new_id { old_id } else { id }
+        if id == new_id {
+          old_id
+        } else {
+          id
+        }
       })
       { elements: new_els, selected_ids: new_selected }
     }

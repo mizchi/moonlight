@@ -27,12 +27,13 @@ test('should insert shape from context menu', async ({ page }) => {
   // Initial rect count
   const initialRectCount = await page.locator('svg rect[data-id]').count();
 
-  // Right-click on empty area
-  await page.locator('svg').click({ button: 'right', position: { x: 350, y: 250 } });
+  // Right-click on empty area (use main canvas SVG with viewBox)
+  await page.locator('svg[viewBox]').first().click({ button: 'right', position: { x: 350, y: 250 } });
   await page.waitForTimeout(100);
 
-  // Click Rectangle in insert menu (use exact match to avoid "Add Rectangle")
-  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  // Click Rectangle in insert menu (find the button within the menu, not toolbar)
+  const insertMenu = page.locator('div').filter({ has: page.locator('text=Insert') });
+  await insertMenu.locator('button').filter({ hasText: 'Rectangle' }).click();
   await page.waitForTimeout(100);
 
   // Check shape was added

@@ -10,7 +10,7 @@ test.describe('Line Connections', () => {
   test('should add a line with Add Line button', async ({ page }) => {
     const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
 
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
     const afterLineCount = await page.locator('svg g[data-element-type="line"]').count();
@@ -19,7 +19,7 @@ test.describe('Line Connections', () => {
 
   test('should show line handles when line is selected', async ({ page }) => {
     // Add a line
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
     // Select the line (Line is wrapped in a group with data-element-type="line")
@@ -38,7 +38,7 @@ test.describe('Line Connections', () => {
 
   test('should drag line endpoint', async ({ page }) => {
     // Add a line
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
     // Select the line (Line is wrapped in a group with data-element-type="line")
@@ -150,7 +150,7 @@ test.describe('Line Connections', () => {
 
   test('should show connection highlight when dragging line endpoint near anchor', async ({ page }) => {
     // Add a line
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
     // Select the line (Line is wrapped in a group with data-element-type="line")
@@ -218,11 +218,11 @@ test.describe('Multi-select with Lines', () => {
   // Skip - box selection with line may not be working correctly
   test.skip('should select multiple elements including line with box selection', async ({ page }) => {
     // Add a line
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
-    // Box select to include all elements
-    const svg = page.locator('svg');
+    // Box select to include all elements (use main canvas SVG)
+    const svg = page.locator('svg[viewBox]').first();
     const svgBox = await svg.boundingBox();
     expect(svgBox).not.toBeNull();
 
@@ -240,11 +240,11 @@ test.describe('Multi-select with Lines', () => {
   // Skip - box selection may not be working correctly in current implementation
   test.skip('should move multiple selected elements together', async ({ page }) => {
     // First add a line to have more elements
-    await page.getByRole('button', { name: 'Add Line' }).click();
+    await page.getByRole('button', { name: 'Line' }).click();
     await page.waitForTimeout(100);
 
-    // Box select all initial elements
-    const svg = page.locator('svg');
+    // Box select all initial elements (use main canvas SVG)
+    const svg = page.locator('svg[viewBox]').first();
     const svgBox = await svg.boundingBox();
     expect(svgBox).not.toBeNull();
 

@@ -76,8 +76,10 @@ pub(all) struct Theme {
 /// CSS変数名
 pub let css_var_stroke : String = "var(--ml-stroke)"
 
+///|
 pub let css_var_fill : String = "var(--ml-fill)"
 
+///|
 pub let css_var_text : String = "var(--ml-text)"
 
 ///|
@@ -203,7 +205,16 @@ pub fn Element::new(
   y : Double,
   shape : ShapeType,
 ) -> Element {
-  { id, x, y, shape, style: Style::default(), transform: None, parent_id: None, connections: None }
+  {
+    id,
+    x,
+    y,
+    shape,
+    style: Style::default(),
+    transform: None,
+    parent_id: None,
+    connections: None,
+  }
 }
 
 ///|
@@ -215,7 +226,7 @@ pub fn Element::with_parent(self : Element, parent_id : String) -> Element {
 ///|
 /// スタイルを設定した要素を作成
 pub fn Element::with_style(self : Element, style : Style) -> Element {
-  { ..self, style }
+  { ..self, style, }
 }
 
 ///|
@@ -303,7 +314,18 @@ pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
   // 円・楕円は四隅のアンカーを持たない（上下左右と中心のみ）
   let anchors : Array[Anchor] = match self.shape {
     Circle(_) | Ellipse(_, _) => [Center, Top, Bottom, Left, Right]
-    _ => [Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft, BottomRight]
+    _ =>
+      [
+        Center,
+        Top,
+        Bottom,
+        Left,
+        Right,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight,
+      ]
   }
   anchors.map(fn(a) { (a, self.get_anchor_point(a)) })
 }
@@ -429,7 +451,11 @@ pub fn calc_circle_resize(
     SW => (-dx + dy) / 2.0
   }
   let new_r = start_r + dist
-  if new_r < min_r { min_r } else { new_r }
+  if new_r < min_r {
+    min_r
+  } else {
+    new_r
+  }
 }
 
 ///|
@@ -523,10 +549,26 @@ pub(all) struct BoxSelectState {
 ///|
 /// 矩形選択のバウンディングボックスを取得
 pub fn BoxSelectState::to_bbox(self : BoxSelectState) -> BoundingBox {
-  let min_x = if self.start_x < self.current_x { self.start_x } else { self.current_x }
-  let min_y = if self.start_y < self.current_y { self.start_y } else { self.current_y }
-  let max_x = if self.start_x > self.current_x { self.start_x } else { self.current_x }
-  let max_y = if self.start_y > self.current_y { self.start_y } else { self.current_y }
+  let min_x = if self.start_x < self.current_x {
+    self.start_x
+  } else {
+    self.current_x
+  }
+  let min_y = if self.start_y < self.current_y {
+    self.start_y
+  } else {
+    self.current_y
+  }
+  let max_x = if self.start_x > self.current_x {
+    self.start_x
+  } else {
+    self.current_x
+  }
+  let max_y = if self.start_y > self.current_y {
+    self.start_y
+  } else {
+    self.current_y
+  }
   { x: min_x, y: min_y, width: max_x - min_x, height: max_y - min_y }
 }
 
@@ -582,13 +624,16 @@ pub fn BoundingBox::intersects(self : BoundingBox, other : BoundingBox) -> Bool 
     self.x + self.width < other.x ||
     other.x + other.width < self.x ||
     self.y + self.height < other.y ||
-    other.y + other.height < self.y
+    other.y + other.height < self.y,
   )
 }
 
 ///|
 /// 矩形選択内の要素を検索（純粋関数）
-pub fn find_elements_in_box(elements : Array[Element], box_bbox : BoundingBox) -> Array[Element] {
+pub fn find_elements_in_box(
+  elements : Array[Element],
+  box_bbox : BoundingBox,
+) -> Array[Element] {
   let result : Array[Element] = []
   for el in elements {
     // 親要素のみを対象（子要素は除外）
@@ -684,7 +729,9 @@ pub fn parse_anchor(anchor_str : String) -> Anchor? {
 
 ///|
 /// LineConnections から接続要素のIDリストを取得
-pub fn LineConnections::get_connected_ids(self : LineConnections) -> Array[String] {
+pub fn LineConnections::get_connected_ids(
+  self : LineConnections,
+) -> Array[String] {
   let ids : Array[String] = []
   match self.start {
     Some(conn) =>
@@ -832,7 +879,9 @@ pub fn apply_element_move(
     }
   }
   // 接続ラインの更新を計算
-  let line_updates = calc_connected_line_updates(target_id, new_x, new_y, lines, elements)
+  let line_updates = calc_connected_line_updates(
+    target_id, new_x, new_y, lines, elements,
+  )
   // 要素配列を更新
   elements.map(fn(el) {
     // ターゲット要素を移動
@@ -846,9 +895,32 @@ pub fn apply_element_move(
     // 接続ラインを更新
     for update in line_updates {
       if el.id == update.line_id {
-        return { ..el, x: update.new_x, y: update.new_y, shape: Line(update.new_x2, update.new_y2) }
+        return {
+          ..el,
+          x: update.new_x,
+          y: update.new_y,
+          shape: Line(update.new_x2, update.new_y2),
+        }
       }
     }
     el
   })
+}
+
+// ===== ユーティリティ関数 =====
+
+///|
+/// XML エスケープ
+pub fn escape_xml(s : String) -> String {
+  s
+  .replace(old="&", new="&amp;")
+  .replace(old="<", new="&lt;")
+  .replace(old=">", new="&gt;")
+  .replace(old="\"", new="&quot;")
+}
+
+///|
+/// 数値を文字列に変換
+pub fn num_str(value : Double) -> String {
+  value.to_string()
 }

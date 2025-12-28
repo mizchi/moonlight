@@ -66,7 +66,11 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
   let doc_w = 400.0
   let doc_h = 300.0
   // 初期 zoom は 100%、ドキュメント左上から表示
-  let initial_viewport : @model.Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 1.0 }
+  let initial_viewport : @model.Viewport = {
+    scroll_x: 0.0,
+    scroll_y: 0.0,
+    zoom: 1.0,
+  }
   {
     width,
     height,
@@ -108,7 +112,7 @@ pub fn EditorState::new_with_mode(
   mode : EditorMode,
 ) -> EditorState {
   let state = EditorState::new(width, height)
-  { ..state, mode }
+  { ..state, mode, }
 }
 
 ///|
@@ -185,7 +189,14 @@ pub fn EditorState::start_text_edit(
   y : Double,
 ) -> Unit {
   self.text_edit.set(
-    Some({ parent_id, x, y, editing_id: None, initial_text: "", font_size: None }),
+    Some({
+      parent_id,
+      x,
+      y,
+      editing_id: None,
+      initial_text: "",
+      font_size: None,
+    }),
   )
 }
 
@@ -219,13 +230,20 @@ pub fn EditorState::toggle_grid(self : EditorState) -> Unit {
 
 ///|
 /// 座標をグリッドにスナップ
-pub fn EditorState::snap_to_grid(self : EditorState, x : Double, y : Double) -> (Double, Double) {
+pub fn EditorState::snap_to_grid(
+  self : EditorState,
+  x : Double,
+  y : Double,
+) -> (Double, Double) {
   @model.snap_to_grid(x, y, self.grid_size.get(), self.grid_enabled.get())
 }
 
 ///|
 /// 要素を追加
-pub fn EditorState::add_element(self : EditorState, element : @model.Element) -> Unit {
+pub fn EditorState::add_element(
+  self : EditorState,
+  element : @model.Element,
+) -> Unit {
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
@@ -235,7 +253,10 @@ pub fn EditorState::add_element(self : EditorState, element : @model.Element) ->
 
 ///|
 /// 要素を ID で検索
-pub fn EditorState::find_element(self : EditorState, id : String) -> @model.Element? {
+pub fn EditorState::find_element(
+  self : EditorState,
+  id : String,
+) -> @model.Element? {
   for el in self.elements.get() {
     if el.id == id {
       return Some(el)
@@ -246,7 +267,10 @@ pub fn EditorState::find_element(self : EditorState, id : String) -> @model.Elem
 
 ///|
 /// 指定IDの要素が存在するかチェック
-pub fn EditorState::has_element_with_id(self : EditorState, id : String) -> Bool {
+pub fn EditorState::has_element_with_id(
+  self : EditorState,
+  id : String,
+) -> Bool {
   for el in self.elements.get() {
     if el.id == id {
       return true
@@ -273,13 +297,7 @@ pub fn EditorState::rename_element_id(
   }
   // IDを更新
   self.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == old_id {
-        { ..el, id: new_id }
-      } else {
-        el
-      }
-    })
+    els.map(fn(el) { if el.id == old_id { { ..el, id: new_id } } else { el } })
   })
   // 選択状態も更新
   self.selected_ids.update(fn(ids) {
@@ -290,7 +308,10 @@ pub fn EditorState::rename_element_id(
 
 ///|
 /// 指定要素の子要素を取得
-pub fn EditorState::get_children(self : EditorState, parent_id : String) -> Array[@model.Element] {
+pub fn EditorState::get_children(
+  self : EditorState,
+  parent_id : String,
+) -> Array[@model.Element] {
   let children : Array[@model.Element] = []
   for el in self.elements.get() {
     if el.parent_id == Some(parent_id) {
@@ -387,7 +408,12 @@ pub fn EditorState::move_element(
         els.map(fn(e) {
           // ドラッグ中のライン自体を更新
           if e.id == line_id {
-            return { ..e, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
+            return {
+              ..e,
+              x: new_x,
+              y: new_y,
+              shape: @model.Line(new_x2, new_y2),
+            }
           }
           // 接続された要素を移動
           if connected_ids.contains(e.id) {
@@ -411,8 +437,14 @@ pub fn EditorState::move_element(
                 // 接続先の要素を探して新しいアンカー位置を計算
                 for target in els {
                   if target.id == conn.element_id {
-                    let moved_target = { ..target, x: target.x + dx, y: target.y + dy }
-                    let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                    let moved_target = {
+                      ..target,
+                      x: target.x + dx,
+                      y: target.y + dy,
+                    }
+                    let anchor_point = moved_target.get_anchor_point(
+                      conn.anchor,
+                    )
                     new_ex = anchor_point.x
                     new_ey = anchor_point.y
                     break
@@ -427,8 +459,14 @@ pub fn EditorState::move_element(
               if connected_ids.contains(conn.element_id) {
                 for target in els {
                   if target.id == conn.element_id {
-                    let moved_target = { ..target, x: target.x + dx, y: target.y + dy }
-                    let anchor_point = moved_target.get_anchor_point(conn.anchor)
+                    let moved_target = {
+                      ..target,
+                      x: target.x + dx,
+                      y: target.y + dy,
+                    }
+                    let anchor_point = moved_target.get_anchor_point(
+                      conn.anchor,
+                    )
                     new_ex2 = anchor_point.x
                     new_ey2 = anchor_point.y
                     break
@@ -437,7 +475,10 @@ pub fn EditorState::move_element(
               }
             None => ()
           }
-          if new_ex != e.x || new_ey != e.y || new_ex2 != e_x2 || new_ey2 != e_y2 {
+          if new_ex != e.x ||
+            new_ey != e.y ||
+            new_ex2 != e_x2 ||
+            new_ey2 != e_y2 {
             { ..e, x: new_ex, y: new_ey, shape: @model.Line(new_ex2, new_ey2) }
           } else {
             e
@@ -476,7 +517,7 @@ pub fn EditorState::move_element(
           let mut new_ey2 = y2
           // 始点の接続を確認
           match conns.start {
-            Some(conn) if conn.element_id == target_id => {
+            Some(conn) if conn.element_id == target_id =>
               // 移動後のターゲット要素でアンカー位置を計算
               for target in els {
                 if target.id == target_id {
@@ -487,12 +528,11 @@ pub fn EditorState::move_element(
                   break
                 }
               }
-            }
             _ => ()
           }
           // 終点の接続を確認
           match conns.end {
-            Some(conn) if conn.element_id == target_id => {
+            Some(conn) if conn.element_id == target_id =>
               for target in els {
                 if target.id == target_id {
                   let moved_target = { ..target, x: new_x, y: new_y }
@@ -502,7 +542,6 @@ pub fn EditorState::move_element(
                   break
                 }
               }
-            }
             _ => ()
           }
           if new_ex != e.x || new_ey != e.y || new_ex2 != x2 || new_ey2 != y2 {
@@ -537,7 +576,10 @@ pub fn EditorState::select(self : EditorState, id : String?) -> Unit {
 
 ///|
 /// 複数要素を選択
-pub fn EditorState::select_multiple(self : EditorState, ids : Array[String]) -> Unit {
+pub fn EditorState::select_multiple(
+  self : EditorState,
+  ids : Array[String],
+) -> Unit {
   self.selected_ids.set(ids)
 }
 
@@ -554,7 +596,10 @@ pub fn EditorState::add_to_selection(self : EditorState, id : String) -> Unit {
 
 ///|
 /// 選択から除外
-pub fn EditorState::remove_from_selection(self : EditorState, id : String) -> Unit {
+pub fn EditorState::remove_from_selection(
+  self : EditorState,
+  id : String,
+) -> Unit {
   self.selected_ids.update(fn(ids) { ids.filter(fn(i) { i != id }) })
 }
 
@@ -568,7 +613,11 @@ pub fn EditorState::is_selected(self : EditorState, id : String) -> Bool {
 /// 最初の選択要素を取得（後方互換性用）
 pub fn EditorState::get_selected_id(self : EditorState) -> String? {
   let ids = self.selected_ids.get()
-  if ids.length() > 0 { Some(ids[0]) } else { None }
+  if ids.length() > 0 {
+    Some(ids[0])
+  } else {
+    None
+  }
 }
 
 ///|
@@ -581,7 +630,11 @@ pub fn EditorState::start_drag(
 ) -> Unit {
   guard self.find_element(element_id) is Some(el)
   // Line の場合は終点と接続情報、接続要素の位置も保存
-  let (start_shape, start_connections, connected_positions) : (@model.ShapeType?, @model.LineConnections?, Array[(String, Double, Double)]) = match el.shape {
+  let (start_shape, start_connections, connected_positions) : (
+    @model.ShapeType?,
+    @model.LineConnections?,
+    Array[(String, Double, Double)],
+  ) = match el.shape {
     @model.Line(_, _) => {
       let positions : Array[(String, Double, Double)] = []
       match el.connections {
@@ -589,14 +642,18 @@ pub fn EditorState::start_drag(
           match conns.start {
             Some(conn) =>
               if self.find_element(conn.element_id) is Some(connected_el) {
-                positions.push((conn.element_id, connected_el.x, connected_el.y))
+                positions.push(
+                  (conn.element_id, connected_el.x, connected_el.y),
+                )
               }
             None => ()
           }
           match conns.end {
             Some(conn) =>
               if self.find_element(conn.element_id) is Some(connected_el) {
-                positions.push((conn.element_id, connected_el.x, connected_el.y))
+                positions.push(
+                  (conn.element_id, connected_el.x, connected_el.y),
+                )
               }
             None => ()
           }
@@ -629,7 +686,12 @@ pub fn EditorState::drag_move(
   mouse_y : Double,
 ) -> Unit {
   guard self.drag_state.get() is Some(state)
-  let pos = @model.calc_drag_position(state.offset_x, state.offset_y, mouse_x, mouse_y)
+  let pos = @model.calc_drag_position(
+    state.offset_x,
+    state.offset_y,
+    mouse_x,
+    mouse_y,
+  )
   let (snapped_x, snapped_y) = self.snap_to_grid(pos.x, pos.y)
   self.move_element(state.element_id, snapped_x, snapped_y)
 }
@@ -689,7 +751,10 @@ pub fn EditorState::delete_selected(self : EditorState) -> Unit {
 
 ///|
 /// 要素を追加（履歴なし）
-pub fn EditorState::add_element_raw(self : EditorState, element : @model.Element) -> Unit {
+pub fn EditorState::add_element_raw(
+  self : EditorState,
+  element : @model.Element,
+) -> Unit {
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
@@ -717,7 +782,13 @@ pub fn EditorState::move_element_raw(
   new_y : Double,
 ) -> Unit {
   self.elements.update(fn(els) {
-    els.map(fn(el) { if el.id == id { { ..el, x: new_x, y: new_y } } else { el } })
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, x: new_x, y: new_y }
+      } else {
+        el
+      }
+    })
   })
 }
 
@@ -801,13 +872,7 @@ pub fn EditorState::update_style_raw(
   new_style : @model.Style,
 ) -> Unit {
   self.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: new_style }
-      } else {
-        el
-      }
-    })
+    els.map(fn(el) { if el.id == id { { ..el, style: new_style } } else { el } })
   })
 }
 
@@ -820,13 +885,7 @@ pub fn EditorState::rename_element_raw(
 ) -> Unit {
   // IDを更新
   self.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == old_id {
-        { ..el, id: new_id }
-      } else {
-        el
-      }
-    })
+    els.map(fn(el) { if el.id == old_id { { ..el, id: new_id } } else { el } })
   })
   // 選択状態も更新
   self.selected_ids.update(fn(ids) {
@@ -845,7 +904,8 @@ pub fn EditorState::update_text_raw(
     els.map(fn(el) {
       if el.id == id {
         match el.shape {
-          @model.Text(_, font_size) => { ..el, shape: @model.Text(new_content, font_size) }
+          @model.Text(_, font_size) =>
+            { ..el, shape: @model.Text(new_content, font_size) }
           _ => el
         }
       } else {
@@ -857,7 +917,10 @@ pub fn EditorState::update_text_raw(
 
 ///|
 /// 要素を1つ前面に移動
-pub fn EditorState::bring_forward(self : EditorState, id : String) -> (Int, Int)? {
+pub fn EditorState::bring_forward(
+  self : EditorState,
+  id : String,
+) -> (Int, Int)? {
   let els = self.elements.get()
   if self.get_element_index(id) is Some(from_idx) {
     let to_idx = from_idx + 1
@@ -871,7 +934,10 @@ pub fn EditorState::bring_forward(self : EditorState, id : String) -> (Int, Int)
 
 ///|
 /// 要素を最前面に移動
-pub fn EditorState::bring_to_front(self : EditorState, id : String) -> (Int, Int)? {
+pub fn EditorState::bring_to_front(
+  self : EditorState,
+  id : String,
+) -> (Int, Int)? {
   let els = self.elements.get()
   if self.get_element_index(id) is Some(from_idx) {
     let to_idx = els.length() - 1
@@ -885,7 +951,10 @@ pub fn EditorState::bring_to_front(self : EditorState, id : String) -> (Int, Int
 
 ///|
 /// 要素を1つ背面に移動
-pub fn EditorState::send_backward(self : EditorState, id : String) -> (Int, Int)? {
+pub fn EditorState::send_backward(
+  self : EditorState,
+  id : String,
+) -> (Int, Int)? {
   if self.get_element_index(id) is Some(from_idx) {
     if from_idx > 0 {
       let to_idx = from_idx - 1
@@ -898,7 +967,10 @@ pub fn EditorState::send_backward(self : EditorState, id : String) -> (Int, Int)
 
 ///|
 /// 要素を最背面に移動
-pub fn EditorState::send_to_back(self : EditorState, id : String) -> (Int, Int)? {
+pub fn EditorState::send_to_back(
+  self : EditorState,
+  id : String,
+) -> (Int, Int)? {
   if self.get_element_index(id) is Some(from_idx) {
     if from_idx != 0 {
       self.reorder_element_raw(id, 0)
@@ -1001,20 +1073,30 @@ pub fn EditorState::pan(self : EditorState, dx : Double, dy : Double) -> Unit {
 
 ///|
 /// パン開始
-pub fn EditorState::start_pan(self : EditorState, screen_x : Double, screen_y : Double) -> Unit {
+pub fn EditorState::start_pan(
+  self : EditorState,
+  screen_x : Double,
+  screen_y : Double,
+) -> Unit {
   self.is_panning.set(true)
   self.pan_start.set(Some((screen_x, screen_y)))
 }
 
 ///|
 /// パン移動
-pub fn EditorState::pan_move(self : EditorState, screen_x : Double, screen_y : Double) -> Unit {
+pub fn EditorState::pan_move(
+  self : EditorState,
+  screen_x : Double,
+  screen_y : Double,
+) -> Unit {
   if self.pan_start.get() is Some((start_x, start_y)) {
     let vp = self.viewport.get()
     // スクリーン座標での移動量をシーン座標に変換
     let dx = (start_x - screen_x) / vp.zoom
     let dy = (start_y - screen_y) / vp.zoom
-    self.viewport.update(fn(v) { { ..v, scroll_x: v.scroll_x + dx, scroll_y: v.scroll_y + dy } })
+    self.viewport.update(fn(v) {
+      { ..v, scroll_x: v.scroll_x + dx, scroll_y: v.scroll_y + dy }
+    })
     self.pan_start.set(Some((screen_x, screen_y)))
   }
 }
@@ -1138,7 +1220,12 @@ pub fn EditorState::resize_move(
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
-            { ..el, x: final_x, y: final_y, shape: @model.Rect(final_w, final_h, rx, ry) }
+            {
+              ..el,
+              x: final_x,
+              y: final_y,
+              shape: @model.Rect(final_w, final_h, rx, ry),
+            }
           } else if el.parent_id == Some(state.element_id) {
             // 子要素を親の中央に配置
             { ..el, x: child_center_x, y: child_center_y }
@@ -1229,7 +1316,12 @@ pub fn EditorState::resize_move(
       self.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == state.element_id {
-            { ..el, x: new_cx, y: new_cy, shape: @model.Ellipse(final_rx, final_ry) }
+            {
+              ..el,
+              x: new_cx,
+              y: new_cy,
+              shape: @model.Ellipse(final_rx, final_ry),
+            }
           } else if el.parent_id == Some(state.element_id) {
             // 子要素を親の中央に配置（楕円の中心）
             { ..el, x: new_cx, y: new_cy }
@@ -1256,19 +1348,19 @@ pub fn EditorState::resize_move(
             snap_threshold,
           )
           let (new_x, new_y) = match snap_result {
-            Some((_, _, snap_point)) => {
+            Some((_, _, snap_point)) =>
               // アンカースナップが優先
               (snap_point.x, snap_point.y)
-            }
-            None => {
+            None =>
               // アンカーがなければグリッドスナップ
               (snap_value(raw_x), snap_value(raw_y))
-            }
           }
           // pending_connection を更新
           match snap_result {
             Some((target_el, anchor, snap_point)) =>
-              self.pending_connection.set(Some({ target_id: target_el.id, anchor, point: snap_point }))
+              self.pending_connection.set(
+                Some({ target_id: target_el.id, anchor, point: snap_point }),
+              )
             None => self.pending_connection.set(None)
           }
           self.elements.update(fn(els) {
@@ -1294,15 +1386,16 @@ pub fn EditorState::resize_move(
           )
           let (final_x2, final_y2) = match snap_result {
             Some((_, _, snap_point)) => (snap_point.x, snap_point.y)
-            None => {
+            None =>
               // アンカーがなければグリッドスナップ
               (snap_value(raw_end_x), snap_value(raw_end_y))
-            }
           }
           // pending_connection を更新
           match snap_result {
             Some((target_el, anchor, snap_point)) =>
-              self.pending_connection.set(Some({ target_id: target_el.id, anchor, point: snap_point }))
+              self.pending_connection.set(
+                Some({ target_id: target_el.id, anchor, point: snap_point }),
+              )
             None => self.pending_connection.set(None)
           }
           self.elements.update(fn(els) {
@@ -1331,15 +1424,23 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
       if el.shape is @model.Line(_, _) {
         if self.pending_connection.get() is Some(pending) {
           // 現在の接続情報を取得または新規作成
-          let current_conns = el.connections.unwrap_or(@model.LineConnections::none())
+          let current_conns = el.connections.unwrap_or(
+            @model.LineConnections::none(),
+          )
           // ハンドル位置に応じて始点または終点の接続を更新
           let new_conns = match resize.handle {
             @model.LineStart => {
-              let conn : @model.Connection = { element_id: pending.target_id, anchor: pending.anchor }
+              let conn : @model.Connection = {
+                element_id: pending.target_id,
+                anchor: pending.anchor,
+              }
               { ..current_conns, start: Some(conn) }
             }
             @model.LineEnd => {
-              let conn : @model.Connection = { element_id: pending.target_id, anchor: pending.anchor }
+              let conn : @model.Connection = {
+                element_id: pending.target_id,
+                anchor: pending.anchor,
+              }
               { ..current_conns, end: Some(conn) }
             }
             _ => current_conns
@@ -1347,7 +1448,9 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
           self.update_line_connection(resize.element_id, new_conns)
         } else {
           // スナップしていない場合は接続を解除
-          let current_conns = el.connections.unwrap_or(@model.LineConnections::none())
+          let current_conns = el.connections.unwrap_or(
+            @model.LineConnections::none(),
+          )
           let new_conns = match resize.handle {
             @model.LineStart => { ..current_conns, start: None }
             @model.LineEnd => { ..current_conns, end: None }
@@ -1393,7 +1496,10 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
 
 ///|
 /// 親要素の子テキストを中央に配置
-pub fn EditorState::center_child_elements(self : EditorState, parent_id : String) -> Unit {
+pub fn EditorState::center_child_elements(
+  self : EditorState,
+  parent_id : String,
+) -> Unit {
   let elements = self.elements.get()
   // 親要素を検索
   let parent_el : @model.Element? = {
@@ -1486,12 +1592,18 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
   match command {
     @model.AddElement(element) => state.add_element_raw(element)
     @model.RemoveElement(element) => state.remove_element_raw(element.id)
-    @model.MoveElement(id, _, _, to_x, to_y) => state.move_element_raw(id, to_x, to_y)
-    @model.ResizeElement(id, _, new_shape) => state.update_shape_raw(id, new_shape)
-    @model.ReorderElement(id, _, to_idx) => state.reorder_element_raw(id, to_idx)
-    @model.UpdateStyle(id, _, new_style) => state.update_style_raw(id, new_style)
-    @model.RenameElement(old_id, new_id) => state.rename_element_raw(old_id, new_id)
-    @model.UpdateText(id, _, new_content) => state.update_text_raw(id, new_content)
+    @model.MoveElement(id, _, _, to_x, to_y) =>
+      state.move_element_raw(id, to_x, to_y)
+    @model.ResizeElement(id, _, new_shape) =>
+      state.update_shape_raw(id, new_shape)
+    @model.ReorderElement(id, _, to_idx) =>
+      state.reorder_element_raw(id, to_idx)
+    @model.UpdateStyle(id, _, new_style) =>
+      state.update_style_raw(id, new_style)
+    @model.RenameElement(old_id, new_id) =>
+      state.rename_element_raw(old_id, new_id)
+    @model.UpdateText(id, _, new_content) =>
+      state.update_text_raw(id, new_content)
   }
 }
 
@@ -1503,11 +1615,16 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.RemoveElement(element) => state.add_element_raw(element)
     @model.MoveElement(id, from_x, from_y, _, _) =>
       state.move_element_raw(id, from_x, from_y)
-    @model.ResizeElement(id, old_shape, _) => state.update_shape_raw(id, old_shape)
-    @model.ReorderElement(id, from_idx, _) => state.reorder_element_raw(id, from_idx)
-    @model.UpdateStyle(id, old_style, _) => state.update_style_raw(id, old_style)
-    @model.RenameElement(old_id, new_id) => state.rename_element_raw(new_id, old_id)
-    @model.UpdateText(id, old_content, _) => state.update_text_raw(id, old_content)
+    @model.ResizeElement(id, old_shape, _) =>
+      state.update_shape_raw(id, old_shape)
+    @model.ReorderElement(id, from_idx, _) =>
+      state.reorder_element_raw(id, from_idx)
+    @model.UpdateStyle(id, old_style, _) =>
+      state.update_style_raw(id, old_style)
+    @model.RenameElement(old_id, new_id) =>
+      state.rename_element_raw(new_id, old_id)
+    @model.UpdateText(id, old_content, _) =>
+      state.update_text_raw(id, old_content)
   }
 }
 
@@ -1522,12 +1639,9 @@ pub fn EditorState::start_box_select(
   x : Double,
   y : Double,
 ) -> Unit {
-  self.box_select.set(Some({
-    start_x: x,
-    start_y: y,
-    current_x: x,
-    current_y: y,
-  }))
+  self.box_select.set(
+    Some({ start_x: x, start_y: y, current_x: x, current_y: y }),
+  )
 }
 
 ///|
@@ -1589,13 +1703,15 @@ pub fn EditorState::start_multi_drag(
       }
     }
   }
-  self.multi_drag_state.set(Some({
-    element_ids: ids,
-    start_positions,
-    line_endpoints,
-    mouse_start_x: mouse_x,
-    mouse_start_y: mouse_y,
-  }))
+  self.multi_drag_state.set(
+    Some({
+      element_ids: ids,
+      start_positions,
+      line_endpoints,
+      mouse_start_x: mouse_x,
+      mouse_start_y: mouse_y,
+    }),
+  )
 }
 
 ///|
@@ -1643,7 +1759,9 @@ pub fn EditorState::multi_drag_move(
           continue
         } else if start_connected_outside {
           // 始点が選択外に接続 → 終点だけ移動（初期値から計算）
-          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else { continue }
+          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else {
+            continue
+          }
           let new_x2 = init_x2 + dx
           let new_y2 = init_y2 + dy
           self.elements.update(fn(els) {
@@ -1657,14 +1775,21 @@ pub fn EditorState::multi_drag_move(
           })
         } else if end_connected_outside {
           // 終点が選択外に接続 → 始点だけ移動（x2, y2 は絶対座標なのでそのまま）
-          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else { continue }
+          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else {
+            continue
+          }
           let new_x = start_x + dx
           let new_y = start_y + dy
           let (snapped_x, snapped_y) = self.snap_to_grid(new_x, new_y)
           self.elements.update(fn(els) {
             els.map(fn(e) {
               if e.id == id {
-                { ..e, x: snapped_x, y: snapped_y, shape: @model.Line(init_x2, init_y2) }
+                {
+                  ..e,
+                  x: snapped_x,
+                  y: snapped_y,
+                  shape: @model.Line(init_x2, init_y2),
+                }
               } else {
                 e
               }
@@ -1707,7 +1832,10 @@ pub fn EditorState::is_multi_dragging(self : EditorState) -> Bool {
 
 ///|
 /// 指定要素に接続されている全てのラインを更新
-pub fn EditorState::update_connected_lines(self : EditorState, element_id : String) -> Unit {
+pub fn EditorState::update_connected_lines(
+  self : EditorState,
+  element_id : String,
+) -> Unit {
   guard self.find_element(element_id) is Some(target)
   // 接続されているラインを探して更新
   self.elements.update(fn(elements) {
@@ -1825,7 +1953,8 @@ pub fn EditorState::find_nearest_connection_point(
       continue
     }
     // 最寄りのアンカーを探す
-    if el.find_nearest_anchor(point, threshold) is Some((anchor, anchor_point, dist)) {
+    if el.find_nearest_anchor(point, threshold)
+      is Some((anchor, anchor_point, dist)) {
       match nearest {
         None => nearest = Some((el, anchor, anchor_point, dist))
         Some((_, _, _, prev_dist)) =>
@@ -1881,19 +2010,16 @@ pub fn EditorState::update_placement(
       v
     }
   }
-
   let anchor_x = placement.anchor_point.x
   let anchor_y = placement.anchor_point.y
   let mouse_x = snap_value(mouse_pos.x)
   let mouse_y = snap_value(mouse_pos.y)
-
   match el.shape {
-    @model.Line(_, _) => {
+    @model.Line(_, _) =>
       // Line/Arrow: 終点をマウス位置に更新（始点はアンカー位置で固定）
       self.update_element(placement.element_id, fn(e) {
         { ..e, shape: @model.Line(mouse_x, mouse_y) }
       })
-    }
     @model.Circle(_) => {
       // Circle: アンカーを中心として、マウス距離で半径を決定
       let dx = mouse_x - anchor_x
@@ -1923,19 +2049,24 @@ pub fn EditorState::update_placement(
       let width = if raw_width < 10.0 { 10.0 } else { raw_width }
       let height = if raw_height < 10.0 { 10.0 } else { raw_height }
       self.update_element(placement.element_id, fn(e) {
-        { ..e, x: min_x, y: min_y, shape: @model.Rect(width, height, corner_rx, corner_ry) }
+        {
+          ..e,
+          x: min_x,
+          y: min_y,
+          shape: @model.Rect(width, height, corner_rx, corner_ry),
+        }
       })
     }
-    @model.Text(content, font_size) => {
+    @model.Text(content, font_size) =>
       // Text: マウス位置に配置
       self.update_element(placement.element_id, fn(e) {
         { ..e, x: mouse_x, y: mouse_y, shape: @model.Text(content, font_size) }
       })
-    }
-    _ => {
+    _ =>
       // その他: マウス位置に配置
-      self.update_element(placement.element_id, fn(e) { { ..e, x: mouse_x, y: mouse_y } })
-    }
+      self.update_element(placement.element_id, fn(e) {
+        { ..e, x: mouse_x, y: mouse_y }
+      })
   }
 }
 
@@ -1962,12 +2093,14 @@ pub fn EditorState::end_placement(self : EditorState) -> Unit {
   // Line/Arrow の場合は接続情報を保存
   if placement.is_line {
     let connections : @model.LineConnections = {
-      start: Some({ element_id: placement.anchor_element_id, anchor: placement.anchor }),
+      start: Some({
+        element_id: placement.anchor_element_id,
+        anchor: placement.anchor,
+      }),
       end: None,
     }
     self.update_line_connection(placement.element_id, connections)
   }
-
   self.placement_state.set(None)
 }
 
