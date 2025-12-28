@@ -89,7 +89,7 @@ test.describe('Moonlight SVG Editor', () => {
 
     await expect(page.locator('svg text')).toHaveCount(initialCount + 1);
     // Check that the text content is correct
-    await expect(page.locator('svg text').last()).toHaveText('Hello');
+    await expect(page.locator('svg text').last()).toHaveText('Text');
   });
 
   test('should drag a shape to move it', async ({ page }) => {
@@ -514,7 +514,7 @@ test.describe('Moonlight SVG Editor', () => {
 
       // Find the text element
       const textElement = page.locator('svg text').last();
-      await expect(textElement).toHaveText('Hello');
+      await expect(textElement).toHaveText('Text');
 
       // Get text element bounding box for double-click
       const bbox = await textElement.boundingBox();
@@ -527,7 +527,7 @@ test.describe('Moonlight SVG Editor', () => {
       // Inline textarea should appear
       const textarea = page.locator('textarea');
       await expect(textarea).toBeVisible();
-      await expect(textarea).toHaveValue('Hello');
+      await expect(textarea).toHaveValue('Text');
     });
 
     // Skip - text update may have timing issues with Effect-based rendering
@@ -538,7 +538,7 @@ test.describe('Moonlight SVG Editor', () => {
 
       // Find the text element
       const textElement = page.locator('svg text').last();
-      await expect(textElement).toHaveText('Hello');
+      await expect(textElement).toHaveText('Text');
 
       // Get text element bounding box for double-click
       const bbox = await textElement.boundingBox();
@@ -571,7 +571,7 @@ test.describe('Moonlight SVG Editor', () => {
 
       // Find the text element
       const textElement = page.locator('svg text').last();
-      await expect(textElement).toHaveText('Hello');
+      await expect(textElement).toHaveText('Text');
 
       // Get text element bounding box for double-click
       const bbox = await textElement.boundingBox();
@@ -591,7 +591,7 @@ test.describe('Moonlight SVG Editor', () => {
       await page.waitForTimeout(100);
 
       // Verify original text is preserved
-      await expect(textElement).toHaveText('Hello');
+      await expect(textElement).toHaveText('Text');
 
       // Textarea should be hidden
       await expect(textarea).not.toBeVisible();

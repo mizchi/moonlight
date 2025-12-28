@@ -1696,7 +1696,7 @@ fn render_embedded_toolbar(
           el_id,
           100.0 + offset,
           200.0 + offset * 0.75,
-          @model.Text("Hello", Some(24.0)),
+          @model.Text("Text", Some(24.0)),
         ).with_style(state.get_text_style())
         execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))

@@ -276,9 +276,13 @@ pub fn Element::bounding_box(self : Element) -> BoundingBox {
       let size = font_size.unwrap_or(16.0)
       // テキストのバウンディングボックスは概算（中央基準）
       // text-anchor="middle", dominant-baseline="middle" に対応
-      let estimated_width = content.iter().count().to_double() * size * 0.6
-      let width = if estimated_width < 20.0 { 20.0 } else { estimated_width }
-      { x: self.x - width / 2.0, y: self.y - size / 2.0, width, height: size }
+      // 平均文字幅係数: 0.55 (半角文字の平均的な幅)
+      let char_count = content.iter().count().to_double()
+      let estimated_width = char_count * size * 0.55
+      let min_width = size * 2.0 // 最小幅はフォントサイズの2倍
+      let width = if estimated_width < min_width { min_width } else { estimated_width }
+      let height = size * 1.2 // 行の高さ
+      { x: self.x - width / 2.0, y: self.y - height / 2.0, width, height }
     }
   }
 }

@@ -245,15 +245,16 @@ pub fn render_element(
             acc
           }
         })
-        let estimated_width = max_line_len.to_double() * size * 0.6
+        let estimated_width = max_line_len.to_double() * size * 0.55
         let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
         let h = if total_height < 24.0 { 24.0 } else { total_height }
         (w, h)
       } else {
         // 単一行: 文字数から幅を推定
         let char_count = content.iter().count()
-        let estimated_width = char_count.to_double() * size * 0.6
-        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
+        let estimated_width = char_count.to_double() * size * 0.55
+        let min_w = size * 2.0
+        let w = if estimated_width < min_w { min_w } else { estimated_width }
         (w, size * 1.2)
       }
       // 透明なヒットエリア
@@ -1026,13 +1027,13 @@ pub fn render_element_node(
             acc
           }
         })
-        let estimated_width = max_line_len.to_double() * size * 0.6
+        let estimated_width = max_line_len.to_double() * size * 0.55
         let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
         let h = if total_height < 24.0 { 24.0 } else { total_height }
         (w, h)
       } else {
         let char_count = content.iter().count()
-        let estimated_width = char_count.to_double() * size * 0.6
+        let estimated_width = char_count.to_double() * size * 0.55
         let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
         (w, size * 1.2)
       }
@@ -1804,13 +1805,13 @@ fn create_text_vnode_with_ref(
         acc
       }
     })
-    let estimated_width = max_line_len.to_double() * size * 0.6
+    let estimated_width = max_line_len.to_double() * size * 0.55
     let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
     let h = if total_height < 24.0 { 24.0 } else { total_height }
     (w, h)
   } else {
     let char_count = content.iter().count()
-    let estimated_width = char_count.to_double() * size * 0.6
+    let estimated_width = char_count.to_double() * size * 0.55
     let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
     (w, size * 1.2)
   }
