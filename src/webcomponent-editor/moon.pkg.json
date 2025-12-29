@@ -1,0 +1,14 @@
+{
+  "is-main": true,
+  "supported-targets": ["js"],
+  "import": [
+    {
+      "path": "internal/app",
+      "alias": "editor"
+    },
+    {
+      "path": "mizchi/js/core",
+      "alias": "js"
+    }
+  ]
+}

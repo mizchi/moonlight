@@ -171,6 +171,10 @@ fn parse_shape(
       Some((@model.Line(x2, y2), x1, y1))
     }
     "text" => {
+      // NOTE: エディタは text-anchor="middle", dominant-baseline="middle" で描画するため、
+      // 外部SVGをインポートする場合は座標変換が必要。
+      // 現状はエディタで生成したSVGの再読み込みを想定し、変換は行わない。
+      // TODO: 外部SVG対応時に座標変換処理を実装する
       let x = parse_attr_double(el, "x", 0.0)
       let y = parse_attr_double(el, "y", 0.0)
       let content = get_text_content(el)

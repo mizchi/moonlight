@@ -23,15 +23,14 @@ pub fn setup_editor(
   let height = options.height.unwrap_or(300)
   // エディタ状態を作成
   let state = create_embed_state(width, height, options)
-  // 初期 SVG が指定されている場合はパース
+  // 初期 SVG が指定されている場合はパース（空でもデモを表示しない）
   match options.initial_svg {
     Some(svg_str) => {
       let elements = parse_simple_svg(svg_str, new_id)
       if elements.length() > 0 {
         state.elements.set(elements)
-      } else {
-        add_sample_elements(state)
       }
+      // initialSvg が指定されていれば、空でもデモは表示しない
     }
     None => add_sample_elements(state)
   }

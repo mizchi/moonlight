@@ -19,6 +19,7 @@ const cacheHeaders = {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    console.log('[Worker] Request:', request.method, request.url);
     const url = new URL(request.url);
 
     // OPTIONS リクエスト（CORS プリフライト）

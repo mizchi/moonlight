@@ -37,16 +37,20 @@ fn create_id_counter() -> @luna.Signal[Int] {
 ///|
 /// エディタオプション（JavaScript から渡される）
 pub struct EmbedOptions {
-  width : Int
-  height : Int
+  width : Int            // キャンバス幅（ピクセル）
+  height : Int           // キャンバス高さ（ピクセル）
+  doc_width : Int        // ドキュメント幅（viewBox）
+  doc_height : Int       // ドキュメント高さ（viewBox）
+  zoom : Double          // 初期ズーム
   theme : String
   is_readonly : Bool
+  initial_svg : String?  // 初期 SVG（None ならデモ表示）
 }
 
 ///|
 /// デフォルトオプション
 pub fn EmbedOptions::default() -> EmbedOptions {
-  { width: 400, height: 300, theme: "light", is_readonly: false }
+  { width: 400, height: 300, doc_width: 400, doc_height: 300, zoom: 1.0, theme: "light", is_readonly: false, initial_svg: None }
 }
 
 ///|
@@ -54,9 +58,13 @@ pub fn EmbedOptions::default() -> EmbedOptions {
 pub fn EmbedOptions::from_js(js_obj : @js.Any) -> EmbedOptions {
   let width = get_int_or_default(js_obj, "width", 400)
   let height = get_int_or_default(js_obj, "height", 300)
+  let doc_width = get_int_or_default(js_obj, "docWidth", width)
+  let doc_height = get_int_or_default(js_obj, "docHeight", height)
+  let zoom = get_double_or_default(js_obj, "zoom", 1.0)
   let theme = get_string_or_default(js_obj, "theme", "light")
   let is_readonly = get_bool_or_default(js_obj, "readonly", false)
-  { width, height, theme, is_readonly }
+  let initial_svg = get_string_option(js_obj, "initialSvg")
+  { width, height, doc_width, doc_height, zoom, theme, is_readonly, initial_svg }
 }
 
 ///|
@@ -84,6 +92,32 @@ extern "js" fn get_bool_or_default(
   #| (obj, key, def) => typeof obj[key] === 'boolean' ? obj[key] : def
 
 ///|
+extern "js" fn get_double_or_default(
+  obj : @js.Any,
+  key : String,
+  default_val : Double,
+) -> Double =
+  #| (obj, key, def) => typeof obj[key] === 'number' ? obj[key] : def
+
+///|
+extern "js" fn get_string_option_ffi(obj : @js.Any, key : String) -> @js.Any =
+  #| (obj, key) => obj[key]
+
+///|
+extern "js" fn is_string_ffi(val : @js.Any) -> Bool =
+  #| (val) => typeof val === 'string'
+
+///|
+fn get_string_option(obj : @js.Any, key : String) -> String? {
+  let val = get_string_option_ffi(obj, key)
+  if is_string_ffi(val) {
+    Some(val.cast())
+  } else {
+    None
+  }
+}
+
+///|
 /// JavaScript 埋め込み用エディタを作成
 /// container: DOM コンテナ要素
 /// options: エディタオプション
@@ -96,7 +130,7 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
     "el-\{current + 1}"
   }
 
-  // 状態を作成
+  // 状態を作成（キャンバスサイズを使用）
   let state = @core.EditorState::new_with_mode(
     options.width,
     options.height,
@@ -104,13 +138,30 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   )
   let history = @model.History::new()
 
+  // ドキュメントサイズを設定
+  state.doc_width.set(options.doc_width.to_double())
+  state.doc_height.set(options.doc_height.to_double())
+
+  // ズームを設定（プレビューと同じスケールを維持）
+  let viewport = state.viewport.get()
+  state.viewport.set({ ..viewport, zoom: options.zoom })
+
   // テーマを設定
   let theme = if options.theme == "dark" { @model.Dark } else { @model.Light }
   state.theme_mode.set(theme)
   state.is_readonly.set(options.is_readonly)
 
-  // サンプル要素を追加
-  add_sample_shapes(state, new_id)
+  // 初期 SVG が指定されていればパース、なければサンプル要素を追加
+  match options.initial_svg {
+    Some(svg_str) => {
+      let elements = import_svg_elements(svg_str, new_id)
+      if elements.length() > 0 {
+        state.elements.set(elements)
+      }
+      // initial_svg が指定されていれば、空でもサンプルは表示しない
+    }
+    None => add_sample_shapes(state, new_id)
+  }
 
   // Luna でレンダリング
   let editor_node = embedded_editor_app(state, history, new_id)
@@ -118,7 +169,7 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   @element.render(dom_container |> @element.DomElement::from_dom, editor_node)
 
   // ハンドルを作成して返す
-  create_editor_handle_js(state, options.width, options.height)
+  create_editor_handle_js(state, options.doc_width, options.doc_height)
 }
 
 ///|
@@ -1933,21 +1984,18 @@ fn render_embedded_view(
   svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
-  // 外側コンテナ：親要素のサイズにフィット
+  // コンテナ：aspect-ratio で比率を維持（フラットな構造）
   div(
     dyn_style=fn() {
       let doc_w = state.doc_width.get()
       let doc_h = state.doc_height.get()
-      // aspect-ratio で比率を維持、width/height: 100% で親にフィット
-      "position: relative; width: 100%; height: 100%; aspect-ratio: \{doc_w} / \{doc_h}; max-width: 100%; max-height: 100%;"
+      "position: relative; width: 100%; aspect-ratio: \{doc_w} / \{doc_h};"
     },
     [
-      // SVG キャンバス（絶対位置で全体を埋める）
-      div(style="position: absolute; inset: 0;", [
-        svg_canvas,
-        // テキスト入力
-        render_text_input_container(state, commit_text_input),
-      ]),
+      // SVG キャンバス
+      svg_canvas,
+      // テキスト入力（absolute positioned）
+      render_text_input_container(state, commit_text_input),
       // 編集ボタン（右上固定）- アイコンのみ、aria-label付き
       @element.create_element(
         "button",
@@ -2107,6 +2155,10 @@ pub fn render_editor_modal(
             style="display: flex; gap: 4px; align-items: center; padding: 8px 12px; border-top: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
             [render_embedded_toolbar(state, history, new_id)],
           ),
+          // コンテキストメニュー（表示時のみ）
+          show(fn() { state.context_menu.get() is Some(_) }, fn() {
+            render_context_menu(state, history, new_id)
+          }),
         ],
       ),
     ],
@@ -2155,14 +2207,19 @@ fn embedded_editor_app(
   let on_mouseleave = create_mouseleave_handler(state)
   // 埋め込みモードではズームを無効化
   let on_wheel = fn(_e : @js.Any) { () }
-  let on_contextmenu = fn(_e : @js.Any) { () } // コンテキストメニュー無効
+  // コンテキストメニューは有効化（要素の詳細表示・挿入機能）
+  let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
   let svg_canvas = render_svg_canvas_node(
     state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
     on_wheel,
   )
-  div(style="width: 100%;", [
-    // 埋め込みビュー
+  // 埋め込みビュー（フラットな構造）
+  @element.fragment([
     render_embedded_view(state, svg_canvas, commit_text_input),
+    // コンテキストメニュー（表示時のみ）
+    show(fn() { state.context_menu.get() is Some(_) }, fn() {
+      render_context_menu(state, history, new_id)
+    }),
     // モーダル（表示時のみ）
     show(fn() { state.modal_open.get() }, fn() {
       render_editor_modal(state, history, new_id)
@@ -2725,7 +2782,9 @@ fn render_svg_canvas_node(
       "style",
       @element.Dynamic(fn() {
         let theme = state.get_theme()
-        "border: 1px solid #ccc; user-select: none; overflow: hidden; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
+        // 埋め込みモードではコンテナ側にボーダーがあるのでSVGのボーダーは不要
+        let border = if state.mode is @core.Embedded { "none" } else { "1px solid #ccc" }
+        "border: \{border}; user-select: none; overflow: hidden; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
       }),
     ),
     ("mousedown", @element.Handler(on_mousedown)),

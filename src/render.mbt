@@ -1021,6 +1021,24 @@ pub fn render_canvas_background(
     [],
   )
   result.push(doc_bg)
+
+  // 3. ドキュメント境界線（埋め込みモードでも見えるように）
+  let border_color = if is_dark_theme { "#555555" } else { "#cccccc" }
+  let doc_border = create_svg_element(
+    "rect",
+    [
+      ("x", "0"),
+      ("y", "0"),
+      ("width", @model.num_str(doc_width)),
+      ("height", @model.num_str(doc_height)),
+      ("fill", "none"),
+      ("stroke", border_color),
+      ("stroke-width", "1"),
+      ("pointer-events", "none"),
+    ],
+    [],
+  )
+  result.push(doc_border)
   result
 }
 

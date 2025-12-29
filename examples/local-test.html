@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight Editor - Local Test (Lazy Hydration)</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 { margin-bottom: 10px; }
+    p { color: #666; margin-bottom: 20px; }
+    .editor-wrapper {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .info {
+      background: #f0f9ff;
+      border: 1px solid #0ea5e9;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 20px 0;
+    }
+    .info code {
+      background: #e0f2fe;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Lazy Hydration Test</h1>
+  <p>This page tests the lazy hydration with chunk splitting.</p>
+
+  <div class="info">
+    <strong>Chunk sizes:</strong><br>
+    <code>component.js</code> (shell): ~7KB / 2.2KB gzip - loaded on page load<br>
+    <code>editor.js</code> (heavy): ~153KB / 40KB gzip - loaded on Edit click
+  </div>
+
+  <h3>Template SVG (trigger="hover")</h3>
+  <p>hover でプリロード開始、完了で即エディタ起動。</p>
+  <div class="editor-wrapper">
+    <moonlight-editor id="editor1" width="800" height="300" trigger="hover">
+      <template>
+        <svg viewBox="0 0 800 300">
+          <rect x="100" y="50" width="120" height="80" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+          <circle cx="400" cy="150" r="50" fill="#2196F3" stroke="#1565C0" stroke-width="2"/>
+          <!-- エディタ互換: text-anchor="middle", dominant-baseline="middle" で中央座標を指定 -->
+          <text x="600" y="150" font-size="20" fill="#333" text-anchor="middle" dominant-baseline="middle">Template SVG</text>
+        </svg>
+      </template>
+    </moonlight-editor>
+  </div>
+
+  <script>
+    // Monitor network requests
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.name.includes('moonlight-editor')) {
+          console.log(`Loaded: ${entry.name} (${Math.round(entry.transferSize / 1024)}KB)`);
+        }
+      }
+    });
+    observer.observe({ entryTypes: ['resource'] });
+  </script>
+
+  <!-- Local dev server -->
+  <script src="http://localhost:8787/moonlight-editor.component.js" async></script>
+</body>
+</html>
