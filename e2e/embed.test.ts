@@ -737,4 +737,37 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
     const zoomDisplay = page.locator('span:has-text("%")');
     await expect(zoomDisplay.first()).toBeVisible();
   });
+
+  test('should move selected element with arrow keys in modal', async ({ page }) => {
+    // Open modal
+    const editButton = page.locator('#editor button[aria-label="Edit in fullscreen"]');
+    await editButton.click();
+
+    // Wait for modal to open
+    await expect(page.locator('button[aria-label="Close"]')).toBeVisible();
+
+    // Select circle element in the modal (use the modal's SVG canvas)
+    const modalSvg = page.locator('div[style*="position: fixed"] svg[width="100%"]');
+    const circle = modalSvg.locator('circle[data-id]').first();
+    await circle.click({ force: true });
+
+    // Wait for selection
+    await expect(modalSvg.locator('.selection-overlay')).toBeVisible();
+
+    // Get initial position
+    const initialCx = await circle.getAttribute('cx');
+    const initialCy = await circle.getAttribute('cy');
+
+    // Press arrow right
+    await page.keyboard.press('ArrowRight');
+
+    // Position should change
+    const newCx = await circle.getAttribute('cx');
+    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 10);
+
+    // Press arrow down
+    await page.keyboard.press('ArrowDown');
+    const newCy = await circle.getAttribute('cy');
+    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 10);
+  });
 });

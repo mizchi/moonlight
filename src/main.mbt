@@ -1986,14 +1986,31 @@ pub fn render_editor_modal(
     on_wheel,
   )
 
-  // Escキーでモーダルを閉じる
+  // モーダル用キーボードハンドラ（Escape で閉じる、矢印キーで移動）
   let _ = @luna.effect(fn() {
     let _ = state.modal_open.get() // 依存関係を登録
     if state.modal_open.get() {
       let handler = fn(e : @js.Any) {
+        // 入力フォーカス中は無視
+        if is_input_focused_ffi() {
+          return
+        }
         let key : String = e._get("key").cast()
+        let keyboard_event : @js_dom.KeyboardEvent = e.cast()
+        // Escape で閉じる
         if key == "Escape" {
           state.modal_open.set(false)
+          keyboard_event.preventDefault()
+          return
+        }
+        // 矢印キーで選択要素を移動
+        match key {
+          "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+            let shift_key : Bool = e._get("shiftKey").cast()
+            handle_arrow_key(state, history, key, shift_key)
+            keyboard_event.preventDefault()
+          }
+          _ => ()
         }
       }
       let _ = add_keydown_listener(handler)
