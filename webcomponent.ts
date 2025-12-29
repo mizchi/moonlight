@@ -1,7 +1,7 @@
 // WebComponent mode entry point
 
 // Import MoonBit webcomponent module
-import 'mbt:internal/app/webcomponent';
+import 'mbt:mizchi/moonlight/webcomponent';
 
 // Wait for custom element to be defined
 customElements.whenDefined('moonlight-editor').then(() => {

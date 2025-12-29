@@ -1,7 +1,7 @@
 // Preview mode entry point
 
 // Import MoonBit preview module
-import 'mbt:internal/app/preview';
+import 'mbt:mizchi/moonlight/preview';
 
 // Sample SVG content
 const sampleSvg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">

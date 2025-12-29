@@ -1,7 +1,7 @@
 // Embed mode entry point
 
 // Import MoonBit embed module
-import 'mbt:internal/app/embed';
+import 'mbt:mizchi/moonlight/embed';
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', () => {
