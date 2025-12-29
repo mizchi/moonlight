@@ -1,11 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Moonlight Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight Editor - Embed Example</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 { margin-bottom: 10px; }
+    p { color: #666; margin-bottom: 20px; }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+    code { font-family: 'SF Mono', Consolas, monospace; }
+    .tag { color: #569cd6; }
+    .attr { color: #9cdcfe; }
+    .string { color: #ce9178; }
+    .editor-wrapper {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+  </style>
 </head>
 <body>
-  <moonlight-editor width="800" height="600"></moonlight-editor>
-  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
+  <h1>Moonlight Editor</h1>
+  <p>Lightweight SVG editor as a Web Component. Copy the code below to embed in your page.</p>
+
+  <h3>Embed Code</h3>
+  <pre><code><span class="tag">&lt;moonlight-editor</span> <span class="attr">width</span>=<span class="string">"800"</span> <span class="attr">height</span>=<span class="string">"500"</span><span class="tag">&gt;&lt;/moonlight-editor&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="string">"https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"</span> <span class="attr">async</span><span class="tag">&gt;&lt;/script&gt;</span></code></pre>
+
+  <h3>Live Demo</h3>
+  <div class="editor-wrapper">
+    <moonlight-editor id="editor" width="800" height="500">
+      <template>
+        <svg viewBox="0 0 800 500">
+          <rect x="100" y="100" width="120" height="80" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+          <circle cx="400" cy="200" r="50" fill="#2196F3" stroke="#1565C0" stroke-width="2"/>
+          <text x="300" y="350" font-size="24" fill="#333">Hello Moonlight!</text>
+        </svg>
+      </template>
+    </moonlight-editor>
+  </div>
+
+  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js" async></script>
 </body>
 </html>

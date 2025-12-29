@@ -69,6 +69,17 @@ extern "js" fn create_options_from_attributes(element : @js.Any) -> @js.Any =
   #| })
 
 ///|
+/// template 内の SVG を取得（なければ空文字）
+extern "js" fn get_template_svg(element : @js.Any) -> String =
+  #| (el) => {
+  #|   const template = el.querySelector('template');
+  #|   if (!template) return '';
+  #|   const svg = template.content.querySelector('svg');
+  #|   if (!svg) return '';
+  #|   return svg.outerHTML;
+  #| }
+
+///|
 /// Shadow DOM を作成してコンテナを返す
 extern "js" fn create_shadow_container(element : @js.Any) -> @js.Any =
   #| (el) => {
@@ -86,6 +97,11 @@ extern "js" fn clear_element_handle(element : @js.Any) =
   #| (el) => { el._handle = null; }
 
 ///|
+/// ハンドルに SVG をインポート
+extern "js" fn import_svg_to_handle(handle : @js.Any, svg : String) =
+  #| (handle, svg) => { handle?.importSvg?.(svg); }
+
+///|
 /// connected コールバック
 fn on_connected(element : @js.Any) -> Unit {
   // 属性から options を作成（embed と同じ形式）
@@ -96,6 +112,11 @@ fn on_connected(element : @js.Any) -> Unit {
   // embed と同じエディタ作成関数を使用
   let handle = @editor.create_js_editor(container, options)
   set_element_handle(element, handle)
+  // template 内に SVG があれば読み込む
+  let template_svg = get_template_svg(element)
+  if template_svg != "" {
+    import_svg_to_handle(handle, template_svg)
+  }
 }
 
 ///|

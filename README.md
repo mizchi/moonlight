@@ -201,46 +201,41 @@ Embed the editor in any HTML page with just 2 lines:
 #### Minimal Example
 
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Moonlight Editor</title>
-</head>
-<body>
-  <moonlight-editor width="800" height="600"></moonlight-editor>
-  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
-</body>
-</html>
+<moonlight-editor width="800" height="600"></moonlight-editor>
+<script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js" async></script>
+```
+
+#### With Initial SVG (using template)
+
+```html
+<moonlight-editor width="800" height="500">
+  <template>
+    <svg viewBox="0 0 800 500">
+      <rect x="100" y="100" width="120" height="80" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+      <circle cx="400" cy="200" r="50" fill="#2196F3" stroke="#1565C0" stroke-width="2"/>
+      <text x="300" y="350" font-size="24" fill="#333">Hello Moonlight!</text>
+    </svg>
+  </template>
+</moonlight-editor>
+<script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js" async></script>
 ```
 
 #### With API Usage
 
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Moonlight Editor</title>
-</head>
-<body>
-  <button onclick="alert(editor.exportSvg())">Export SVG</button>
-  <button onclick="editor.clear()">Clear</button>
+<button onclick="alert(editor.exportSvg())">Export SVG</button>
+<button onclick="editor.clear()">Clear</button>
 
-  <moonlight-editor id="editor" width="800" height="600" theme="dark"></moonlight-editor>
+<moonlight-editor id="editor" width="800" height="600" theme="dark"></moonlight-editor>
 
-  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
-  <script>
-    const editor = document.getElementById('editor');
-
-    // API methods:
-    // editor.exportSvg()  - Get SVG string
-    // editor.importSvg(svg) - Load SVG
-    // editor.clear()      - Clear canvas
-    // editor.hasFocus()   - Check focus state
-  </script>
-</body>
-</html>
+<script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js" async></script>
+<script>
+  const editor = document.getElementById('editor');
+  // editor.exportSvg()    - Get SVG string
+  // editor.importSvg(svg) - Load SVG
+  // editor.clear()        - Clear canvas
+  // editor.hasFocus()     - Check focus state
+</script>
 ```
 
 #### Attributes
