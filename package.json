@@ -4,7 +4,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:component": "moon build --target js && rolldown -c rolldown.config.mjs",
-    "build:all": "vite build && pnpm build:component",
+    "build:all": "moon build --target js && vite build && rolldown -c rolldown.config.mjs",
     "deploy": "pnpm build:all && wrangler deploy",
     "worker:dev": "pnpm build:all && wrangler dev",
     "example": "npx serve examples -p 3000",
