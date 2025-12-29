@@ -691,3 +691,48 @@ test.describe('Moonlight Embed Mode - Anchor Drag', () => {
     expect(newCount).toBe(initialCount);
   });
 });
+
+test.describe('Moonlight Embed Mode - Edit Modal', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/embed.html');
+    await expect(page.locator('#output')).toContainText('Editor created');
+  });
+
+  test('should have edit button', async ({ page }) => {
+    const editButton = page.locator('#editor button:has-text("編集")');
+    await expect(editButton).toBeVisible();
+  });
+
+  test('should open modal when edit button is clicked', async ({ page }) => {
+    // Click edit button
+    const editButton = page.locator('#editor button:has-text("編集")');
+    await editButton.click();
+
+    // Modal close button should be visible
+    const closeButton = page.locator('button:has-text("閉じる")');
+    await expect(closeButton).toBeVisible();
+  });
+
+  test('should close modal when close button is clicked', async ({ page }) => {
+    // Open modal
+    const editButton = page.locator('#editor button:has-text("編集")');
+    await editButton.click();
+
+    // Click close button
+    const closeButton = page.locator('button:has-text("閉じる")');
+    await closeButton.click();
+
+    // Modal should not be visible
+    await expect(closeButton).not.toBeVisible();
+  });
+
+  test('should have zoom controls in modal', async ({ page }) => {
+    // Open modal
+    const editButton = page.locator('#editor button:has-text("編集")');
+    await editButton.click();
+
+    // Check for zoom percentage display (e.g., "100%")
+    const zoomDisplay = page.locator('span:has-text("%")');
+    await expect(zoomDisplay.first()).toBeVisible();
+  });
+});

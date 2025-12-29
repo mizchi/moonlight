@@ -911,8 +911,8 @@ fn create_mousedown_handler(
     let mouse_event : @js_dom.MouseEvent = e.cast()
     let button = mouse_event.button
 
-    // 中クリック（button === 1）または Space キーでパン開始
-    if button == 1 || space_pressed.val {
+    // 中クリック（button === 1）または Space キーでパン開始（埋め込みモードでは無効）
+    if state.mode is @core.Full && (button == 1 || space_pressed.val) {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.start_pan(screen_x, screen_y)
       return
@@ -2066,7 +2066,8 @@ fn embedded_editor_app(
   )
   let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
   let on_mouseleave = create_mouseleave_handler(state)
-  let on_wheel = create_wheel_handler(state, get_screen_coords)
+  // 埋め込みモードではズームを無効化
+  let on_wheel = fn(_e : @js.Any) { () }
   let on_contextmenu = fn(_e : @js.Any) { () } // コンテキストメニュー無効
   let svg_canvas = render_svg_canvas_node(
     state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
