@@ -1926,14 +1926,16 @@ fn render_embedded_view(
         // テキスト入力
         render_text_input_container(state, commit_text_input),
       ]),
-      // 編集ボタン（右上固定）- SVGアイコン付き
-      button(
-        style="position: absolute; top: 8px; right: 8px; padding: 8px 14px; background: rgba(59, 130, 246, 0.95); border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: white; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); z-index: 10; display: flex; align-items: center; gap: 6px; transition: all 0.2s;",
-        on=events().click(fn(_) { state.modal_open.set(true) }),
+      // 編集ボタン（右上固定）- アイコンのみ、aria-label付き
+      @element.create_element(
+        "button",
         [
-          @components.svg_icon(@components.icon_edit_expand, 16),
-          text("編集"),
+          ("style", @element.Static("position: absolute; top: 8px; right: 8px; padding: 10px; background: rgba(59, 130, 246, 0.95); border: none; border-radius: 8px; cursor: pointer; color: white; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); z-index: 10; display: flex; align-items: center; justify-content: center;")),
+          ("aria-label", @element.Static("Edit in fullscreen")),
+          ("title", @element.Static("Edit in fullscreen")),
+          ("click", @element.Handler(fn(_) { state.modal_open.set(true) })),
         ],
+        [@components.svg_icon(@components.icon_edit_expand, 20)],
       ),
     ],
   )
@@ -2015,10 +2017,16 @@ pub fn render_editor_modal(
             style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
             [
               div(style="font-weight: 500; font-size: 14px;", [text("Moonlight Editor")]),
-              button(
-                style="padding: 6px 16px; background: #e0e0e0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;",
-                on=events().click(fn(_) { state.modal_open.set(false) }),
-                [text("× 閉じる")],
+              // 閉じるボタン - アイコンのみ、aria-label付き
+              @element.create_element(
+                "button",
+                [
+                  ("style", @element.Static("padding: 8px; background: #e0e0e0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;")),
+                  ("aria-label", @element.Static("Close")),
+                  ("title", @element.Static("Close")),
+                  ("click", @element.Handler(fn(_) { state.modal_open.set(false) })),
+                ],
+                [@components.svg_icon(@components.icon_close, 18)],
               ),
             ],
           ),

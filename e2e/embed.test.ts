@@ -86,7 +86,8 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
   });
 
   test('should have SVG with viewBox', async ({ page }) => {
-    const svg = page.locator('#editor svg');
+    // Use svg[width="100%"] to target the canvas SVG (icon SVGs have fixed width like 20)
+    const svg = page.locator('#editor svg[width="100%"]');
     await expect(svg).toBeVisible();
     const viewBox = await svg.getAttribute('viewBox');
     // viewBox is dynamically calculated by fit_to_canvas, so just check it exists and has 4 numeric values
@@ -121,7 +122,7 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
     await expect(page.locator('#editor svg .selection-overlay')).toBeVisible();
 
     // Click on background (top-left corner where there's no element)
-    const svg = page.locator('#editor svg');
+    const svg = page.locator('#editor svg[width="100%"]');
     const box = await svg.boundingBox();
     if (box) {
       await page.mouse.click(box.x + 10, box.y + 10);
@@ -383,14 +384,14 @@ test.describe('Moonlight Embed Mode - Anchor Points', () => {
     await expect(page.locator('#editor svg .anchor-point').first()).toBeVisible();
 
     // Click background to deselect
-    const svg = page.locator('#editor svg');
+    const svg = page.locator('#editor svg[width="100%"]');
     const box = await svg.boundingBox();
     if (box) {
       await page.mouse.click(box.x + 10, box.y + 10);
     }
 
     // Anchor points should be gone
-    const anchors = await page.locator('#editor svg .anchor-point').count();
+    const anchors = await page.locator('#editor svg[width="100%"] .anchor-point').count();
     expect(anchors).toBe(0);
   });
 
@@ -575,10 +576,10 @@ test.describe('Moonlight Embed Mode - Anchor Drag', () => {
     await expect(page.locator('#editor svg circle[data-handle="line-end"]')).toBeVisible();
 
     // Click elsewhere to deselect
-    const svg = page.locator('#editor svg');
+    const svg = page.locator('#editor svg[width="100%"]');
     const box = await svg.boundingBox();
     await page.mouse.click(box!.x + 10, box!.y + 10);
-    await expect(page.locator('#editor svg .selection-overlay')).not.toBeVisible();
+    await expect(page.locator('#editor svg[width="100%"] .selection-overlay')).not.toBeVisible();
 
     // Now click on the line to re-select it (use last() to get the newly created line)
     const lineGroup = page.locator('#editor svg g[data-id] line').last();
@@ -699,27 +700,28 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
   });
 
   test('should have edit button', async ({ page }) => {
-    const editButton = page.locator('#editor button:has-text("編集")');
+    // Button uses icon with aria-label for accessibility
+    const editButton = page.locator('#editor button[aria-label="Edit in fullscreen"]');
     await expect(editButton).toBeVisible();
   });
 
   test('should open modal when edit button is clicked', async ({ page }) => {
     // Click edit button
-    const editButton = page.locator('#editor button:has-text("編集")');
+    const editButton = page.locator('#editor button[aria-label="Edit in fullscreen"]');
     await editButton.click();
 
-    // Modal close button should be visible
-    const closeButton = page.locator('button:has-text("閉じる")');
+    // Modal close button should be visible (uses aria-label)
+    const closeButton = page.locator('button[aria-label="Close"]');
     await expect(closeButton).toBeVisible();
   });
 
   test('should close modal when close button is clicked', async ({ page }) => {
     // Open modal
-    const editButton = page.locator('#editor button:has-text("編集")');
+    const editButton = page.locator('#editor button[aria-label="Edit in fullscreen"]');
     await editButton.click();
 
     // Click close button
-    const closeButton = page.locator('button:has-text("閉じる")');
+    const closeButton = page.locator('button[aria-label="Close"]');
     await closeButton.click();
 
     // Modal should not be visible
@@ -728,7 +730,7 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
 
   test('should have zoom controls in modal', async ({ page }) => {
     // Open modal
-    const editButton = page.locator('#editor button:has-text("編集")');
+    const editButton = page.locator('#editor button[aria-label="Edit in fullscreen"]');
     await editButton.click();
 
     // Check for zoom percentage display (e.g., "100%")
