@@ -813,7 +813,7 @@ fn handle_arrow_key(
     pan_by_arrow(state, key)
     return
   }
-  let step = if state.grid_enabled.get() { 20.0 } else { 10.0 }
+  let step = if state.grid_enabled.get() { 10.0 } else { 5.0 }
   if shift_key {
     resize_selected_by_arrow(state, history, selected_ids, key, step)
   } else {

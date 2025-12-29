@@ -479,12 +479,12 @@ test.describe.skip('Moonlight Embed Mode - Keyboard Shortcuts', () => {
 
     // Position should change
     const newCx = await circle.getAttribute('cx');
-    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 10);
+    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 5);
 
     // Press arrow down
     await page.keyboard.press('ArrowDown');
     const newCy = await circle.getAttribute('cy');
-    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 10);
+    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 5);
   });
 });
 
@@ -763,11 +763,11 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
 
     // Position should change
     const newCx = await circle.getAttribute('cx');
-    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 10);
+    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 5);
 
     // Press arrow down
     await page.keyboard.press('ArrowDown');
     const newCy = await circle.getAttribute('cy');
-    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 10);
+    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 5);
   });
 });
