@@ -1,10 +1,10 @@
-// Cloudflare Workers - CORS 付きで WebComponent を配布
+// Cloudflare Workers - 静的サイト + WebComponent の CORS 対応
 
 export interface Env {
   ASSETS: Fetcher;
 }
 
-// CORS ヘッダー
+// CORS ヘッダー（moonlight-editor.*.js 用）
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
@@ -12,100 +12,38 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
-// キャッシュ設定（1日）
-const cacheHeaders = {
-  'Cache-Control': 'public, max-age=86400',
-};
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    console.log('[Worker] Request:', request.method, request.url);
     const url = new URL(request.url);
 
-    // OPTIONS リクエスト（CORS プリフライト）
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
-    }
-
-    // GET/HEAD 以外は拒否
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return new Response('Method Not Allowed', {
-        status: 405,
-        headers: corsHeaders,
-      });
-    }
-
-    // ルートへのアクセスは index.html を返す
-    if (url.pathname === '/' || url.pathname === '') {
-      const indexRequest = new Request(`${url.origin}/index.html`, request);
-      const response = await env.ASSETS.fetch(indexRequest);
-      if (response.ok) {
-        const newHeaders = new Headers(response.headers);
-        newHeaders.set('Content-Type', 'text/html; charset=utf-8');
-        return new Response(response.body, {
-          status: response.status,
-          headers: newHeaders,
+    // moonlight-editor.*.js へのアクセスは CORS ヘッダーを付与
+    if (url.pathname.startsWith('/moonlight-editor.')) {
+      // OPTIONS リクエスト（CORS プリフライト）
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders,
         });
       }
-    }
 
-    // 静的アセットを取得
-    const response = await env.ASSETS.fetch(request);
+      const response = await env.ASSETS.fetch(request);
+      if (!response.ok) {
+        return response;
+      }
 
-    // アセットが見つからない場合
-    if (!response.ok) {
-      return new Response('Not Found', {
-        status: 404,
-        headers: corsHeaders,
+      // CORS ヘッダーを追加
+      const newHeaders = new Headers(response.headers);
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        newHeaders.set(key, value);
+      });
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: newHeaders,
       });
     }
 
-    // Content-Type を設定
-    const contentType = getContentType(url.pathname);
-
-    // CORS とキャッシュヘッダーを追加
-    const newHeaders = new Headers(response.headers);
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      newHeaders.set(key, value);
-    });
-    Object.entries(cacheHeaders).forEach(([key, value]) => {
-      newHeaders.set(key, value);
-    });
-    if (contentType) {
-      newHeaders.set('Content-Type', contentType);
-    }
-
-    return new Response(response.body, {
-      status: response.status,
-      headers: newHeaders,
-    });
+    // それ以外は静的アセットをそのまま返す
+    return env.ASSETS.fetch(request);
   },
 };
-
-function getContentType(pathname: string): string | null {
-  if (pathname.endsWith('.html')) {
-    return 'text/html; charset=utf-8';
-  }
-  if (pathname.endsWith('.js')) {
-    return 'application/javascript; charset=utf-8';
-  }
-  if (pathname.endsWith('.mjs')) {
-    return 'application/javascript; charset=utf-8';
-  }
-  if (pathname.endsWith('.css')) {
-    return 'text/css; charset=utf-8';
-  }
-  if (pathname.endsWith('.json')) {
-    return 'application/json; charset=utf-8';
-  }
-  if (pathname.endsWith('.svg')) {
-    return 'image/svg+xml';
-  }
-  if (pathname.endsWith('.wasm')) {
-    return 'application/wasm';
-  }
-  return null;
-}
