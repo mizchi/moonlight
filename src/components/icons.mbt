@@ -84,3 +84,7 @@ pub let icon_bring_forward : String = "M3 7h18M3 12h18M3 17h18"
 ///|
 /// 背面へアイコン
 pub let icon_send_backward : String = "M3 7h18M3 12h18M3 17h18"
+
+///|
+/// 編集（フルスクリーン展開）アイコン
+pub let icon_edit_expand : String = "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"

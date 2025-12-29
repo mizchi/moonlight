@@ -1926,11 +1926,14 @@ fn render_embedded_view(
         // テキスト入力
         render_text_input_container(state, commit_text_input),
       ]),
-      // 編集ボタン（右上固定）
+      // 編集ボタン（右上固定）- SVGアイコン付き
       button(
-        style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;",
+        style="position: absolute; top: 8px; right: 8px; padding: 8px 14px; background: rgba(59, 130, 246, 0.95); border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: white; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); z-index: 10; display: flex; align-items: center; gap: 6px; transition: all 0.2s;",
         on=events().click(fn(_) { state.modal_open.set(true) }),
-        [text("編集")],
+        [
+          @components.svg_icon(@components.icon_edit_expand, 16),
+          text("編集"),
+        ],
       ),
     ],
   )
