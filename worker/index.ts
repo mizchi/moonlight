@@ -38,9 +38,18 @@ export default {
       });
     }
 
-    // ルートへのアクセスは WebComponent にリダイレクト
+    // ルートへのアクセスは index.html を返す
     if (url.pathname === '/' || url.pathname === '') {
-      return Response.redirect(`${url.origin}/moonlight-editor.component.js`, 302);
+      const indexRequest = new Request(`${url.origin}/index.html`, request);
+      const response = await env.ASSETS.fetch(indexRequest);
+      if (response.ok) {
+        const newHeaders = new Headers(response.headers);
+        newHeaders.set('Content-Type', 'text/html; charset=utf-8');
+        return new Response(response.body, {
+          status: response.status,
+          headers: newHeaders,
+        });
+      }
     }
 
     // 静的アセットを取得
@@ -77,6 +86,9 @@ export default {
 };
 
 function getContentType(pathname: string): string | null {
+  if (pathname.endsWith('.html')) {
+    return 'text/html; charset=utf-8';
+  }
   if (pathname.endsWith('.js')) {
     return 'application/javascript; charset=utf-8';
   }
