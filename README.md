@@ -199,11 +199,7 @@ Use as a custom HTML element:
 Load the Web Component directly from a CDN (Cloudflare Workers):
 
 ```html
-<!-- ES Module (recommended) -->
-<script type="module" src="https://moonlight-editor.<your-domain>.workers.dev/moonlight-editor.js"></script>
-
-<!-- Or IIFE for older browsers -->
-<script src="https://moonlight-editor.<your-domain>.workers.dev/moonlight-editor.iife.js"></script>
+<script type="module" src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
 
 <moonlight-editor width="800" height="600"></moonlight-editor>
 ```
@@ -221,13 +217,6 @@ Load the Web Component directly from a CDN (Cloudflare Workers):
    ```
 
 3. The worker serves files with CORS headers enabled, allowing cross-origin usage.
-
-#### Available Files
-
-| File | Format | Size | Use Case |
-|------|--------|------|----------|
-| `moonlight-editor.js` | ES Module | ~63 KB gzip | Modern browsers, bundlers |
-| `moonlight-editor.iife.js` | IIFE | ~42 KB gzip | Legacy browsers, `<script>` tag |
 
 ## API Reference
 

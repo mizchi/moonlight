@@ -11,19 +11,19 @@ export default defineConfig({
     })
   ],
   build: {
-    outDir: 'dist-lib',
+    outDir: 'dist',
+    emptyOutDir: false, // 他のビルド成果物を消さない
     lib: {
       entry: resolve(__dirname, 'webcomponent.ts'),
       name: 'MoonlightEditor',
-      fileName: 'moonlight-editor',
-      formats: ['es', 'iife'],
+      fileName: 'moonlight-editor.component',
+      formats: ['es'],
     },
     rollupOptions: {
       output: {
-        // IIFE 形式で単一ファイルに
         inlineDynamicImports: true,
       },
     },
-    minify: true, // esbuild を使用
+    minify: true,
   },
 });

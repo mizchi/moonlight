@@ -1,11 +1,7 @@
-name = "moonlight-editor"
+name = "moonlight"
 main = "worker/index.ts"
 compatibility_date = "2024-01-01"
 
 # 静的アセットを配信
 [assets]
-directory = "./dist-lib"
-
-# 本番環境
-[env.production]
-name = "moonlight-editor-prod"
+directory = "./dist"

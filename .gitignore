@@ -1,7 +1,6 @@
 .mooncakes
 target
 dist
-dist-lib
 node_modules
 tmp
 test-results

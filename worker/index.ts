@@ -37,9 +37,9 @@ export default {
       });
     }
 
-    // ルートへのアクセスは ES Module 版にリダイレクト
+    // ルートへのアクセスは WebComponent にリダイレクト
     if (url.pathname === '/' || url.pathname === '') {
-      return Response.redirect(`${url.origin}/moonlight-editor.js`, 302);
+      return Response.redirect(`${url.origin}/moonlight-editor.component.js`, 302);
     }
 
     // 静的アセットを取得
