@@ -2,6 +2,12 @@
 
 A lightweight SVG editor built with MoonBit and the Luna reactive UI library. Inspired by Excalidraw, Moonlight provides a simple yet powerful interface for creating and editing vector graphics.
 
+## Demo
+
+**Live Demo**: https://moonlight.mizchi.workers.dev
+
+Try the editor directly in your browser. No installation required.
+
 ## Features
 
 - **SVG-native**: Works directly with SVG elements (rect, circle, ellipse, line, text)
