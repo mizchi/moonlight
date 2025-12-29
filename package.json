@@ -3,7 +3,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:lib": "vite build --config vite.config.lib.ts",
+    "build:lib": "vite build && vite build --config vite.config.lib.ts",
     "deploy": "pnpm build:lib && wrangler deploy",
     "deploy:preview": "pnpm build:lib && wrangler deploy --env preview",
     "worker:dev": "pnpm build:lib && wrangler dev",
