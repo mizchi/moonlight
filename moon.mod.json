@@ -1,5 +1,5 @@
 {
-  "name": "internal/app",
+  "name": "mizchi/moonlight",
   "version": "0.0.1",
   "deps": {
     "mizchi/luna": "0.2.2",

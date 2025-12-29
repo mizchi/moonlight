@@ -1,9 +1,9 @@
 {
   "supported-targets": ["js"],
   "import": [
-    "internal/app/model",
+    "mizchi/moonlight/model",
     {
-      "path": "internal/app/core",
+      "path": "mizchi/moonlight/core",
       "alias": "core"
     },
     "mizchi/luna",

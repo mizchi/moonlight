@@ -37,20 +37,29 @@ fn create_id_counter() -> @luna.Signal[Int] {
 ///|
 /// エディタオプション（JavaScript から渡される）
 pub struct EmbedOptions {
-  width : Int            // キャンバス幅（ピクセル）
-  height : Int           // キャンバス高さ（ピクセル）
-  doc_width : Int        // ドキュメント幅（viewBox）
-  doc_height : Int       // ドキュメント高さ（viewBox）
-  zoom : Double          // 初期ズーム
+  width : Int // キャンバス幅（ピクセル）
+  height : Int // キャンバス高さ（ピクセル）
+  doc_width : Int // ドキュメント幅（viewBox）
+  doc_height : Int // ドキュメント高さ（viewBox）
+  zoom : Double // 初期ズーム
   theme : String
   is_readonly : Bool
-  initial_svg : String?  // 初期 SVG（None ならデモ表示）
+  initial_svg : String? // 初期 SVG（None ならデモ表示）
 }
 
 ///|
 /// デフォルトオプション
 pub fn EmbedOptions::default() -> EmbedOptions {
-  { width: 400, height: 300, doc_width: 400, doc_height: 300, zoom: 1.0, theme: "light", is_readonly: false, initial_svg: None }
+  {
+    width: 400,
+    height: 300,
+    doc_width: 400,
+    doc_height: 300,
+    zoom: 1.0,
+    theme: "light",
+    is_readonly: false,
+    initial_svg: None,
+  }
 }
 
 ///|
@@ -64,7 +73,16 @@ pub fn EmbedOptions::from_js(js_obj : @js.Any) -> EmbedOptions {
   let theme = get_string_or_default(js_obj, "theme", "light")
   let is_readonly = get_bool_or_default(js_obj, "readonly", false)
   let initial_svg = get_string_option(js_obj, "initialSvg")
-  { width, height, doc_width, doc_height, zoom, theme, is_readonly, initial_svg }
+  {
+    width,
+    height,
+    doc_width,
+    doc_height,
+    zoom,
+    theme,
+    is_readonly,
+    initial_svg,
+  }
 }
 
 ///|
@@ -2783,7 +2801,11 @@ fn render_svg_canvas_node(
       @element.Dynamic(fn() {
         let theme = state.get_theme()
         // 埋め込みモードではコンテナ側にボーダーがあるのでSVGのボーダーは不要
-        let border = if state.mode is @core.Embedded { "none" } else { "1px solid #ccc" }
+        let border = if state.mode is @core.Embedded {
+          "none"
+        } else {
+          "1px solid #ccc"
+        }
         "border: \{border}; user-select: none; overflow: hidden; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
       }),
     ),

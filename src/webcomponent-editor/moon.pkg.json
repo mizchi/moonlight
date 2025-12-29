@@ -3,7 +3,7 @@
   "supported-targets": ["js"],
   "import": [
     {
-      "path": "internal/app",
+      "path": "mizchi/moonlight",
       "alias": "editor"
     },
     {

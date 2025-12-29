@@ -2,7 +2,7 @@
   "is-main": true,
   "supported-targets": ["js"],
   "import": [
-    "internal/app/lib",
+    "mizchi/moonlight/lib",
     "mizchi/luna",
     {
       "path": "mizchi/luna/luna/dom/element",
