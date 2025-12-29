@@ -2171,22 +2171,32 @@ fn render_text_input_container(
         }
         None => (edit_state.x, edit_state.y)
       }
-      let screen_pos = vp.scene_to_screen(text_x, text_y)
-      let min_width = 40.0 * vp.zoom
-      // フォントサイズをズーム率に合わせてスケール
-      let base_font_size = match edit_state.font_size {
-        Some(size) => size
-        None => 16.0
-      }
-      let scaled_font_size = base_font_size * vp.zoom
-      let scaled_height = scaled_font_size * 1.5
       // 背景色（テーマに応じて変更）
       let bg_color = match theme {
         @model.Dark => "#1a1a2e"
         @model.Light => "#ffffff"
       }
-      // 横に伸びるスタイル（背景色でSVGテキストを覆う）
-      let style = "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: \{scaled_height}px; padding: 2px 4px; border: none; background: \{bg_color}; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap; border-radius: 2px;"
+      // Embed モード（モーダルなし）ではパーセント指定、それ以外はピクセル指定
+      let is_embed_view = state.mode is @core.Embedded && not(state.modal_open.get())
+      let base_font_size = match edit_state.font_size {
+        Some(size) => size
+        None => 16.0
+      }
+      let style = if is_embed_view {
+        // Embed: viewBox "0 0 doc_w doc_h" に対するパーセント位置
+        let doc_w = state.doc_width.get()
+        let doc_h = state.doc_height.get()
+        let left_pct = text_x / doc_w * 100.0
+        let top_pct = text_y / doc_h * 100.0
+        "position: absolute; left: \{left_pct}%; top: \{top_pct}%; transform: translate(-50%, -50%); min-width: 40px; padding: 2px 4px; border: none; background: \{bg_color}; color: \{text_color}; font-family: sans-serif; font-size: \{base_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap; border-radius: 2px;"
+      } else {
+        // Full/Modal: viewport に基づくピクセル位置
+        let screen_pos = vp.scene_to_screen(text_x, text_y)
+        let min_width = 40.0 * vp.zoom
+        let scaled_font_size = base_font_size * vp.zoom
+        let scaled_height = scaled_font_size * 1.5
+        "position: absolute; left: \{screen_pos.x}px; top: \{screen_pos.y}px; transform: translate(-50%, -50%); min-width: \{min_width}px; height: \{scaled_height}px; padding: 2px 4px; border: none; background: \{bg_color}; color: \{text_color}; font-family: sans-serif; font-size: \{scaled_font_size}px; line-height: 1.2; text-align: center; outline: none; box-sizing: border-box; resize: none; overflow: hidden; caret-color: currentColor; white-space: nowrap; border-radius: 2px;"
+      }
       // リアルタイム更新用のコールバック
       let editing_id = edit_state.editing_id
       let initial_text = edit_state.initial_text

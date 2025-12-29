@@ -1655,8 +1655,10 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.RemoveElement(element) => state.remove_element_raw(element.id)
     @model.MoveElement(id, _, _, to_x, to_y) =>
       state.move_element_raw(id, to_x, to_y)
-    @model.ResizeElement(id, _, new_shape) =>
+    @model.ResizeElement(id, _, new_shape) => {
       state.update_shape_raw(id, new_shape)
+      state.sync_related_elements(id)
+    }
     @model.ReorderElement(id, _, to_idx) =>
       state.reorder_element_raw(id, to_idx)
     @model.UpdateStyle(id, _, new_style) =>
@@ -1676,8 +1678,10 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.RemoveElement(element) => state.add_element_raw(element)
     @model.MoveElement(id, from_x, from_y, _, _) =>
       state.move_element_raw(id, from_x, from_y)
-    @model.ResizeElement(id, old_shape, _) =>
+    @model.ResizeElement(id, old_shape, _) => {
       state.update_shape_raw(id, old_shape)
+      state.sync_related_elements(id)
+    }
     @model.ReorderElement(id, from_idx, _) =>
       state.reorder_element_raw(id, from_idx)
     @model.UpdateStyle(id, old_style, _) =>
