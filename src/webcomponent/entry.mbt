@@ -91,7 +91,11 @@ fn on_connected(element : @js.Any) -> Unit {
     width: Some(width),
     height: Some(height),
     gridsnap: gridsnap_str != "",
-    theme: if theme == "" { Some("light") } else { Some(theme) },
+    theme: if theme == "" {
+      Some("light")
+    } else {
+      Some(theme)
+    },
     zoom: Some(1.0),
     is_readonly: readonly_str != "",
     toolbar_visible: toolbar_visible_str != "false",
@@ -128,6 +132,7 @@ fn on_attribute_changed(
   // 属性変更時の処理
   // TODO: テーマ変更、readonly 変更などを実装
   let _ = name
+
 }
 
 ///|

@@ -31,7 +31,8 @@ pub fn move_element_with_relations(
   let dy = new_y - el.y
   // Line の場合は特別な処理
   match el.shape {
-    Line(_, _) => move_line_with_topology(elements, id, new_x, new_y, dx, dy, el)
+    Line(_, _) =>
+      move_line_with_topology(elements, id, new_x, new_y, dx, dy, el)
     _ => move_shape_with_relations(elements, id, new_x, new_y, dx, dy, el)
   }
 }
@@ -112,7 +113,9 @@ fn move_line_with_topology(
   el : Element,
 ) -> Array[Element] {
   // モデル層の純粋関数でトポロジー計算
-  let line_updates = compute_line_move_topology(elements, id, new_x, new_y, dx, dy)
+  let line_updates = compute_line_move_topology(
+    elements, id, new_x, new_y, dx, dy,
+  )
   // 接続されている非 Line 要素のIDを収集
   let connected_non_line_ids : Array[String] = []
   match el.connections {
@@ -122,7 +125,8 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if not(is_line) && not(connected_non_line_ids.contains(conn.element_id)) {
+          if not(is_line) &&
+            not(connected_non_line_ids.contains(conn.element_id)) {
             connected_non_line_ids.push(conn.element_id)
           }
         }
@@ -133,7 +137,8 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if not(is_line) && not(connected_non_line_ids.contains(conn.element_id)) {
+          if not(is_line) &&
+            not(connected_non_line_ids.contains(conn.element_id)) {
             connected_non_line_ids.push(conn.element_id)
           }
         }

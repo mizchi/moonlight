@@ -71,42 +71,39 @@ fn create_preview_internal(
     ],
   )
   // モーダル部分
-  let modal_node = show(
-    fn() { state.modal_open.get() },
-    fn() {
-      div(
-        style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;",
-        on=events().click(fn(_e) { state.modal_open.set(false) }),
-        [
-          div(
-            style="background: white; border-radius: 8px; padding: 20px; max-width: 90vw; max-height: 90vh; overflow: auto;",
-            on=events().click(fn(e) {
-              // モーダル内のクリックは伝播を止める
-              stop_propagation(e)
-            }),
-            [
-              div(
-                style="display: flex; justify-content: space-between; margin-bottom: 10px;",
-                [
-                  text("Editor"),
-                  button(
-                    style="background: #dc3545; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer;",
-                    on=events().click(fn(_e) { state.modal_open.set(false) }),
-                    [text("Close")],
-                  ),
-                ],
-              ),
-              // エディタ領域（SVG を表示）
-              div(
-                style="width: \{width}px; height: \{height}px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; background: #f5f5f5;",
-                [text("Editor Mode")],
-              ),
-            ],
-          ),
-        ],
-      )
-    },
-  )
+  let modal_node = show(fn() { state.modal_open.get() }, fn() {
+    div(
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;",
+      on=events().click(fn(_e) { state.modal_open.set(false) }),
+      [
+        div(
+          style="background: white; border-radius: 8px; padding: 20px; max-width: 90vw; max-height: 90vh; overflow: auto;",
+          on=events().click(fn(e) {
+            // モーダル内のクリックは伝播を止める
+            stop_propagation(e)
+          }),
+          [
+            div(
+              style="display: flex; justify-content: space-between; margin-bottom: 10px;",
+              [
+                text("Editor"),
+                button(
+                  style="background: #dc3545; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer;",
+                  on=events().click(fn(_e) { state.modal_open.set(false) }),
+                  [text("Close")],
+                ),
+              ],
+            ),
+            // エディタ領域（SVG を表示）
+            div(
+              style="width: \{width}px; height: \{height}px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; background: #f5f5f5;",
+              [text("Editor Mode")],
+            ),
+          ],
+        ),
+      ],
+    )
+  })
   // ルートノード
   let root_node = div([preview_node, modal_node])
   // DOM にレンダリング

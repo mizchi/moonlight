@@ -2289,7 +2289,9 @@ pub fn render_connection_highlight_vnode(
 /// Canvas 背景を VNode として描画（Effect ベース）
 /// - 境界外のグレー背景（テーマ連動）
 /// - ドキュメント境界（白/黒 rect + ドロップシャドウ）
-pub fn render_canvas_background_vnode(state : @core.EditorState) -> @element.DomNode {
+pub fn render_canvas_background_vnode(
+  state : @core.EditorState,
+) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
 
   // Effect で viewport / canvas サイズ変更を監視して再描画

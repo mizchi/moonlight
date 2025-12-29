@@ -20,24 +20,21 @@ pub fn setup_keyboard_handler(
     return
   }
   // コンテナにキーボードイベントを追加
-  add_keyboard_handler(
-    container,
-    fn(e) {
-      // フォーカスがない場合は無視
-      if not(state.has_focus.get()) {
-        return
-      }
-      // 読み取り専用モードの場合は無視
-      if state.is_readonly.get() {
-        return
-      }
-      let key_event = parse_key_event(e)
-      let handled = handle_key(state, key_event, new_id)
-      if handled {
-        prevent_default_ffi(e)
-      }
-    },
-  )
+  add_keyboard_handler(container, fn(e) {
+    // フォーカスがない場合は無視
+    if not(state.has_focus.get()) {
+      return
+    }
+    // 読み取り専用モードの場合は無視
+    if state.is_readonly.get() {
+      return
+    }
+    let key_event = parse_key_event(e)
+    let handled = handle_key(state, key_event, new_id)
+    if handled {
+      prevent_default_ffi(e)
+    }
+  })
 }
 
 ///|
@@ -64,7 +61,13 @@ fn handle_key(
     // 1: Rectangle
     "1" => {
       let el_id = new_id()
-      let new_rect = create_rect_element(el_id, pos.0 - 40.0, pos.1 - 30.0, 80.0, 60.0)
+      let new_rect = create_rect_element(
+        el_id,
+        pos.0 - 40.0,
+        pos.1 - 30.0,
+        80.0,
+        60.0,
+      )
       add_element(state, new_rect)
       set_selected_id(state, Some(el_id))
       true
@@ -88,7 +91,13 @@ fn handle_key(
     // 4: Line
     "4" => {
       let el_id = new_id()
-      let new_line = create_line_element(el_id, pos.0 - 50.0, pos.1, pos.0 + 50.0, pos.1)
+      let new_line = create_line_element(
+        el_id,
+        pos.0 - 50.0,
+        pos.1,
+        pos.0 + 50.0,
+        pos.1,
+      )
       add_element(state, new_line)
       set_selected_id(state, Some(el_id))
       true
@@ -96,7 +105,13 @@ fn handle_key(
     // 5: Arrow (矢印付き Line - フルモードと統一)
     "5" => {
       let el_id = new_id()
-      let new_arrow = create_arrow_element(el_id, pos.0 - 50.0, pos.1, pos.0 + 50.0, pos.1)
+      let new_arrow = create_arrow_element(
+        el_id,
+        pos.0 - 50.0,
+        pos.1,
+        pos.0 + 50.0,
+        pos.1,
+      )
       add_element(state, new_arrow)
       set_selected_id(state, Some(el_id))
       true
@@ -110,10 +125,9 @@ fn handle_key(
       true
     }
     // Ctrl+A: 全選択（単一選択モードでは無効）
-    "a" if is_cmd => {
+    "a" if is_cmd =>
       // 埋め込みモードでは全選択は未対応
       false
-    }
     // 矢印キー: 選択要素を移動
     "ArrowUp" => {
       move_selected(state, 0.0, -10.0)
@@ -160,7 +174,7 @@ fn delete_selected(state : @core.EditorState) -> Unit {
 fn move_selected(state : @core.EditorState, dx : Double, dy : Double) -> Unit {
   match get_selected_id(state) {
     None => ()
-    Some(id) => {
+    Some(id) =>
       state.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == id {
@@ -170,7 +184,6 @@ fn move_selected(state : @core.EditorState, dx : Double, dy : Double) -> Unit {
           }
         })
       })
-    }
   }
 }
 
@@ -388,4 +401,3 @@ extern "js" fn parse_key_event(e : @js.Any) -> KeyEvent =
   #|   meta_key: e.metaKey || false,
   #|   shift_key: e.shiftKey || false
   #| })
-

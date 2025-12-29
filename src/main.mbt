@@ -60,15 +60,27 @@ pub fn EmbedOptions::from_js(js_obj : @js.Any) -> EmbedOptions {
 }
 
 ///|
-extern "js" fn get_int_or_default(obj : @js.Any, key : String, default_val : Int) -> Int =
+extern "js" fn get_int_or_default(
+  obj : @js.Any,
+  key : String,
+  default_val : Int,
+) -> Int =
   #| (obj, key, def) => typeof obj[key] === 'number' ? obj[key] : def
 
 ///|
-extern "js" fn get_string_or_default(obj : @js.Any, key : String, default_val : String) -> String =
+extern "js" fn get_string_or_default(
+  obj : @js.Any,
+  key : String,
+  default_val : String,
+) -> String =
   #| (obj, key, def) => typeof obj[key] === 'string' ? obj[key] : def
 
 ///|
-extern "js" fn get_bool_or_default(obj : @js.Any, key : String, default_val : Bool) -> Bool =
+extern "js" fn get_bool_or_default(
+  obj : @js.Any,
+  key : String,
+  default_val : Bool,
+) -> Bool =
   #| (obj, key, def) => typeof obj[key] === 'boolean' ? obj[key] : def
 
 ///|
@@ -76,10 +88,7 @@ extern "js" fn get_bool_or_default(obj : @js.Any, key : String, default_val : Bo
 /// container: DOM コンテナ要素
 /// options: エディタオプション
 /// 戻り値: エディタハンドル
-pub fn create_js_editor(
-  container : @js.Any,
-  options : EmbedOptions,
-) -> @js.Any {
+pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any {
   let id_counter = create_id_counter()
   let new_id = fn() -> String {
     let current = id_counter.get()
@@ -88,7 +97,11 @@ pub fn create_js_editor(
   }
 
   // 状態を作成
-  let state = @core.EditorState::new_with_mode(options.width, options.height, @core.Embedded)
+  let state = @core.EditorState::new_with_mode(
+    options.width,
+    options.height,
+    @core.Embedded,
+  )
   let history = @model.History::new()
 
   // テーマを設定
@@ -136,7 +149,6 @@ fn create_editor_handle_js(
   }
   let clear = fn() -> Unit { state.elements.set([]) }
   let has_focus = fn() -> Bool { state.has_focus.get() }
-
   create_editor_handle_ffi(export_svg, import_svg, clear, has_focus)
 }
 
@@ -221,13 +233,15 @@ fn get_mode_from_url() -> @core.EditorMode {
 }
 
 ///|
+
 ///|
 /// アプリケーションのエントリポイント（外部から呼び出し可能）
 pub fn app_main() -> Unit {
   guard @js_dom.document().getElementById("app") is Some(el)
   let mode = get_mode_from_url()
   match mode {
-    @core.Full => @element.render(el |> @element.DomElement::from_dom, editor_app())
+    @core.Full =>
+      @element.render(el |> @element.DomElement::from_dom, editor_app())
     @core.Embedded =>
       @element.render(
         el |> @element.DomElement::from_dom,
@@ -245,7 +259,11 @@ pub fn create_embedded_app() -> @element.DomNode {
     id_counter.set(current + 1)
     "el-\{current + 1}"
   }
-  let state = @core.EditorState::new_with_mode(canvas_width, canvas_height, @core.Embedded)
+  let state = @core.EditorState::new_with_mode(
+    canvas_width,
+    canvas_height,
+    @core.Embedded,
+  )
   let history = @model.History::new()
   // IndexedDB から読み込み、なければサンプルを追加
   load_state(state, new_id, fn() { setup_auto_save(state) }, fn() {
@@ -1622,7 +1640,11 @@ fn setup_keyboard_shortcuts(
             ..new_arrow,
             style: state.get_arrow_style(),
           }
-          @core.execute_command(history, state, @model.AddElement(arrow_with_marker))
+          @core.execute_command(
+            history,
+            state,
+            @model.AddElement(arrow_with_marker),
+          )
           state.select(Some(el_id))
         }
       }
@@ -1930,7 +1952,12 @@ fn render_embedded_view(
       @element.create_element(
         "button",
         [
-          ("style", @element.Static("position: absolute; top: 8px; right: 8px; padding: 10px; background: rgba(59, 130, 246, 0.95); border: none; border-radius: 8px; cursor: pointer; color: white; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); z-index: 10; display: flex; align-items: center; justify-content: center;")),
+          (
+            "style",
+            @element.Static(
+              "position: absolute; top: 8px; right: 8px; padding: 10px; background: rgba(59, 130, 246, 0.95); border: none; border-radius: 8px; cursor: pointer; color: white; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); z-index: 10; display: flex; align-items: center; justify-content: center;",
+            ),
+          ),
           ("aria-label", @element.Static("Edit in fullscreen")),
           ("title", @element.Static("Edit in fullscreen")),
           ("click", @element.Handler(fn(_) { state.modal_open.set(true) })),
@@ -2014,6 +2041,7 @@ pub fn render_editor_modal(
         }
       }
       let _ = add_keydown_listener(handler)
+
     }
   })
 
@@ -2027,39 +2055,53 @@ pub fn render_editor_modal(
         style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
         on=events().click(fn(e) {
           let _ = e.as_any()._call("stopPropagation", [])
+
         }),
         [
           // ヘッダー
           div(
             style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
             [
-              div(style="font-weight: 500; font-size: 14px;", [text("Moonlight Editor")]),
+              div(style="font-weight: 500; font-size: 14px;", [
+                text("Moonlight Editor"),
+              ]),
               // 閉じるボタン - アイコンのみ、aria-label付き
               @element.create_element(
                 "button",
                 [
-                  ("style", @element.Static("padding: 8px; background: #f5f5f5; border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555;")),
+                  (
+                    "style",
+                    @element.Static(
+                      "padding: 8px; background: #f5f5f5; border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555;",
+                    ),
+                  ),
                   ("aria-label", @element.Static("Close")),
                   ("title", @element.Static("Close")),
-                  ("click", @element.Handler(fn(_) { state.modal_open.set(false) })),
+                  (
+                    "click",
+                    @element.Handler(fn(_) { state.modal_open.set(false) }),
+                  ),
                 ],
                 [@components.svg_icon(@components.icon_close, 18)],
               ),
             ],
           ),
           // エディタ本体
-          div(style="flex: 1; display: flex; overflow: hidden; min-height: 0;", [
-            // キャンバス領域
-            div(style="flex: 1; position: relative; min-width: 0;", [
-              modal_svg,
-              render_text_input_container(state, commit_text_input),
-            ]),
-            // サイドパネル（インライン版 - position: fixed なし）
-            div(
-              style="width: 240px; border-left: 1px solid #ddd; overflow-y: auto; background: #fafafa;",
-              [render_inline_panel(state, history)],
-            ),
-          ]),
+          div(
+            style="flex: 1; display: flex; overflow: hidden; min-height: 0;",
+            [
+              // キャンバス領域
+              div(style="flex: 1; position: relative; min-width: 0;", [
+                modal_svg,
+                render_text_input_container(state, commit_text_input),
+              ]),
+              // サイドパネル（インライン版 - position: fixed なし）
+              div(
+                style="width: 240px; border-left: 1px solid #ddd; overflow-y: auto; background: #fafafa;",
+                [render_inline_panel(state, history)],
+              ),
+            ],
+          ),
           // ツールバー（下部）
           div(
             style="display: flex; gap: 4px; align-items: center; padding: 8px 12px; border-top: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
@@ -2177,7 +2219,8 @@ fn render_text_input_container(
         @model.Light => "#ffffff"
       }
       // Embed モード（モーダルなし）ではパーセント指定、それ以外はピクセル指定
-      let is_embed_view = state.mode is @core.Embedded && not(state.modal_open.get())
+      let is_embed_view = state.mode is @core.Embedded &&
+        not(state.modal_open.get())
       let base_font_size = match edit_state.font_size {
         Some(size) => size
         None => 16.0

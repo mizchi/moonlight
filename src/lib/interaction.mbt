@@ -68,7 +68,6 @@ extern "js" fn get_mouse_x_ffi() -> Double =
 extern "js" fn get_mouse_y_ffi() -> Double =
   #| () => globalThis.__moonlight_mouse_y || 0
 
-
 ///|
 /// イベントターゲットから data-id を取得
 /// SVG要素では dataset が動作しないため getAttribute を使用
@@ -126,9 +125,7 @@ extern "js" fn get_anchor_y_ffi() -> Double =
 
 ///|
 /// アンカー情報を取得
-fn get_anchor_info(
-  e : @js.Any,
-) -> (String, String, Double, Double) {
+fn get_anchor_info(e : @js.Any) -> (String, String, Double, Double) {
   get_anchor_info_ffi(e)
   (
     get_anchor_type_ffi(),
@@ -179,10 +176,9 @@ fn update_line_endpoint(
               new_elements.push({ ..el, x: new_x, y: new_y })
               continue
             }
-            @core.LineEnd => {
+            @core.LineEnd =>
               // 終点を移動: Line(x2, y2) を更新
               @model.Line(new_x, new_y)
-            }
             _ => @model.Line(x2, y2)
           }
           new_elements.push({ ..el, shape: new_shape })
@@ -251,205 +247,199 @@ pub fn setup_interaction(
     return
   }
   // mousedown: 要素をクリックしたらドラッグ開始、アンカーをクリックしたら線ドラッグ開始
-  add_mousedown_handler(
-    svg,
-    fn(e) {
-      // 右クリックは無視（コンテキストメニュー用）
-      if is_right_click(e) {
-        return
-      }
-      let (mx, my) = get_mouse_coords_from_event(e)
-      // まずアンカーポイントがクリックされたかチェック
-      let (anchor_type_str, anchor_element_id, anchor_x, anchor_y) = get_anchor_info(
-        e,
-      )
-      if anchor_type_str != "" && anchor_element_id != "" {
-        // アンカーポイントからのドラッグ開始
-        match parse_anchor_type(anchor_type_str) {
-          Some(anchor_type) => {
-            // Line要素のline-start/line-endアンカーの場合は端点移動モード
-            let is_line_anchor = (anchor_type is @core.LineStart || anchor_type is @core.LineEnd) &&
-              is_line_element(state, anchor_element_id)
-            state.anchor_drag_state.set(
-              Some({
-                source_element_id: anchor_element_id,
-                source_anchor_type: anchor_type,
-                source_x: anchor_x,
-                source_y: anchor_y,
-                current_x: anchor_x,
-                current_y: anchor_y,
-              }),
-            )
-            // Line端点移動の場合はプレビュー線を使わない（リアルタイム更新するため）
-            if not(is_line_anchor) {
-              // 新規Line作成のプレビュー用
-            }
-            prevent_default_ffi(e)
-            return
+  add_mousedown_handler(svg, fn(e) {
+    // 右クリックは無視（コンテキストメニュー用）
+    if is_right_click(e) {
+      return
+    }
+    let (mx, my) = get_mouse_coords_from_event(e)
+    // まずアンカーポイントがクリックされたかチェック
+    let (anchor_type_str, anchor_element_id, anchor_x, anchor_y) = get_anchor_info(
+      e,
+    )
+    if anchor_type_str != "" && anchor_element_id != "" {
+      // アンカーポイントからのドラッグ開始
+      match parse_anchor_type(anchor_type_str) {
+        Some(anchor_type) => {
+          // Line要素のline-start/line-endアンカーの場合は端点移動モード
+          let is_line_anchor = (
+              anchor_type is @core.LineStart || anchor_type is @core.LineEnd
+            ) &&
+            is_line_element(state, anchor_element_id)
+          state.anchor_drag_state.set(
+            Some({
+              source_element_id: anchor_element_id,
+              source_anchor_type: anchor_type,
+              source_x: anchor_x,
+              source_y: anchor_y,
+              current_x: anchor_x,
+              current_y: anchor_y,
+            }),
+          )
+          // Line端点移動の場合はプレビュー線を使わない（リアルタイム更新するため）
+          if not(is_line_anchor) {
+            // 新規Line作成のプレビュー用
           }
-          None => ()
-        }
-      }
-      let target_id = get_target_id(e)
-      if target_id != "" {
-        // 要素を選択
-        set_selected_id(state, Some(target_id))
-        // ドラッグ開始
-        drag_state.is_dragging.set(true)
-        drag_state.dragging_id.set(Some(target_id))
-        drag_state.start_x.val = mx
-        drag_state.start_y.val = my
-        // 要素の現在位置を保存
-        for el in state.elements.get() {
-          if el.id == target_id {
-            drag_state.element_start_x.val = el.x
-            drag_state.element_start_y.val = el.y
-            break
-          }
-        }
-        prevent_default_ffi(e)
-      } else {
-        // 背景クリック: 選択解除
-        set_selected_id(state, None)
-      }
-    },
-  )
-  // mousemove: ドラッグ中なら要素を移動、またはプレビュー線を更新
-  add_mousemove_handler(
-    svg,
-    fn(e) {
-      let (mx, my) = get_mouse_coords_from_event(e)
-      // アンカードラッグ中
-      match state.anchor_drag_state.get() {
-        Some(anchor_state) => {
-          let anchor_type = anchor_state.source_anchor_type
-          let is_line_anchor = (anchor_type is @core.LineStart || anchor_type is @core.LineEnd) &&
-            is_line_element(state, anchor_state.source_element_id)
-          if is_line_anchor {
-            // Line端点のドラッグ: リアルタイムで位置を更新
-            update_line_endpoint(
-              state,
-              anchor_state.source_element_id,
-              anchor_type,
-              mx,
-              my,
-            )
-            state.anchor_drag_state.set(
-              Some({ ..anchor_state, current_x: mx, current_y: my }),
-            )
-          } else {
-            // 新規Line作成のプレビュー線を描画
-            state.anchor_drag_state.set(
-              Some({ ..anchor_state, current_x: mx, current_y: my }),
-            )
-            draw_preview_line_ffi(
-              svg,
-              anchor_state.source_x,
-              anchor_state.source_y,
-              mx,
-              my,
-            )
-          }
+          prevent_default_ffi(e)
           return
         }
         None => ()
       }
-      // 通常のドラッグ
-      if not(drag_state.is_dragging.get()) {
-        return
-      }
-      match drag_state.dragging_id.get() {
-        None => ()
-        Some(id) => {
-          let dx = mx - drag_state.start_x.val
-          let dy = my - drag_state.start_y.val
-          let new_x = drag_state.element_start_x.val + dx
-          let new_y = drag_state.element_start_y.val + dy
-          update_element_position(state, id, new_x, new_y)
+    }
+    let target_id = get_target_id(e)
+    if target_id != "" {
+      // 要素を選択
+      set_selected_id(state, Some(target_id))
+      // ドラッグ開始
+      drag_state.is_dragging.set(true)
+      drag_state.dragging_id.set(Some(target_id))
+      drag_state.start_x.val = mx
+      drag_state.start_y.val = my
+      // 要素の現在位置を保存
+      for el in state.elements.get() {
+        if el.id == target_id {
+          drag_state.element_start_x.val = el.x
+          drag_state.element_start_y.val = el.y
+          break
         }
       }
-    },
-  )
+      prevent_default_ffi(e)
+    } else {
+      // 背景クリック: 選択解除
+      set_selected_id(state, None)
+    }
+  })
+  // mousemove: ドラッグ中なら要素を移動、またはプレビュー線を更新
+  add_mousemove_handler(svg, fn(e) {
+    let (mx, my) = get_mouse_coords_from_event(e)
+    // アンカードラッグ中
+    match state.anchor_drag_state.get() {
+      Some(anchor_state) => {
+        let anchor_type = anchor_state.source_anchor_type
+        let is_line_anchor = (
+            anchor_type is @core.LineStart || anchor_type is @core.LineEnd
+          ) &&
+          is_line_element(state, anchor_state.source_element_id)
+        if is_line_anchor {
+          // Line端点のドラッグ: リアルタイムで位置を更新
+          update_line_endpoint(
+            state,
+            anchor_state.source_element_id,
+            anchor_type,
+            mx,
+            my,
+          )
+          state.anchor_drag_state.set(
+            Some({ ..anchor_state, current_x: mx, current_y: my }),
+          )
+        } else {
+          // 新規Line作成のプレビュー線を描画
+          state.anchor_drag_state.set(
+            Some({ ..anchor_state, current_x: mx, current_y: my }),
+          )
+          draw_preview_line_ffi(
+            svg,
+            anchor_state.source_x,
+            anchor_state.source_y,
+            mx,
+            my,
+          )
+        }
+        return
+      }
+      None => ()
+    }
+    // 通常のドラッグ
+    if not(drag_state.is_dragging.get()) {
+      return
+    }
+    match drag_state.dragging_id.get() {
+      None => ()
+      Some(id) => {
+        let dx = mx - drag_state.start_x.val
+        let dy = my - drag_state.start_y.val
+        let new_x = drag_state.element_start_x.val + dx
+        let new_y = drag_state.element_start_y.val + dy
+        update_element_position(state, id, new_x, new_y)
+      }
+    }
+  })
   // mouseup: ドラッグ終了
-  add_mouseup_handler(
-    svg,
-    fn(e) {
-      // アンカードラッグ終了
-      match state.anchor_drag_state.get() {
-        Some(anchor_state) => {
-          let (mx, my) = get_mouse_coords_from_event(e)
-          let anchor_type = anchor_state.source_anchor_type
-          let is_line_anchor = (anchor_type is @core.LineStart || anchor_type is @core.LineEnd) &&
-            is_line_element(state, anchor_state.source_element_id)
-          if is_line_anchor {
-            // Line端点の移動完了: 最終位置を設定
-            update_line_endpoint(
-              state,
-              anchor_state.source_element_id,
-              anchor_type,
-              mx,
-              my,
-            )
-            state.anchor_drag_state.set(None)
-            return
-          }
-          // 新規Line作成モード
-          // プレビュー線を削除
-          remove_preview_line_ffi(svg)
-          // 最小距離チェック（10px以上離れていないと作成しない）
-          let dx = mx - anchor_state.source_x
-          let dy = my - anchor_state.source_y
-          let dist = (dx * dx + dy * dy).sqrt()
-          if dist > 10.0 {
-            // 新しい線要素を作成
-            let line_id = "line-" + get_timestamp_id_ffi()
-            let new_line : @model.Element = {
-              id: line_id,
-              x: anchor_state.source_x,
-              y: anchor_state.source_y,
-              shape: @model.Line(mx, my),
-              style: {
-                fill: None,
-                stroke: Some("#000000"),
-                stroke_width: Some(2.0),
-                opacity: None,
-                stroke_dasharray: None,
-                marker_start: None,
-                marker_end: None,
-              },
-              transform: None,
-              parent_id: None,
-              connections: None,
-            }
-            let elements = state.elements.get()
-            let new_elements = elements.copy()
-            new_elements.push(new_line)
-            state.elements.set(new_elements)
-            // 新しい線を選択
-            set_selected_id(state, Some(line_id))
-          }
+  add_mouseup_handler(svg, fn(e) {
+    // アンカードラッグ終了
+    match state.anchor_drag_state.get() {
+      Some(anchor_state) => {
+        let (mx, my) = get_mouse_coords_from_event(e)
+        let anchor_type = anchor_state.source_anchor_type
+        let is_line_anchor = (
+            anchor_type is @core.LineStart || anchor_type is @core.LineEnd
+          ) &&
+          is_line_element(state, anchor_state.source_element_id)
+        if is_line_anchor {
+          // Line端点の移動完了: 最終位置を設定
+          update_line_endpoint(
+            state,
+            anchor_state.source_element_id,
+            anchor_type,
+            mx,
+            my,
+          )
           state.anchor_drag_state.set(None)
           return
         }
-        None => ()
-      }
-      drag_state.is_dragging.set(false)
-      drag_state.dragging_id.set(None)
-    },
-  )
-  // mouseleave: ドラッグ終了
-  add_mouseleave_handler(
-    svg,
-    fn(_e) {
-      // アンカードラッグをキャンセル
-      if state.anchor_drag_state.get() is Some(_) {
+        // 新規Line作成モード
+        // プレビュー線を削除
         remove_preview_line_ffi(svg)
+        // 最小距離チェック（10px以上離れていないと作成しない）
+        let dx = mx - anchor_state.source_x
+        let dy = my - anchor_state.source_y
+        let dist = (dx * dx + dy * dy).sqrt()
+        if dist > 10.0 {
+          // 新しい線要素を作成
+          let line_id = "line-" + get_timestamp_id_ffi()
+          let new_line : @model.Element = {
+            id: line_id,
+            x: anchor_state.source_x,
+            y: anchor_state.source_y,
+            shape: @model.Line(mx, my),
+            style: {
+              fill: None,
+              stroke: Some("#000000"),
+              stroke_width: Some(2.0),
+              opacity: None,
+              stroke_dasharray: None,
+              marker_start: None,
+              marker_end: None,
+            },
+            transform: None,
+            parent_id: None,
+            connections: None,
+          }
+          let elements = state.elements.get()
+          let new_elements = elements.copy()
+          new_elements.push(new_line)
+          state.elements.set(new_elements)
+          // 新しい線を選択
+          set_selected_id(state, Some(line_id))
+        }
         state.anchor_drag_state.set(None)
+        return
       }
-      drag_state.is_dragging.set(false)
-      drag_state.dragging_id.set(None)
-    },
-  )
+      None => ()
+    }
+    drag_state.is_dragging.set(false)
+    drag_state.dragging_id.set(None)
+  })
+  // mouseleave: ドラッグ終了
+  add_mouseleave_handler(svg, fn(_e) {
+    // アンカードラッグをキャンセル
+    if state.anchor_drag_state.get() is Some(_) {
+      remove_preview_line_ffi(svg)
+      state.anchor_drag_state.set(None)
+    }
+    drag_state.is_dragging.set(false)
+    drag_state.dragging_id.set(None)
+  })
 }
 
 ///|
@@ -466,7 +456,6 @@ extern "js" fn prevent_default_ffi(e : @js.Any) =
 /// 右クリックかどうかチェック
 extern "js" fn is_right_click(e : @js.Any) -> Bool =
   #| (e) => e.button === 2
-
 
 ///|
 /// SVG が null かどうかチェック
@@ -533,6 +522,7 @@ pub fn update_selection_ui(state : @core.EditorState) -> Unit {
               // Line はハンドルを描画
               let _ = render_line_handle(svg, el.x, el.y, "line-start", el.id)
               let _ = render_line_handle(svg, x2, y2, "line-end", el.id)
+
             }
             _ => {
               // 他の要素は選択枠を描画
@@ -557,5 +547,5 @@ fn render_resize_handles(svg : @js.Any, el : @model.Element) -> Unit {
   let _ = render_resize_handle(svg, x + w, y, "ne", el.id, "ne-resize")
   let _ = render_resize_handle(svg, x, y + h, "sw", el.id, "sw-resize")
   let _ = render_resize_handle(svg, x + w, y + h, "se", el.id, "se-resize")
-}
 
+}

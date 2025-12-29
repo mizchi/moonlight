@@ -127,9 +127,7 @@ fn render_element_menu(
   append_child(menu, stroke_row)
   // Fill 色
   let fill_row = create_menu_row("Fill:")
-  let fill_colors = [
-    "transparent", "#ffffff", "#4CAF50", "#2196F3", "#FFC107",
-  ]
+  let fill_colors = ["transparent", "#ffffff", "#4CAF50", "#2196F3", "#FFC107"]
   for color in fill_colors {
     let btn = create_color_button(color)
     add_click_handler(btn, fn(_) {
@@ -171,7 +169,13 @@ fn render_insert_menu(
   // Rectangle
   let rect_btn = create_menu_button("Rectangle", "#333333")
   add_click_handler(rect_btn, fn(_) {
-    let el = create_rect_element(new_id(), svg_coords.0 - 40.0, svg_coords.1 - 30.0, 80.0, 60.0)
+    let el = create_rect_element(
+      new_id(),
+      svg_coords.0 - 40.0,
+      svg_coords.1 - 30.0,
+      80.0,
+      60.0,
+    )
     add_element_to_state(state, el)
     context_menu.hide()
     hide_context_menu_element(menu)
@@ -191,7 +195,13 @@ fn render_insert_menu(
   // Ellipse
   let ellipse_btn = create_menu_button("Ellipse", "#333333")
   add_click_handler(ellipse_btn, fn(_) {
-    let el = create_ellipse_element(new_id(), svg_coords.0, svg_coords.1, 60.0, 35.0)
+    let el = create_ellipse_element(
+      new_id(),
+      svg_coords.0,
+      svg_coords.1,
+      60.0,
+      35.0,
+    )
     add_element_to_state(state, el)
     context_menu.hide()
     hide_context_menu_element(menu)
@@ -201,7 +211,13 @@ fn render_insert_menu(
   // Line
   let line_btn = create_menu_button("Line", "#333333")
   add_click_handler(line_btn, fn(_) {
-    let el = create_line_element(new_id(), svg_coords.0 - 50.0, svg_coords.1, svg_coords.0 + 50.0, svg_coords.1)
+    let el = create_line_element(
+      new_id(),
+      svg_coords.0 - 50.0,
+      svg_coords.1,
+      svg_coords.0 + 50.0,
+      svg_coords.1,
+    )
     add_element_to_state(state, el)
     context_menu.hide()
     hide_context_menu_element(menu)

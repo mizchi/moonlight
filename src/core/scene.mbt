@@ -669,37 +669,6 @@ pub fn EditorState::remove_element_raw(self : EditorState, id : String) -> Unit 
 }
 
 ///|
-/// 要素を移動（履歴なし）
-pub fn EditorState::move_element_raw(
-  self : EditorState,
-  id : String,
-  new_x : Double,
-  new_y : Double,
-) -> Unit {
-  self.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, x: new_x, y: new_y }
-      } else {
-        el
-      }
-    })
-  })
-}
-
-///|
-/// 要素の形状を更新（履歴なし）
-pub fn EditorState::update_shape_raw(
-  self : EditorState,
-  id : String,
-  new_shape : @model.ShapeType,
-) -> Unit {
-  self.elements.update(fn(els) {
-    els.map(fn(el) { if el.id == id { { ..el, shape: new_shape } } else { el } })
-  })
-}
-
-///|
 /// 要素の現在のインデックスを取得
 pub fn EditorState::get_element_index(self : EditorState, id : String) -> Int? {
   let els = self.elements.get()

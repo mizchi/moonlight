@@ -53,6 +53,8 @@ pub extern "js" fn create_preview_handle(
   #| })
 
 // SimpleEditorState は @core.EditorState の型エイリアス
+
+///|
 pub type SimpleEditorState = @core.EditorState
 
 ///|
@@ -78,7 +80,11 @@ pub fn create_embed_state(
 /// 選択中のIDを取得（単一選択として）
 pub fn get_selected_id(state : @core.EditorState) -> String? {
   let ids = state.selected_ids.get()
-  if ids.length() > 0 { Some(ids[0]) } else { None }
+  if ids.length() > 0 {
+    Some(ids[0])
+  } else {
+    None
+  }
 }
 
 ///|

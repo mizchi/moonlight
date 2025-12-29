@@ -232,45 +232,6 @@ fn render_multi_selection_panel(state : @core.EditorState) -> @element.DomNode {
 let accordion_header_style : String = "display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #f0f0f0; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 4px; user-select: none;"
 
 ///|
-/// Canvas ルート表示（設定 + 要素ツリー）
-fn render_canvas_root(state : @core.EditorState) -> @element.DomNode {
-  let settings_open = @luna.signal(true)
-  let elements_open = @luna.signal(true)
-  div(style="display: flex; flex-direction: column; gap: 8px;", [
-    // Canvas Settings アコーディオン
-    div(style="", [
-      div(
-        style=accordion_header_style,
-        on=events().click(fn(_) { settings_open.update(fn(v) { not(v) }) }),
-        [
-          text("Canvas Settings"),
-          text_dyn(fn() { if settings_open.get() { "▼" } else { "▶" } }),
-        ],
-      ),
-      show(fn() { settings_open.get() }, fn() { render_canvas_settings(state) }),
-    ]),
-    // Elements アコーディオン
-    div(style="", [
-      div(
-        style=accordion_header_style,
-        on=events().click(fn(_) { elements_open.update(fn(v) { not(v) }) }),
-        [
-          text_dyn(fn() {
-            let count = state.elements
-              .get()
-              .filter(fn(el) { el.parent_id is None })
-              .length()
-            "Elements (\{count})"
-          }),
-          text_dyn(fn() { if elements_open.get() { "▼" } else { "▶" } }),
-        ],
-      ),
-      show(fn() { elements_open.get() }, fn() { render_element_tree(state) }),
-    ]),
-  ])
-}
-
-///|
 /// Canvas ルート表示（コンパクト版 - アコーディオンは閉じた状態で開始）
 fn render_canvas_root_compact(state : @core.EditorState) -> @element.DomNode {
   let settings_open = @luna.signal(false) // 閉じた状態で開始

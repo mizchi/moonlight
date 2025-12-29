@@ -251,9 +251,9 @@ pub fn render_element_to_svg(
     }
     @model.Polyline(points) => {
       let polyline = create_svg_element_ns("polyline")
-      let points_str = points.map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" }).join(
-        " ",
-      )
+      let points_str = points
+        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .join(" ")
       set_svg_attr(polyline, "points", points_str)
       set_svg_attr(polyline, "fill", fill)
       set_svg_attr(polyline, "stroke", stroke)
@@ -384,7 +384,9 @@ pub fn render_line_handle(
 
 ///|
 /// 要素の境界を取得 (x, y, width, height)
-pub fn get_element_bounds(el : @model.Element) -> (Double, Double, Double, Double) {
+pub fn get_element_bounds(
+  el : @model.Element,
+) -> (Double, Double, Double, Double) {
   match el.shape {
     @model.Rect(w, h, _, _) => (el.x, el.y, w, h)
     @model.Circle(r) => (el.x - r, el.y - r, r * 2.0, r * 2.0)
@@ -428,25 +430,28 @@ pub fn get_element_anchor_points(
         (cx, cy, @core.Center),
       ]
     }
-    @model.Circle(r) => [
-      (el.x, el.y - r, @core.Top),
-      (el.x, el.y + r, @core.Bottom),
-      (el.x - r, el.y, @core.Left),
-      (el.x + r, el.y, @core.Right),
-      (el.x, el.y, @core.Center),
-    ]
-    @model.Ellipse(rx, ry) => [
-      (el.x, el.y - ry, @core.Top),
-      (el.x, el.y + ry, @core.Bottom),
-      (el.x - rx, el.y, @core.Left),
-      (el.x + rx, el.y, @core.Right),
-      (el.x, el.y, @core.Center),
-    ]
-    @model.Line(x2, y2) => [
-      (el.x, el.y, @core.LineStart),
-      (x2, y2, @core.LineEnd),
-      ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center),
-    ]
+    @model.Circle(r) =>
+      [
+        (el.x, el.y - r, @core.Top),
+        (el.x, el.y + r, @core.Bottom),
+        (el.x - r, el.y, @core.Left),
+        (el.x + r, el.y, @core.Right),
+        (el.x, el.y, @core.Center),
+      ]
+    @model.Ellipse(rx, ry) =>
+      [
+        (el.x, el.y - ry, @core.Top),
+        (el.x, el.y + ry, @core.Bottom),
+        (el.x - rx, el.y, @core.Left),
+        (el.x + rx, el.y, @core.Right),
+        (el.x, el.y, @core.Center),
+      ]
+    @model.Line(x2, y2) =>
+      [
+        (el.x, el.y, @core.LineStart),
+        (x2, y2, @core.LineEnd),
+        ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center),
+      ]
     @model.Text(_, _) => [(el.x, el.y, @core.Center)]
     _ => []
   }
@@ -486,9 +491,9 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
       "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{fill}\" font-size=\"\{num_to_str(fs)}\">\{content}</text>"
     }
     @model.Polyline(points) => {
-      let points_str = points.map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" }).join(
-        " ",
-      )
+      let points_str = points
+        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .join(" ")
       "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
     }
     @model.Path(d) =>

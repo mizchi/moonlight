@@ -71,7 +71,6 @@ test "move_element_with_relations - updates connected lines" {
 
   // Rectを移動
   let result = move_element_with_relations(elements, "rect-1", 200.0, 150.0)
-
   let moved_rect = result[0]
   let moved_line = result[1]
   // Rectの新しい位置
@@ -126,7 +125,6 @@ test "move_element_with_relations - updates both child and connected lines" {
 
   // Rectを移動
   let result = move_element_with_relations(elements, "rect-1", 200.0, 200.0)
-
   let moved_rect = result[0]
   let moved_child = result[1]
   let moved_line = result[2]
@@ -176,7 +174,6 @@ test "resize_element_with_relations - centers child elements" {
   // Rect を大きくリサイズ
   let new_shape = Rect(120.0, 100.0, None, None)
   let result = resize_element_with_relations(elements, "rect-1", new_shape)
-
   let resized_rect = result[0]
   let moved_child = result[1]
 
@@ -223,7 +220,6 @@ test "resize_element_with_relations - updates connected lines" {
   // Rect を高さを変更
   let new_shape = Rect(80.0, 100.0, None, None) // 高さを 60 -> 100 に
   let result = resize_element_with_relations(elements, "rect-1", new_shape)
-
   let resized_rect = result[0]
   let moved_line = result[1]
 

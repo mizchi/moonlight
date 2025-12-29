@@ -1304,9 +1304,14 @@ pub fn compute_line_move_topology(
         new_y2 = p.y
         needs_update = true
       }
-
       if needs_update {
-        coords_map[e.id] = { id: e.id, x: new_x, y: new_y, x2: new_x2, y2: new_y2 }
+        coords_map[e.id] = {
+          id: e.id,
+          x: new_x,
+          y: new_y,
+          x2: new_x2,
+          y2: new_y2,
+        }
         if not(in_queue.contains(e.id)) {
           in_queue.push(e.id)
           queue.push(e.id)
@@ -1314,6 +1319,5 @@ pub fn compute_line_move_topology(
       }
     }
   }
-
   coords_map.values().collect()
 }

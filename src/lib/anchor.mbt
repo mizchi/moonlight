@@ -19,7 +19,13 @@ pub fn render_anchor_points(state : @core.EditorState) -> Unit {
           let anchors = get_element_anchors_with_type(el)
           for anchor in anchors {
             let (x, y, anchor_type) = anchor
-            draw_anchor_point_ffi(svg, x, y, el.id, anchor_type_to_string(anchor_type))
+            draw_anchor_point_ffi(
+              svg,
+              x,
+              y,
+              el.id,
+              anchor_type_to_string(anchor_type),
+            )
           }
           break
         }
@@ -41,28 +47,31 @@ fn get_element_anchors_with_type(
         (cx, el.y + h, @core.Bottom), // Bottom
         (el.x, cy, @core.Left), // Left
         (el.x + w, cy, @core.Right), // Right
-        (cx, cy, @core.Center), // Center
+        (cx, cy, @core.Center),
       ]
-    }
-    @model.Circle(r) => [
-      (el.x, el.y - r, @core.Top), // Top
-      (el.x, el.y + r, @core.Bottom), // Bottom
-      (el.x - r, el.y, @core.Left), // Left
-      (el.x + r, el.y, @core.Right), // Right
-      (el.x, el.y, @core.Center), // Center
-    ]
-    @model.Ellipse(rx, ry) => [
-      (el.x, el.y - ry, @core.Top), // Top
-      (el.x, el.y + ry, @core.Bottom), // Bottom
-      (el.x - rx, el.y, @core.Left), // Left
-      (el.x + rx, el.y, @core.Right), // Right
-      (el.x, el.y, @core.Center), // Center
-    ]
-    @model.Line(x2, y2) => [
-      (el.x, el.y, @core.LineStart), // Start
-      (x2, y2, @core.LineEnd), // End
-      ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center), // Center
-    ]
+    } // Center
+    @model.Circle(r) =>
+      [
+        (el.x, el.y - r, @core.Top), // Top
+        (el.x, el.y + r, @core.Bottom), // Bottom
+        (el.x - r, el.y, @core.Left), // Left
+        (el.x + r, el.y, @core.Right), // Right
+        (el.x, el.y, @core.Center),
+      ] // Center
+    @model.Ellipse(rx, ry) =>
+      [
+        (el.x, el.y - ry, @core.Top), // Top
+        (el.x, el.y + ry, @core.Bottom), // Bottom
+        (el.x - rx, el.y, @core.Left), // Left
+        (el.x + rx, el.y, @core.Right), // Right
+        (el.x, el.y, @core.Center),
+      ] // Center
+    @model.Line(x2, y2) =>
+      [
+        (el.x, el.y, @core.LineStart), // Start
+        (x2, y2, @core.LineEnd), // End
+        ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center),
+      ] // Center
     @model.Text(_, _) => [(el.x, el.y, @core.Center)] // Just the position
     _ => []
   }
