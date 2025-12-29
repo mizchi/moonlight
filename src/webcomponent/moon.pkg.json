@@ -2,15 +2,9 @@
   "is-main": true,
   "supported-targets": ["js"],
   "import": [
-    "internal/app/lib",
-    "mizchi/luna",
     {
-      "path": "mizchi/luna/luna/dom/element",
-      "alias": "element"
-    },
-    {
-      "path": "mizchi/js/browser/dom",
-      "alias": "js_dom"
+      "path": "internal/app",
+      "alias": "editor"
     },
     {
       "path": "mizchi/js/core",

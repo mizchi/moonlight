@@ -1,5 +1,6 @@
 // WebComponents モード - エントリポイント
 // <moonlight-editor> カスタム要素を定義
+// embed と同じ @editor モジュールを使用
 
 ///|
 /// カスタム要素を定義
@@ -11,13 +12,12 @@ extern "js" fn define_custom_element(
   #| (onConnected, onDisconnected, onAttributeChanged) => {
   #|   class MoonlightEditorElement extends HTMLElement {
   #|     static get observedAttributes() {
-  #|       return ['width', 'height', 'gridsnap', 'theme', 'zoom', 'readonly', 'toolbar-visible'];
+  #|       return ['width', 'height', 'theme', 'readonly'];
   #|     }
   #|
   #|     constructor() {
   #|       super();
   #|       this._handle = null;
-  #|       this._state = null;
   #|     }
   #|
   #|     connectedCallback() {
@@ -32,7 +32,7 @@ extern "js" fn define_custom_element(
   #|       onAttributeChanged(this, name, oldValue || '', newValue || '');
   #|     }
   #|
-  #|     // Public API
+  #|     // Public API - ハンドルに委譲
   #|     exportSvg() {
   #|       return this._handle?.exportSvg?.() || '<svg></svg>';
   #|     }
@@ -43,6 +43,10 @@ extern "js" fn define_custom_element(
   #|
   #|     clear() {
   #|       this._handle?.clear?.();
+  #|     }
+  #|
+  #|     hasFocus() {
+  #|       return this._handle?.hasFocus?.() || false;
   #|     }
   #|   }
   #|
@@ -55,101 +59,61 @@ extern "js" fn set_element_handle(element : @js.Any, handle : @js.Any) =
   #| (el, handle) => { el._handle = handle; }
 
 ///|
-/// 要素から属性を取得
-extern "js" fn get_attribute(element : @js.Any, name : String) -> String =
-  #| (el, name) => el.getAttribute(name) || ''
+/// 属性から options オブジェクトを作成
+extern "js" fn create_options_from_attributes(element : @js.Any) -> @js.Any =
+  #| (el) => ({
+  #|   width: parseInt(el.getAttribute('width'), 10) || 400,
+  #|   height: parseInt(el.getAttribute('height'), 10) || 300,
+  #|   theme: el.getAttribute('theme') || 'light',
+  #|   readonly: el.hasAttribute('readonly')
+  #| })
 
 ///|
-/// 文字列を整数に変換
-extern "js" fn parse_int(s : String) -> Int =
-  #| (s) => parseInt(s, 10) || 0
-
-///|
-/// ID カウンター
-let id_counter : Ref[Int] = { val: 0 }
-
-///|
-/// 新しい ID を生成
-fn new_id() -> String {
-  id_counter.val = id_counter.val + 1
-  "el-\{id_counter.val}"
-}
-
-///|
-/// connected コールバック
-fn on_connected(element : @js.Any) -> Unit {
-  // 属性からオプションを取得
-  let width_str = get_attribute(element, "width")
-  let height_str = get_attribute(element, "height")
-  let theme = get_attribute(element, "theme")
-  let gridsnap_str = get_attribute(element, "gridsnap")
-  let readonly_str = get_attribute(element, "readonly")
-  let toolbar_visible_str = get_attribute(element, "toolbar-visible")
-  let width = if width_str == "" { 400 } else { parse_int(width_str) }
-  let height = if height_str == "" { 300 } else { parse_int(height_str) }
-  let options : @lib.EditorOptions = {
-    width: Some(width),
-    height: Some(height),
-    gridsnap: gridsnap_str != "",
-    theme: if theme == "" {
-      Some("light")
-    } else {
-      Some(theme)
-    },
-    zoom: Some(1.0),
-    is_readonly: readonly_str != "",
-    toolbar_visible: toolbar_visible_str != "false",
-    initial_svg: None,
-  }
-  // Shadow DOM を作成
-  let shadow = attach_shadow(element)
-  let container = create_container_in_shadow(shadow)
-  // 共通セットアップロジックを使用
-  let result = @lib.setup_editor(container, options, new_id)
-  set_element_handle(element, result.handle)
-}
-
-///|
-/// disconnected コールバック
-fn on_disconnected(element : @js.Any) -> Unit {
-  // クリーンアップ
-  clear_element_state_ffi(element)
-}
-
-///|
-/// 要素の状態をクリア
-extern "js" fn clear_element_state_ffi(element : @js.Any) =
-  #| (el) => { el._handle = null; el._state = null; }
-
-///|
-/// attribute changed コールバック
-fn on_attribute_changed(
-  _element : @js.Any,
-  name : String,
-  _old_value : String,
-  _new_value : String,
-) -> Unit {
-  // 属性変更時の処理
-  // TODO: テーマ変更、readonly 変更などを実装
-  let _ = name
-
-}
-
-///|
-/// Shadow DOM をアタッチ
-extern "js" fn attach_shadow(element : @js.Any) -> @js.Any =
-  #| (el) => el.attachShadow({ mode: 'open' })
-
-///|
-/// Shadow DOM 内にコンテナを作成
-extern "js" fn create_container_in_shadow(shadow : @js.Any) -> @js.Any =
-  #| (shadow) => {
+/// Shadow DOM を作成してコンテナを返す
+extern "js" fn create_shadow_container(element : @js.Any) -> @js.Any =
+  #| (el) => {
+  #|   const shadow = el.attachShadow({ mode: 'open' });
   #|   const container = document.createElement('div');
   #|   container.style.width = '100%';
   #|   container.style.height = '100%';
   #|   shadow.appendChild(container);
   #|   return container;
   #| }
+
+///|
+/// 要素の状態をクリア
+extern "js" fn clear_element_handle(element : @js.Any) =
+  #| (el) => { el._handle = null; }
+
+///|
+/// connected コールバック
+fn on_connected(element : @js.Any) -> Unit {
+  // 属性から options を作成（embed と同じ形式）
+  let options_js = create_options_from_attributes(element)
+  let options = @editor.EmbedOptions::from_js(options_js)
+  // Shadow DOM 内にコンテナを作成
+  let container = create_shadow_container(element)
+  // embed と同じエディタ作成関数を使用
+  let handle = @editor.create_js_editor(container, options)
+  set_element_handle(element, handle)
+}
+
+///|
+/// disconnected コールバック
+fn on_disconnected(element : @js.Any) -> Unit {
+  clear_element_handle(element)
+}
+
+///|
+/// attribute changed コールバック
+fn on_attribute_changed(
+  _element : @js.Any,
+  _name : String,
+  _old_value : String,
+  _new_value : String,
+) -> Unit {
+  // TODO: 動的な属性変更に対応（テーマ切り替えなど）
+}
 
 ///|
 /// メイン関数
