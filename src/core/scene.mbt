@@ -418,162 +418,21 @@ pub fn EditorState::update_element(
 
 ///|
 /// 要素を移動（子要素も一緒に移動、接続ラインも更新）
-/// 全ての更新を1回の elements.update でバッチ処理してパフォーマンスを最適化
+/// model 層の純粋関数を使用してアトミックに更新
 pub fn EditorState::move_element(
   self : EditorState,
   id : String,
   new_x : Double,
   new_y : Double,
 ) -> Unit {
-  // 移動前の位置を取得
-  guard self.find_element(id) is Some(el)
-  let dx = new_x - el.x
-  let dy = new_y - el.y
-  // Line の場合はトポロジー検出で接続グラフを更新
-  match el.shape {
-    @model.Line(_, _) => {
-      let elements = self.elements.get()
-      // モデル層の純粋関数でトポロジー計算
-      let line_updates = @model.compute_line_move_topology(
-        elements, id, new_x, new_y, dx, dy,
-      )
-      // 接続されている非 Line 要素のIDを収集
-      let connected_non_line_ids : Array[String] = []
-      match el.connections {
-        Some(conns) => {
-          match conns.start {
-            Some(conn) => {
-              let is_line = elements
-                .iter()
-                .any(fn(e) {
-                  e.id == conn.element_id && e.shape is @model.Line(_, _)
-                })
-              if not(is_line) &&
-                not(connected_non_line_ids.contains(conn.element_id)) {
-                connected_non_line_ids.push(conn.element_id)
-              }
-            }
-            None => ()
-          }
-          match conns.end {
-            Some(conn) => {
-              let is_line = elements
-                .iter()
-                .any(fn(e) {
-                  e.id == conn.element_id && e.shape is @model.Line(_, _)
-                })
-              if not(is_line) &&
-                not(connected_non_line_ids.contains(conn.element_id)) {
-                connected_non_line_ids.push(conn.element_id)
-              }
-            }
-            None => ()
-          }
-        }
-        None => ()
-      }
-      // 子要素を収集
-      let connected_children_ids : Array[String] = []
-      for connected_id in connected_non_line_ids {
-        for e in elements {
-          if e.parent_id == Some(connected_id) {
-            connected_children_ids.push(e.id)
-          }
-        }
-      }
-      // 全ての更新を適用
-      self.elements.update(fn(els) {
-        els.map(fn(e) {
-          // 更新対象の Line
-          for coords in line_updates {
-            if e.id == coords.id {
-              return {
-                ..e,
-                x: coords.x,
-                y: coords.y,
-                shape: @model.Line(coords.x2, coords.y2),
-              }
-            }
-          }
-          // 接続された非 Line 要素を移動
-          if connected_non_line_ids.contains(e.id) {
-            return { ..e, x: e.x + dx, y: e.y + dy }
-          }
-          // 接続要素の子要素を移動
-          if connected_children_ids.contains(e.id) {
-            return { ..e, x: e.x + dx, y: e.y + dy }
-          }
-          e
-        })
-      })
-    }
-    _ => {
-      // 現在の要素リストから子要素を事前に収集
-      let elements = self.elements.get()
-      let child_ids : Array[String] = []
-      for e in elements {
-        if e.parent_id == Some(id) {
-          child_ids.push(e.id)
-        }
-      }
-      // 移動対象のIDとその子要素ID
-      let target_id = id
-      // 全ての更新を1回で実行
-      self.elements.update(fn(els) {
-        els.map(fn(e) {
-          // 対象要素を移動
-          if e.id == target_id {
-            return { ..e, x: new_x, y: new_y }
-          }
-          // 子要素を移動
-          if child_ids.contains(e.id) {
-            return { ..e, x: e.x + dx, y: e.y + dy }
-          }
-          // 接続されているラインを更新
-          guard e.shape is @model.Line(x2, y2) else { return e }
-          guard e.connections is Some(conns) else { return e }
-          let mut new_ex = e.x
-          let mut new_ey = e.y
-          let mut new_ex2 = x2
-          let mut new_ey2 = y2
-          // 始点の接続を確認
-          match conns.start {
-            Some(conn) if conn.element_id == target_id =>
-              // 移動後のターゲット要素でアンカー位置を計算
-              for target in els {
-                if target.id == target_id {
-                  let moved_target = { ..target, x: new_x, y: new_y }
-                  let anchor_point = moved_target.get_anchor_point(conn.anchor)
-                  new_ex = anchor_point.x
-                  new_ey = anchor_point.y
-                  break
-                }
-              }
-            _ => ()
-          }
-          // 終点の接続を確認
-          match conns.end {
-            Some(conn) if conn.element_id == target_id =>
-              for target in els {
-                if target.id == target_id {
-                  let moved_target = { ..target, x: new_x, y: new_y }
-                  let anchor_point = moved_target.get_anchor_point(conn.anchor)
-                  new_ex2 = anchor_point.x
-                  new_ey2 = anchor_point.y
-                  break
-                }
-              }
-            _ => ()
-          }
-          if new_ex != e.x || new_ey != e.y || new_ex2 != x2 || new_ey2 != y2 {
-            { ..e, x: new_ex, y: new_ey, shape: @model.Line(new_ex2, new_ey2) }
-          } else {
-            e
-          }
-        })
-      })
-    }
-  }
+  // model 層の純粋関数で全ての更新を計算し、1回の set で適用
+  let new_elements = @model.move_element_with_relations(
+    self.elements.get(),
+    id,
+    new_x,
+    new_y,
+  )
+  self.elements.set(new_elements)
 }
 
 ///|
@@ -1654,12 +1513,23 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.AddElement(element) => state.add_element_raw(element)
     @model.RemoveElement(element) => state.remove_element_raw(element.id)
     @model.MoveElement(id, _, _, to_x, to_y) => {
-      state.move_element_raw(id, to_x, to_y)
-      state.sync_related_elements(id)
+      // model 層の純粋関数でアトミックに更新
+      let new_elements = @model.move_element_with_relations(
+        state.elements.get(),
+        id,
+        to_x,
+        to_y,
+      )
+      state.elements.set(new_elements)
     }
     @model.ResizeElement(id, _, new_shape) => {
-      state.update_shape_raw(id, new_shape)
-      state.sync_related_elements(id)
+      // model 層の純粋関数でアトミックに更新
+      let new_elements = @model.resize_element_with_relations(
+        state.elements.get(),
+        id,
+        new_shape,
+      )
+      state.elements.set(new_elements)
     }
     @model.ReorderElement(id, _, to_idx) =>
       state.reorder_element_raw(id, to_idx)
@@ -1679,12 +1549,23 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
     @model.AddElement(element) => state.remove_element_raw(element.id)
     @model.RemoveElement(element) => state.add_element_raw(element)
     @model.MoveElement(id, from_x, from_y, _, _) => {
-      state.move_element_raw(id, from_x, from_y)
-      state.sync_related_elements(id)
+      // model 層の純粋関数でアトミックに更新
+      let new_elements = @model.move_element_with_relations(
+        state.elements.get(),
+        id,
+        from_x,
+        from_y,
+      )
+      state.elements.set(new_elements)
     }
     @model.ResizeElement(id, old_shape, _) => {
-      state.update_shape_raw(id, old_shape)
-      state.sync_related_elements(id)
+      // model 層の純粋関数でアトミックに更新
+      let new_elements = @model.resize_element_with_relations(
+        state.elements.get(),
+        id,
+        old_shape,
+      )
+      state.elements.set(new_elements)
     }
     @model.ReorderElement(id, from_idx, _) =>
       state.reorder_element_raw(id, from_idx)

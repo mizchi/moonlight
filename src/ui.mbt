@@ -793,7 +793,7 @@ fn render_element_details(
                 None => "0"
               }
             },
-            on=events().change(fn(e) {
+            on=events().input(fn(e) {
               if state.get_selected_id() is Some(id) {
                 if state.find_element(id) is Some(el) {
                   let value = get_event_target_value(e.as_any())
@@ -825,7 +825,7 @@ fn render_element_details(
                 None => "0"
               }
             },
-            on=events().change(fn(e) {
+            on=events().input(fn(e) {
               if state.get_selected_id() is Some(id) {
                 if state.find_element(id) is Some(el) {
                   let value = get_event_target_value(e.as_any())

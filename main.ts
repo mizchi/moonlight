@@ -1,3 +1,3 @@
-// Test: Import MoonBit module via mbt: prefix
+// MoonBit Full Editor entry point
 import 'mbt:internal/app';
 

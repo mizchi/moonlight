@@ -2717,3 +2717,9 @@ fn render_svg_canvas_node(
   ]
   @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, children)
 }
+
+///|
+/// メインエントリポイント
+fn main {
+  app_main()
+}
