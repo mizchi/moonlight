@@ -3,6 +3,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:lib": "vite build --config vite.config.lib.ts",
+    "deploy": "pnpm build:lib && wrangler deploy",
+    "deploy:preview": "pnpm build:lib && wrangler deploy --env preview",
+    "worker:dev": "pnpm build:lib && wrangler dev",
     "test": "playwright test",
     "test:e2e": "playwright test",
     "test:unit": "node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));delete p.type;fs.writeFileSync('package.json',JSON.stringify(p,null,2))\" && (moon test -p internal/app/model; moon test -p internal/app/components); node --no-warnings -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.type='module';fs.writeFileSync('package.json',JSON.stringify(p,null,2))\""

@@ -194,6 +194,41 @@ Use as a custom HTML element:
 | `theme` | string | "light" | Theme: "light" or "dark" |
 | `readonly` | boolean | false | Disable editing |
 
+### 4. CDN Distribution
+
+Load the Web Component directly from a CDN (Cloudflare Workers):
+
+```html
+<!-- ES Module (recommended) -->
+<script type="module" src="https://moonlight-editor.<your-domain>.workers.dev/moonlight-editor.js"></script>
+
+<!-- Or IIFE for older browsers -->
+<script src="https://moonlight-editor.<your-domain>.workers.dev/moonlight-editor.iife.js"></script>
+
+<moonlight-editor width="800" height="600"></moonlight-editor>
+```
+
+#### Self-hosting with Cloudflare Workers
+
+1. Build the library:
+   ```bash
+   pnpm build:lib
+   ```
+
+2. Deploy to Cloudflare Workers:
+   ```bash
+   pnpm deploy
+   ```
+
+3. The worker serves files with CORS headers enabled, allowing cross-origin usage.
+
+#### Available Files
+
+| File | Format | Size | Use Case |
+|------|--------|------|----------|
+| `moonlight-editor.js` | ES Module | ~63 KB gzip | Modern browsers, bundlers |
+| `moonlight-editor.iife.js` | IIFE | ~42 KB gzip | Legacy browsers, `<script>` tag |
+
 ## API Reference
 
 ### Editor Handle
