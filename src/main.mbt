@@ -2008,10 +2008,10 @@ pub fn render_editor_modal(
               modal_svg,
               render_text_input_container(state, commit_text_input),
             ]),
-            // サイドパネル
+            // サイドパネル（インライン版 - position: fixed なし）
             div(
-              style="width: 240px; border-left: 1px solid #ddd; overflow-y: auto;",
-              [render_floating_panel(state, history)],
+              style="width: 240px; border-left: 1px solid #ddd; overflow-y: auto; background: #fafafa;",
+              [render_inline_panel(state, history)],
             ),
           ]),
           // ツールバー（下部）
@@ -2607,7 +2607,8 @@ fn render_svg_canvas_node(
       "viewBox",
       @element.Dynamic(fn() {
         // Embedモードではドキュメント全体を表示（0, 0, doc_w, doc_h）
-        if state.mode is @core.Embedded {
+        // ただしモーダルが開いている場合はフルモードのviewBoxを使用
+        if state.mode is @core.Embedded && not(state.modal_open.get()) {
           let doc_w = state.doc_width.get()
           let doc_h = state.doc_height.get()
           "0 0 \{doc_w} \{doc_h}"
@@ -2645,11 +2646,11 @@ fn render_svg_canvas_node(
           if w > 0 && h > 0 {
             state.canvas_width.set(w)
             state.canvas_height.set(h)
-            // 初回のみドキュメントを中央に配置（Fullモードのみ）
+            // 初回のみドキュメントを中央に配置（Fullモードまたはモーダル表示時）
             if is_first_resize.val {
               is_first_resize.val = false
-              // Embedモードではビューポートを (0, 0, 1.0) に固定
-              if state.mode is @core.Full {
+              // Embedモードでモーダルが閉じている場合はビューポートを (0, 0, 1.0) に固定
+              if state.mode is @core.Full || state.modal_open.get() {
                 state.fit_to_canvas()
               }
             }

@@ -63,23 +63,47 @@ pub fn render_floating_panel(
         "position: fixed; top: 56px; right: 12px; width: \{sidebar_width}px; max-height: calc(100vh - 80px); background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 8px; padding: 12px; box-sizing: border-box; overflow-y: auto; box-shadow: 0 2px 12px \{shadow}; z-index: 100; color: \{theme.ui_text};"
       }
     },
-    [
-      // パンくずリスト（階層表示）
-      render_breadcrumb(state),
-      // 選択中の要素の詳細を表示（単一選択の場合）
-      show(fn() { state.selected_ids.get().length() == 1 }, fn() {
-        render_element_details(state, history)
-      }),
-      // 複数選択の場合
-      show(fn() { state.selected_ids.get().length() > 1 }, fn() {
-        render_multi_selection_panel(state)
-      }),
-      // 選択なしの場合：Canvas設定と要素ツリーを表示
-      show(fn() { state.selected_ids.get().length() == 0 }, fn() {
-        render_canvas_root(state)
-      }),
-    ],
+    [render_panel_content(state, history)],
   )
+}
+
+///|
+/// インラインパネルをレンダリング（モーダル内で使用、position: fixed なし）
+pub fn render_inline_panel(
+  state : @core.EditorState,
+  history : @model.History,
+) -> @element.DomNode {
+  div(
+    dyn_style=fn() {
+      let theme = state.get_theme()
+      "padding: 8px; background: \{theme.ui_bg}; color: \{theme.ui_text}; font-size: 12px;"
+    },
+    [render_panel_content(state, history)],
+  )
+}
+
+///|
+/// パネルの共通コンテンツ
+fn render_panel_content(
+  state : @core.EditorState,
+  history : @model.History,
+) -> @element.DomNode {
+  @element.fragment([
+    // パンくずリスト（階層表示）
+    render_breadcrumb(state),
+    // 選択中の要素の詳細を表示（単一選択の場合）
+    show(fn() { state.selected_ids.get().length() == 1 }, fn() {
+      render_element_details(state, history)
+    }),
+    // 複数選択の場合
+    show(fn() { state.selected_ids.get().length() > 1 }, fn() {
+      render_multi_selection_panel(state)
+    }),
+    // 選択なしの場合：Canvas設定と要素ツリーを表示
+    show(fn() { state.selected_ids.get().length() == 0 }, fn() {
+      render_canvas_root_compact(state)
+    }),
+  ])
 }
 
 ///|
@@ -214,6 +238,45 @@ fn render_canvas_root(state : @core.EditorState) -> @element.DomNode {
   let elements_open = @luna.signal(true)
   div(style="display: flex; flex-direction: column; gap: 8px;", [
     // Canvas Settings アコーディオン
+    div(style="", [
+      div(
+        style=accordion_header_style,
+        on=events().click(fn(_) { settings_open.update(fn(v) { not(v) }) }),
+        [
+          text("Canvas Settings"),
+          text_dyn(fn() { if settings_open.get() { "▼" } else { "▶" } }),
+        ],
+      ),
+      show(fn() { settings_open.get() }, fn() { render_canvas_settings(state) }),
+    ]),
+    // Elements アコーディオン
+    div(style="", [
+      div(
+        style=accordion_header_style,
+        on=events().click(fn(_) { elements_open.update(fn(v) { not(v) }) }),
+        [
+          text_dyn(fn() {
+            let count = state.elements
+              .get()
+              .filter(fn(el) { el.parent_id is None })
+              .length()
+            "Elements (\{count})"
+          }),
+          text_dyn(fn() { if elements_open.get() { "▼" } else { "▶" } }),
+        ],
+      ),
+      show(fn() { elements_open.get() }, fn() { render_element_tree(state) }),
+    ]),
+  ])
+}
+
+///|
+/// Canvas ルート表示（コンパクト版 - アコーディオンは閉じた状態で開始）
+fn render_canvas_root_compact(state : @core.EditorState) -> @element.DomNode {
+  let settings_open = @luna.signal(false) // 閉じた状態で開始
+  let elements_open = @luna.signal(true) // Elements は開いた状態
+  div(style="display: flex; flex-direction: column; gap: 4px;", [
+    // Canvas Settings アコーディオン（閉じた状態）
     div(style="", [
       div(
         style=accordion_header_style,
