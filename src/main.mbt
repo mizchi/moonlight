@@ -1905,36 +1905,35 @@ fn render_panel_toggle(state : @core.EditorState) -> @element.DomNode {
 
 ///|
 /// 埋め込みビューをレンダリング（簡易モード）
+/// 親要素のサイズにフィットし、aspect-ratio でアスペクト比を維持
 fn render_embedded_view(
   state : @core.EditorState,
   svg_canvas : @element.DomNode,
   commit_text_input : (String) -> Unit,
 ) -> @element.DomNode {
-  div(style="position: relative; width: 100%;", [
-    // SVG コンテナ（アスペクト比維持）
-    div(
-      dyn_style=fn() {
-        let doc_w = state.doc_width.get()
-        let doc_h = state.doc_height.get()
-        let ratio = doc_h / doc_w * 100.0
-        "width: 100%; padding-bottom: \{ratio}%; position: relative;"
-      },
-      [
-        // SVG キャンバス（絶対位置で配置）
-        div(style="position: absolute; inset: 0;", [
-          svg_canvas,
-          // テキスト入力
-          render_text_input_container(state, commit_text_input),
-        ]),
-      ],
-    ),
-    // 編集ボタン（右上固定）
-    button(
-      style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);",
-      on=events().click(fn(_) { state.modal_open.set(true) }),
-      [text("編集")],
-    ),
-  ])
+  // 外側コンテナ：親要素のサイズにフィット
+  div(
+    dyn_style=fn() {
+      let doc_w = state.doc_width.get()
+      let doc_h = state.doc_height.get()
+      // aspect-ratio で比率を維持、width/height: 100% で親にフィット
+      "position: relative; width: 100%; height: 100%; aspect-ratio: \{doc_w} / \{doc_h}; max-width: 100%; max-height: 100%;"
+    },
+    [
+      // SVG キャンバス（絶対位置で全体を埋める）
+      div(style="position: absolute; inset: 0;", [
+        svg_canvas,
+        // テキスト入力
+        render_text_input_container(state, commit_text_input),
+      ]),
+      // 編集ボタン（右上固定）
+      button(
+        style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;",
+        on=events().click(fn(_) { state.modal_open.set(true) }),
+        [text("編集")],
+      ),
+    ],
+  )
 }
 
 ///|
@@ -2607,12 +2606,19 @@ fn render_svg_canvas_node(
     (
       "viewBox",
       @element.Dynamic(fn() {
-        let vp = state.viewport.get()
-        let cw = state.canvas_width.get().to_double()
-        let ch = state.canvas_height.get().to_double()
-        let vb_width = cw / vp.zoom
-        let vb_height = ch / vp.zoom
-        "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
+        // Embedモードではドキュメント全体を表示（0, 0, doc_w, doc_h）
+        if state.mode is @core.Embedded {
+          let doc_w = state.doc_width.get()
+          let doc_h = state.doc_height.get()
+          "0 0 \{doc_w} \{doc_h}"
+        } else {
+          let vp = state.viewport.get()
+          let cw = state.canvas_width.get().to_double()
+          let ch = state.canvas_height.get().to_double()
+          let vb_width = cw / vp.zoom
+          let vb_height = ch / vp.zoom
+          "\{vp.scroll_x} \{vp.scroll_y} \{vb_width} \{vb_height}"
+        }
       }),
     ),
     (
@@ -2628,7 +2634,7 @@ fn render_svg_canvas_node(
     ("mouseleave", @element.Handler(on_mouseleave)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
-    // ResizeObserver で canvas サイズを更新し、初回はドキュメントを中央に配置
+    // ResizeObserver で canvas サイズを更新し、初回はドキュメントを中央に配置（Fullモードのみ）
     (
       "__ref",
       @element.Handler(fn(svg_el) {
@@ -2639,10 +2645,13 @@ fn render_svg_canvas_node(
           if w > 0 && h > 0 {
             state.canvas_width.set(w)
             state.canvas_height.set(h)
-            // 初回のみドキュメントを中央に配置
+            // 初回のみドキュメントを中央に配置（Fullモードのみ）
             if is_first_resize.val {
               is_first_resize.val = false
-              state.fit_to_canvas()
+              // Embedモードではビューポートを (0, 0, 1.0) に固定
+              if state.mode is @core.Full {
+                state.fit_to_canvas()
+              }
             }
           }
         })
