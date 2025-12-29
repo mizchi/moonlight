@@ -194,29 +194,72 @@ Use as a custom HTML element:
 | `theme` | string | "light" | Theme: "light" or "dark" |
 | `readonly` | boolean | false | Disable editing |
 
-### 4. CDN Distribution
+### 4. CDN Distribution (Copy & Paste)
 
-Load the Web Component directly from a CDN (Cloudflare Workers):
+Embed the editor in any HTML page with just 2 lines:
+
+#### Minimal Example
 
 ```html
-<script type="module" src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
-
-<moonlight-editor width="800" height="600"></moonlight-editor>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Moonlight Editor</title>
+</head>
+<body>
+  <moonlight-editor width="800" height="600"></moonlight-editor>
+  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
+</body>
+</html>
 ```
+
+#### With API Usage
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Moonlight Editor</title>
+</head>
+<body>
+  <button onclick="alert(editor.exportSvg())">Export SVG</button>
+  <button onclick="editor.clear()">Clear</button>
+
+  <moonlight-editor id="editor" width="800" height="600" theme="dark"></moonlight-editor>
+
+  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
+  <script>
+    const editor = document.getElementById('editor');
+
+    // API methods:
+    // editor.exportSvg()  - Get SVG string
+    // editor.importSvg(svg) - Load SVG
+    // editor.clear()      - Clear canvas
+    // editor.hasFocus()   - Check focus state
+  </script>
+</body>
+</html>
+```
+
+#### Attributes
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `width` | 400 | Canvas width (px) |
+| `height` | 300 | Canvas height (px) |
+| `theme` | "light" | "light" or "dark" |
+| `readonly` | - | Add to disable editing |
 
 #### Self-hosting with Cloudflare Workers
 
-1. Build the library:
-   ```bash
-   pnpm build:lib
-   ```
+```bash
+pnpm build:all   # Build component
+pnpm deploy      # Deploy to Workers
+```
 
-2. Deploy to Cloudflare Workers:
-   ```bash
-   pnpm deploy
-   ```
-
-3. The worker serves files with CORS headers enabled, allowing cross-origin usage.
+The worker serves files with CORS headers, enabling cross-origin usage.
 
 ## API Reference
 

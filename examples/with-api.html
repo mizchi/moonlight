@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Moonlight Editor - API Example</title>
+</head>
+<body>
+  <button onclick="editor.exportSvg().then(svg => console.log(svg))">Export</button>
+  <button onclick="editor.clear()">Clear</button>
+  
+  <moonlight-editor id="editor" width="800" height="600" theme="light"></moonlight-editor>
+  
+  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
+  <script>
+    const editor = document.getElementById('editor');
+  </script>
+</body>
+</html>
