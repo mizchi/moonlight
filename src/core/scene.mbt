@@ -1547,6 +1547,10 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
       }
     }
   }
+  // リサイズ完了後、要素を選択状態にする（ハンドルを表示するため）
+  if self.resize_state.get() is Some(resize) {
+    self.select(Some(resize.element_id))
+  }
   self.pending_connection.set(None)
   self.resize_state.set(None)
 }

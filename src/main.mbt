@@ -30,6 +30,134 @@ fn create_id_counter() -> @luna.Signal[Int] {
   @luna.signal(0)
 }
 
+// ============================================================
+// JavaScript 埋め込み用 API
+// ============================================================
+
+///|
+/// エディタオプション（JavaScript から渡される）
+pub struct EmbedOptions {
+  width : Int
+  height : Int
+  theme : String
+  is_readonly : Bool
+}
+
+///|
+/// デフォルトオプション
+pub fn EmbedOptions::default() -> EmbedOptions {
+  { width: 400, height: 300, theme: "light", is_readonly: false }
+}
+
+///|
+/// JavaScript オブジェクトからオプションを作成
+pub fn EmbedOptions::from_js(js_obj : @js.Any) -> EmbedOptions {
+  let width = get_int_or_default(js_obj, "width", 400)
+  let height = get_int_or_default(js_obj, "height", 300)
+  let theme = get_string_or_default(js_obj, "theme", "light")
+  let is_readonly = get_bool_or_default(js_obj, "readonly", false)
+  { width, height, theme, is_readonly }
+}
+
+///|
+extern "js" fn get_int_or_default(obj : @js.Any, key : String, default_val : Int) -> Int =
+  #| (obj, key, def) => typeof obj[key] === 'number' ? obj[key] : def
+
+///|
+extern "js" fn get_string_or_default(obj : @js.Any, key : String, default_val : String) -> String =
+  #| (obj, key, def) => typeof obj[key] === 'string' ? obj[key] : def
+
+///|
+extern "js" fn get_bool_or_default(obj : @js.Any, key : String, default_val : Bool) -> Bool =
+  #| (obj, key, def) => typeof obj[key] === 'boolean' ? obj[key] : def
+
+///|
+/// JavaScript 埋め込み用エディタを作成
+/// container: DOM コンテナ要素
+/// options: エディタオプション
+/// 戻り値: エディタハンドル
+pub fn create_js_editor(
+  container : @js.Any,
+  options : EmbedOptions,
+) -> @js.Any {
+  let id_counter = create_id_counter()
+  let new_id = fn() -> String {
+    let current = id_counter.get()
+    id_counter.set(current + 1)
+    "el-\{current + 1}"
+  }
+
+  // 状態を作成
+  let state = @core.EditorState::new_with_mode(options.width, options.height, @core.Embedded)
+  let history = @model.History::new()
+
+  // テーマを設定
+  let theme = if options.theme == "dark" { @model.Dark } else { @model.Light }
+  state.theme_mode.set(theme)
+  state.is_readonly.set(options.is_readonly)
+
+  // サンプル要素を追加
+  add_sample_shapes(state, new_id)
+
+  // Luna でレンダリング
+  let editor_node = embedded_editor_app(state, history, new_id)
+  let dom_container : @js_dom.Element = @js.identity(container)
+  @element.render(dom_container |> @element.DomElement::from_dom, editor_node)
+
+  // ハンドルを作成して返す
+  create_editor_handle_js(state, options.width, options.height)
+}
+
+///|
+/// エディタハンドルを作成（JavaScript オブジェクト）
+fn create_editor_handle_js(
+  state : @core.EditorState,
+  width : Int,
+  height : Int,
+) -> @js.Any {
+  let export_svg = fn() -> String {
+    let bg_color = match state.theme_mode.get() {
+      @model.Dark => "#1a1a2e"
+      @model.Light => "#ffffff"
+    }
+    elements_to_moonlight_svg(state.elements.get(), width, height, bg_color)
+  }
+  let import_svg = fn(svg_str : String) -> Unit {
+    let id_counter = create_id_counter()
+    let new_id = fn() -> String {
+      let current = id_counter.get()
+      id_counter.set(current + 1)
+      "el-\{current + 1}"
+    }
+    let elements = import_svg_elements(svg_str, new_id)
+    if elements.length() > 0 {
+      state.elements.set(elements)
+    }
+  }
+  let clear = fn() -> Unit { state.elements.set([]) }
+  let has_focus = fn() -> Bool { state.has_focus.get() }
+
+  create_editor_handle_ffi(export_svg, import_svg, clear, has_focus)
+}
+
+///|
+/// FFI でハンドルオブジェクトを作成
+extern "js" fn create_editor_handle_ffi(
+  export_svg : () -> String,
+  import_svg : (String) -> Unit,
+  clear : () -> Unit,
+  has_focus : () -> Bool,
+) -> @js.Any =
+  #| (exportSvg, importSvg, clear, hasFocus) => ({
+  #|   _changeCallbacks: [],
+  #|   exportSvg: exportSvg,
+  #|   importSvg: importSvg,
+  #|   clear: clear,
+  #|   destroy: () => {},
+  #|   hasFocus: hasFocus,
+  #|   onChange: function(callback) { this._changeCallbacks.push(callback); }
+  #| })
+
 ///|
 /// 現在の状態を IndexedDB に保存
 fn save_state(state : @core.EditorState) -> Unit {
@@ -93,7 +221,9 @@ fn get_mode_from_url() -> @core.EditorMode {
 }
 
 ///|
-fn main {
+///|
+/// アプリケーションのエントリポイント（外部から呼び出し可能）
+pub fn app_main() -> Unit {
   guard @js_dom.document().getElementById("app") is Some(el)
   let mode = get_mode_from_url()
   match mode {
@@ -107,8 +237,8 @@ fn main {
 }
 
 ///|
-/// 埋め込みモード用のアプリを作成
-fn create_embedded_app() -> @element.DomNode {
+/// 埋め込みモード用のアプリを作成（外部から呼び出し可能）
+pub fn create_embedded_app() -> @element.DomNode {
   let id_counter = create_id_counter()
   let new_id = fn() -> String {
     let current = id_counter.get()

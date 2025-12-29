@@ -93,8 +93,16 @@ fn handle_key(
       set_selected_id(state, Some(el_id))
       true
     }
-    // 5: Text
+    // 5: Arrow (矢印付き Line - フルモードと統一)
     "5" => {
+      let el_id = new_id()
+      let new_arrow = create_arrow_element(el_id, pos.0 - 50.0, pos.1, pos.0 + 50.0, pos.1)
+      add_element(state, new_arrow)
+      set_selected_id(state, Some(el_id))
+      true
+    }
+    // 6: Text
+    "6" => {
       let el_id = new_id()
       let new_text = create_text_element(el_id, pos.0, pos.1, "Text")
       add_element(state, new_text)
@@ -260,6 +268,27 @@ fn create_line_element(
 }
 
 ///|
+/// Arrow 要素を作成（矢印付き Line）
+fn create_arrow_element(
+  id : String,
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+) -> @model.Element {
+  {
+    id,
+    x: x1,
+    y: y1,
+    shape: @model.Line(x2, y2),
+    style: arrow_style(),
+    transform: None,
+    parent_id: None,
+    connections: None,
+  }
+}
+
+///|
 /// Text 要素を作成
 fn create_text_element(
   id : String,
@@ -304,6 +333,20 @@ fn line_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+  }
+}
+
+///|
+/// Arrow スタイル（矢印付き Line）
+fn arrow_style() -> @model.Style {
+  {
+    fill: None,
+    stroke: Some("#333333"),
+    stroke_width: Some(2.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: Some(@model.Arrow),
   }
 }
 

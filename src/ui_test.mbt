@@ -21,7 +21,7 @@ test "render_floating_panel - creates panel structure" {
   defer window.close()
   let doc = window.document()
   // EditorState を作成
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // パネルをレンダリング
   let panel = render_floating_panel(state, history)
@@ -37,7 +37,7 @@ test "render_floating_panel - shows canvas root when nothing selected" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // 何も選択されていない状態
   state.select(None)
@@ -54,7 +54,7 @@ test "render_context_menu - creates menu with items" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // コンテキストメニューを表示状態に設定
   state.context_menu.set(
@@ -74,7 +74,7 @@ test "render_context_menu - shows element actions when element selected" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // 要素を追加
   let el = @model.Element::new(
@@ -111,7 +111,7 @@ test "render_text_input - creates textarea overlay" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   // テキスト編集状態を設定
   state.text_edit.set(
     Some({
@@ -136,7 +136,7 @@ test "render_floating_panel - mobile style differs from desktop" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // デスクトップモード
   state.is_mobile.set(false)
@@ -165,7 +165,7 @@ test "EditorState - theme switching affects panel style" {
   let window = create_happy_window()
   defer window.close()
   let doc = window.document()
-  let state = EditorState::new(400, 300)
+  let state = @core.EditorState::new(400, 300)
   let history = @model.History::new()
   // ライトテーマ
   state.theme_mode.set(@model.Light)

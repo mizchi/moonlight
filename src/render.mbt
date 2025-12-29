@@ -894,6 +894,7 @@ pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
       ("stroke", "#6666ff"),
       ("stroke-width", "1.5"),
       ("cursor", "crosshair"),
+      ("class", "anchor-point"),
       ("data-anchor", anchor_name),
       ("data-element-id", el.id),
     ]
@@ -1521,6 +1522,7 @@ pub fn render_element_anchors_nodes(
           ("stroke", "#6666ff"),
           ("stroke-width", "1.5"),
           ("cursor", "crosshair"),
+          ("class", "anchor-point"),
           ("data-anchor", anchor_name),
           ("data-element-id", el.id),
         ],
