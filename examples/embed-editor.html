@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight Editor - Cross-Domain Embed Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .info {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    .info code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .editor-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background: #2196f3;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #1976d2;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background: #263238;
+      color: #aed581;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .status {
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    .status.loading {
+      background: #fff3e0;
+      color: #e65100;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+    }
+  </style>
+</head>
+<body>
+  <h1>Moonlight Editor - Cross-Domain Embed Test</h1>
+  
+  <div class="info">
+    <strong>Loading from:</strong>
+    <code>https://moonlight.mizchi.workers.dev/moonlight-editor.component.js</code>
+  </div>
+
+  <div id="status" class="status loading">Loading WebComponent...</div>
+
+  <div class="editor-container">
+    <div class="controls">
+      <button id="btn-export" disabled>Export SVG</button>
+      <button id="btn-clear" disabled>Clear</button>
+      <button id="btn-theme" disabled>Toggle Theme</button>
+    </div>
+    
+    <moonlight-editor 
+      id="editor" 
+      width="800" 
+      height="500"
+      theme="light">
+    </moonlight-editor>
+  </div>
+
+  <h3>Output</h3>
+  <div id="output">Waiting for editor...</div>
+
+  <!-- Load WebComponent from Cloudflare Workers -->
+  <script src="https://moonlight.mizchi.workers.dev/moonlight-editor.component.js"></script>
+  
+  <script>
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+    const btnExport = document.getElementById('btn-export');
+    const btnClear = document.getElementById('btn-clear');
+    const btnTheme = document.getElementById('btn-theme');
+    const editor = document.getElementById('editor');
+
+    let currentTheme = 'light';
+
+    // Wait for custom element to be defined
+    customElements.whenDefined('moonlight-editor')
+      .then(() => {
+        status.className = 'status success';
+        status.textContent = '✓ WebComponent loaded successfully!';
+        output.textContent = 'Editor ready. Try drawing some shapes!';
+        
+        // Enable buttons
+        btnExport.disabled = false;
+        btnClear.disabled = false;
+        btnTheme.disabled = false;
+      })
+      .catch((err) => {
+        status.className = 'status error';
+        status.textContent = '✗ Failed to load WebComponent: ' + err.message;
+        output.textContent = 'Error: ' + err.message;
+      });
+
+    // Export SVG
+    btnExport.addEventListener('click', () => {
+      try {
+        const svg = editor.exportSvg();
+        output.textContent = svg;
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    });
+
+    // Clear editor
+    btnClear.addEventListener('click', () => {
+      try {
+        editor.clear();
+        output.textContent = 'Editor cleared.';
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    });
+
+    // Toggle theme
+    btnTheme.addEventListener('click', () => {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+      editor.setAttribute('theme', currentTheme);
+      output.textContent = 'Theme changed to: ' + currentTheme;
+    });
+
+    // Handle load error
+    window.addEventListener('error', (e) => {
+      if (e.filename?.includes('moonlight-editor.component.js')) {
+        status.className = 'status error';
+        status.textContent = '✗ Failed to load script (CORS or network error)';
+      }
+    });
+  </script>
+</body>
+</html>
