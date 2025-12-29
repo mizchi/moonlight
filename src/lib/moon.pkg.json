@@ -8,14 +8,6 @@
     },
     "mizchi/luna",
     {
-      "path": "mizchi/luna/luna/dom/element",
-      "alias": "element"
-    },
-    {
-      "path": "mizchi/js/browser/dom",
-      "alias": "js_dom"
-    },
-    {
       "path": "mizchi/js/core",
       "alias": "js"
     }
