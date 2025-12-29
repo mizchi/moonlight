@@ -2021,7 +2021,7 @@ pub fn render_editor_modal(
               @element.create_element(
                 "button",
                 [
-                  ("style", @element.Static("padding: 8px; background: #e0e0e0; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;")),
+                  ("style", @element.Static("padding: 8px; background: #f5f5f5; border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555;")),
                   ("aria-label", @element.Static("Close")),
                   ("title", @element.Static("Close")),
                   ("click", @element.Handler(fn(_) { state.modal_open.set(false) })),
