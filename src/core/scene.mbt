@@ -1921,9 +1921,20 @@ pub fn EditorState::update_connected_lines(
   self : EditorState,
   element_id : String,
 ) -> Unit {
-  guard self.find_element(element_id) is Some(target)
   // 接続されているラインを探して更新
   self.elements.update(fn(elements) {
+    // 更新対象の要素を elements から探す（最新の状態を取得）
+    let target : @model.Element? = {
+      let mut found : @model.Element? = None
+      for e in elements {
+        if e.id == element_id {
+          found = Some(e)
+          break
+        }
+      }
+      found
+    }
+    guard target is Some(t) else { return elements }
     elements.map(fn(el) {
       // Line 要素のみ処理
       guard el.shape is @model.Line(x2, y2) else { return el }
@@ -1931,7 +1942,7 @@ pub fn EditorState::update_connected_lines(
       // 始点の接続を確認（el.x, el.y が始点の絶対座標）
       let (new_x, new_y) = match conns.start {
         Some(conn) if conn.element_id == element_id => {
-          let anchor_point = target.get_anchor_point(conn.anchor)
+          let anchor_point = t.get_anchor_point(conn.anchor)
           (anchor_point.x, anchor_point.y)
         }
         _ => (el.x, el.y)
@@ -1939,7 +1950,7 @@ pub fn EditorState::update_connected_lines(
       // 終点の接続を確認（x2, y2 は終点の絶対座標）
       let (new_x2, new_y2) = match conns.end {
         Some(conn) if conn.element_id == element_id => {
-          let anchor_point = target.get_anchor_point(conn.anchor)
+          let anchor_point = t.get_anchor_point(conn.anchor)
           (anchor_point.x, anchor_point.y)
         }
         _ => (x2, y2)
@@ -1961,8 +1972,19 @@ pub fn EditorState::update_connected_lines_except(
   element_id : String,
   except_line_id : String,
 ) -> Unit {
-  guard self.find_element(element_id) is Some(target)
   self.elements.update(fn(elements) {
+    // 更新対象の要素を elements から探す（最新の状態を取得）
+    let target : @model.Element? = {
+      let mut found : @model.Element? = None
+      for e in elements {
+        if e.id == element_id {
+          found = Some(e)
+          break
+        }
+      }
+      found
+    }
+    guard target is Some(t) else { return elements }
     elements.map(fn(el) {
       // 除外するラインはスキップ
       if el.id == except_line_id {
@@ -1974,7 +1996,7 @@ pub fn EditorState::update_connected_lines_except(
       // 始点の接続を確認
       let (new_x, new_y) = match conns.start {
         Some(conn) if conn.element_id == element_id => {
-          let anchor_point = target.get_anchor_point(conn.anchor)
+          let anchor_point = t.get_anchor_point(conn.anchor)
           (anchor_point.x, anchor_point.y)
         }
         _ => (el.x, el.y)
@@ -1982,7 +2004,7 @@ pub fn EditorState::update_connected_lines_except(
       // 終点の接続を確認
       let (new_x2, new_y2) = match conns.end {
         Some(conn) if conn.element_id == element_id => {
-          let anchor_point = target.get_anchor_point(conn.anchor)
+          let anchor_point = t.get_anchor_point(conn.anchor)
           (anchor_point.x, anchor_point.y)
         }
         _ => (x2, y2)
