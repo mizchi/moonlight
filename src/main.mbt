@@ -1981,28 +1981,46 @@ pub fn render_editor_modal(
     on_wheel,
   )
 
-  // モーダルオーバーレイ
+  // Escキーでモーダルを閉じる
+  let _ = @luna.effect(fn() {
+    let _ = state.modal_open.get() // 依存関係を登録
+    if state.modal_open.get() {
+      let handler = fn(e : @js.Any) {
+        let key : String = e._get("key").cast()
+        if key == "Escape" {
+          state.modal_open.set(false)
+        }
+      }
+      let _ = add_keydown_listener(handler)
+    }
+  })
+
+  // モーダルオーバーレイ（クリックで閉じる）
   div(
     style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;",
+    on=events().click(fn(_) { state.modal_open.set(false) }),
     [
-      // モーダルウィンドウ
+      // モーダルウィンドウ（クリックイベントの伝播を止める）
       div(
         style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
+        on=events().click(fn(e) {
+          let _ = e.as_any()._call("stopPropagation", [])
+        }),
         [
           // ヘッダー
           div(
-            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; background: #f8f8f8;",
+            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
             [
-              div(style="font-weight: 500;", [text("Moonlight Editor")]),
+              div(style="font-weight: 500; font-size: 14px;", [text("Moonlight Editor")]),
               button(
-                style="padding: 4px 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;",
+                style="padding: 6px 16px; background: #e0e0e0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;",
                 on=events().click(fn(_) { state.modal_open.set(false) }),
-                [text("閉じる")],
+                [text("× 閉じる")],
               ),
             ],
           ),
           // エディタ本体
-          div(style="flex: 1; display: flex; overflow: hidden;", [
+          div(style="flex: 1; display: flex; overflow: hidden; min-height: 0;", [
             // キャンバス領域
             div(style="flex: 1; position: relative; min-width: 0;", [
               modal_svg,
@@ -2016,7 +2034,7 @@ pub fn render_editor_modal(
           ]),
           // ツールバー（下部）
           div(
-            style="display: flex; gap: 4px; align-items: center; padding: 8px 12px; border-top: 1px solid #ddd; background: #f8f8f8;",
+            style="display: flex; gap: 4px; align-items: center; padding: 8px 12px; border-top: 1px solid #ddd; background: #f8f8f8; flex-shrink: 0;",
             [render_embedded_toolbar(state, history, new_id)],
           ),
         ],
