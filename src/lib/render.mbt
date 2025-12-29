@@ -512,10 +512,69 @@ pub fn export_elements_to_svg(
   let mut svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 \{width} \{height}\" width=\"\{width}\" height=\"\{height}\">\n"
   svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"
   for el in elements {
-    svg = svg + "  " + element_to_svg_string(el) + "\n"
+    // 子テキスト要素の場合、親の stroke 色を取得
+    let parent_stroke : String? = match el.parent_id {
+      Some(pid) => {
+        let parent = elements.iter().find_first(fn(e) { e.id == pid })
+        match parent {
+          Some(p) => p.style.stroke
+          None => None
+        }
+      }
+      None => None
+    }
+    svg = svg + "  " + element_to_svg_string_with_parent(el, parent_stroke) + "\n"
   }
   svg = svg + "</svg>"
   svg
+}
+
+///|
+/// 要素を SVG 文字列に変換（親の stroke 色を考慮）
+fn element_to_svg_string_with_parent(
+  el : @model.Element,
+  parent_stroke : String?,
+) -> String {
+  let style = el.style
+  let fill = style.fill.unwrap_or("none")
+  let stroke = style.stroke.unwrap_or("#000000")
+  let stroke_width = style.stroke_width.unwrap_or(1.0)
+  match el.shape {
+    @model.Rect(w, h, rx, ry) => {
+      let rx_attr = match rx {
+        Some(v) => " rx=\"\{num_to_str(v)}\""
+        None => ""
+      }
+      let ry_attr = match ry {
+        Some(v) => " ry=\"\{num_to_str(v)}\""
+        None => ""
+      }
+      "<rect x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" width=\"\{num_to_str(w)}\" height=\"\{num_to_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+    }
+    @model.Circle(r) =>
+      "<circle cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" r=\"\{num_to_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+    @model.Ellipse(rx, ry) =>
+      "<ellipse cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" rx=\"\{num_to_str(rx)}\" ry=\"\{num_to_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+    @model.Line(x2, y2) =>
+      "<line x1=\"\{num_to_str(el.x)}\" y1=\"\{num_to_str(el.y)}\" x2=\"\{num_to_str(x2)}\" y2=\"\{num_to_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+    @model.Text(content, font_size) => {
+      let fs = font_size.unwrap_or(16.0)
+      // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
+      let text_fill = match parent_stroke {
+        Some(s) => s
+        None => fill
+      }
+      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{content}</text>"
+    }
+    @model.Polyline(points) => {
+      let points_str = points
+        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .join(" ")
+      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+    }
+    @model.Path(d) =>
+      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+  }
 }
 
 // =============================================================================
