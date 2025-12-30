@@ -110,25 +110,34 @@ fn render_element_menu(
 ) -> Unit {
   // 要素を取得
   let el_opt = state.find_element(id)
-  // Stroke セクション（現在の色 + カラーピッカー）
-  let stroke_row = create_color_picker_row("Stroke", false, el_opt)
-  set_color_picker_handler(stroke_row, fn(color) {
-    update_element_stroke(state, id, color)
-    redraw_svg(state)
-  })
-  append_child(menu, stroke_row)
-  // Fill セクション（現在の色 + カラーピッカー + 透明ボタン）
-  let fill_row = create_color_picker_row("Fill", true, el_opt)
-  set_color_picker_handler(fill_row, fn(color) {
-    let fill_value = if color == "transparent" { None } else { Some(color) }
-    update_element_fill(state, id, fill_value)
-    redraw_svg(state)
-  })
-  append_child(menu, fill_row)
-  // 要素タイプ別オプション（Text: フォント、Line: 破線・矢印）
-  match el_opt {
-    Some(el) => render_element_type_options(state, context_menu, menu, id, el)
-    None => ()
+  // 編集権限を取得
+  let capability = state.get_element_capability(id)
+  // スタイル編集オプション（編集可能な場合のみ表示）
+  if capability.can_edit {
+    // Stroke セクション（現在の色 + カラーピッカー）
+    let stroke_row = create_color_picker_row("Stroke", false, el_opt)
+    set_color_picker_handler(stroke_row, fn(color) {
+      update_element_stroke(state, id, color)
+      redraw_svg(state)
+    })
+    append_child(menu, stroke_row)
+    // Fill セクション（現在の色 + カラーピッカー + 透明ボタン）
+    let fill_row = create_color_picker_row("Fill", true, el_opt)
+    set_color_picker_handler(fill_row, fn(color) {
+      let fill_value = if color == "transparent" { None } else { Some(color) }
+      update_element_fill(state, id, fill_value)
+      redraw_svg(state)
+    })
+    append_child(menu, fill_row)
+    // 要素タイプ別オプション（Text: フォント、Line: 破線・矢印）
+    match el_opt {
+      Some(el) => render_element_type_options(state, context_menu, menu, id, el)
+      None => ()
+    }
+  } else {
+    // 編集不可の場合は警告メッセージを表示
+    let warning = create_menu_header("Move only (Plain SVG)")
+    append_child(menu, warning)
   }
   // Layer セクション
   let layer_header = create_menu_header("Layer")
@@ -165,16 +174,18 @@ fn render_element_menu(
     redraw_svg(state)
   })
   append_child(menu, back_btn)
-  // 削除ボタン
-  let delete_btn = create_menu_button("Delete", "#e53e3e")
-  add_click_handler(delete_btn, fn(_) {
-    delete_element(state, id)
-    context_menu.hide()
-    hide_context_menu_element(menu)
-    redraw_svg(state)
-    update_selection_ui(state)
-  })
-  append_child(menu, delete_btn)
+  // 削除ボタン（削除可能な場合のみ表示）
+  if capability.can_delete {
+    let delete_btn = create_menu_button("Delete", "#e53e3e")
+    add_click_handler(delete_btn, fn(_) {
+      delete_element(state, id)
+      context_menu.hide()
+      hide_context_menu_element(menu)
+      redraw_svg(state)
+      update_selection_ui(state)
+    })
+    append_child(menu, delete_btn)
+  }
 }
 
 ///|

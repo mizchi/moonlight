@@ -1,6 +1,60 @@
 // SVG Import 機能
 
 ///|
+/// インポート結果（要素と検証結果）
+pub struct ImportResult {
+  elements : Array[@model.Element]
+  is_moonlight : Bool // Moonlight形式かどうか
+  plain_svg_ids : Array[String] // プレーンSVG要素のID（移動のみ可能）
+}
+
+///|
+/// SVG文字列をパースして検証付きでインポート
+pub fn import_svg_validated(
+  svg_str : String,
+  new_id : () -> String,
+) -> ImportResult {
+  let svg_el = parse_svg_string(svg_str)
+  if @js.is_nullish(svg_el) {
+    return { elements: [], is_moonlight: false, plain_svg_ids: [] }
+  }
+  // Moonlight形式かチェック
+  let is_moonlight = not(
+    @js.is_nullish(get_attribute(svg_el, "data-moonlight")),
+  )
+  let children = get_svg_children(svg_el)
+  let elements : Array[@model.Element] = []
+  let plain_svg_ids : Array[String] = []
+  let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
+  // 子要素をパース
+  let children_array : Array[@js.Any] = children.cast()
+  for child in children_array {
+    let tag = get_tag_name(child)
+    // defs, rect(背景) はスキップ
+    if tag == "defs" {
+      continue
+    }
+    let el_opt = if is_moonlight {
+      parse_moonlight_element(child, new_id, id_map)
+    } else {
+      parse_plain_svg_element(child, new_id)
+    }
+    if el_opt is Some(el) {
+      elements.push(el)
+      // プレーンSVG要素はIDを記録
+      if not(is_moonlight) {
+        plain_svg_ids.push(el.id)
+      }
+    }
+  }
+  // Moonlight形式の場合、接続情報のIDを更新
+  if is_moonlight {
+    update_connection_ids(elements, id_map)
+  }
+  { elements, is_moonlight, plain_svg_ids }
+}
+
+///|
 /// SVG文字列をパースして Element 配列を返す
 pub fn import_svg_elements(
   svg_str : String,

@@ -60,6 +60,19 @@ pub fn ElementCapability::move_only() -> ElementCapability {
 }
 
 ///|
+/// 移動と削除のみ可能（問題のある要素を除去可能にする）
+pub fn ElementCapability::move_and_delete() -> ElementCapability {
+  {
+    can_move: true,
+    can_resize: false,
+    can_edit: false,
+    can_delete: true,
+    can_connect: false,
+    can_add_child: false,
+  }
+}
+
+///|
 /// 全操作不可
 pub fn ElementCapability::none() -> ElementCapability {
   {
@@ -120,6 +133,36 @@ pub let issue_line_same_points : String = "LINE_SAME_POINTS"
 ///|
 pub let issue_text_empty : String = "TEXT_EMPTY"
 
+///|
+/// 無効な座標（NaN, Infinity）
+pub let issue_invalid_coordinates : String = "INVALID_COORDINATES"
+
+///|
+/// プレーンSVG要素（Moonlight形式でない）
+pub let issue_plain_svg_element : String = "PLAIN_SVG_ELEMENT"
+
+///|
+/// 未サポートのシェープタイプ
+pub let issue_unsupported_shape : String = "UNSUPPORTED_SHAPE"
+
+// ============================================================
+// ヘルパー関数
+// ============================================================
+
+///|
+/// 値が有限値かどうかをチェック（NaN, Infinity でない）
+fn is_finite(value : Double) -> Bool {
+  // NaN は自分自身と等しくない
+  if value != value {
+    return false
+  }
+  // Infinity チェック
+  if value > 1.0e308 || value < -1.0e308 {
+    return false
+  }
+  true
+}
+
 // ============================================================
 // 検証関数
 // ============================================================
@@ -172,6 +215,16 @@ fn validate_element(
       element_id: Some(el.id),
       code: issue_invalid_id,
       message: "Element has empty ID",
+    })
+  }
+
+  // 座標の有効性検証（NaN, Infinity チェック）
+  if not(is_finite(el.x)) || not(is_finite(el.y)) {
+    issues.push({
+      level: Error,
+      element_id: Some(el.id),
+      code: issue_invalid_coordinates,
+      message: "Element has invalid coordinates (NaN or Infinity)",
     })
   }
 
@@ -358,8 +411,17 @@ fn determine_capability(
   // エラーがあるかチェック
   let has_errors = issues.iter().any(fn(i) { i.level == Error })
   if has_errors {
-    // エラーがあっても移動は許可
-    return ElementCapability::move_only()
+    // エラーがあっても移動と削除は許可
+    return ElementCapability::move_and_delete()
+  }
+
+  // 警告でも move_only にすべき重大なケースをチェック
+  let has_critical_warning = issues.iter().any(fn(i) {
+    i.level == Warning &&
+      (i.code == issue_invalid_parent || i.code == issue_orphan_connection)
+  })
+  if has_critical_warning {
+    return ElementCapability::move_and_delete()
   }
 
   // 形状に応じた権限
@@ -384,6 +446,14 @@ fn determine_capability(
       }
     _ => ElementCapability::full()
   }
+}
+
+///|
+/// プレーンSVG要素向けの権限を決定
+pub fn determine_capability_for_plain_svg(el : Element) -> ElementCapability {
+  // プレーンSVGは移動と削除のみ
+  ignore(el)
+  ElementCapability::move_and_delete()
 }
 
 // ============================================================

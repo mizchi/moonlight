@@ -141,6 +141,10 @@ pub struct EditorState {
   last_placement_pos : @luna.Signal[@model.Point?] // 最後に配置した位置
   // ピンチズーム用（マルチタッチ）
   pinch_state : @luna.Signal[PinchState?] // ピンチズーム状態
+  // バリデーション結果
+  validation_result : @luna.Signal[@model.ValidationResult?] // 検証結果
+  // プレーンSVG要素のID（移動のみ可能）
+  plain_svg_ids : @luna.Signal[Array[String]] // プレーンSVGとしてインポートされた要素
 }
 
 ///|
@@ -217,6 +221,9 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     // 配置位置オフセット
     last_placement_pos: @luna.signal(None),
     pinch_state: @luna.signal(None),
+    // バリデーション
+    validation_result: @luna.signal(None),
+    plain_svg_ids: @luna.signal([]),
   }
 }
 
@@ -2276,4 +2283,83 @@ pub fn EditorState::cancel_placement(self : EditorState) -> Unit {
 /// 配置モード中かどうか
 pub fn EditorState::is_placing(self : EditorState) -> Bool {
   self.placement_state.get() is Some(_)
+}
+
+// ============================================================
+// バリデーション
+// ============================================================
+
+///|
+/// 全要素を再バリデーションして結果を保存
+pub fn EditorState::revalidate(self : EditorState) -> Unit {
+  let elements = self.elements.get()
+  let result = @model.validate_elements(elements)
+  // プレーンSVG要素の権限を上書き
+  let plain_ids = self.plain_svg_ids.get()
+  for id in plain_ids {
+    result.capabilities[id] = @model.ElementCapability::move_and_delete()
+  }
+  self.validation_result.set(Some(result))
+}
+
+///|
+/// 指定要素の操作権限を取得
+pub fn EditorState::get_element_capability(
+  self : EditorState,
+  element_id : String,
+) -> @model.ElementCapability {
+  // プレーンSVG要素は常に move_and_delete
+  if self.plain_svg_ids.get().contains(element_id) {
+    return @model.ElementCapability::move_and_delete()
+  }
+  // バリデーション結果から取得
+  match self.validation_result.get() {
+    Some(result) =>
+      result.capabilities.get(element_id).unwrap_or(
+        @model.ElementCapability::full(),
+      )
+    None =>
+      // バリデーション未実行時はフル権限
+      @model.ElementCapability::full()
+  }
+}
+
+///|
+/// 指定要素がリサイズ可能かどうか
+pub fn EditorState::can_resize_element(
+  self : EditorState,
+  element_id : String,
+) -> Bool {
+  self.get_element_capability(element_id).can_resize
+}
+
+///|
+/// 指定要素が編集可能かどうか
+pub fn EditorState::can_edit_element(
+  self : EditorState,
+  element_id : String,
+) -> Bool {
+  self.get_element_capability(element_id).can_edit
+}
+
+///|
+/// プレーンSVG要素を登録
+pub fn EditorState::register_plain_svg_ids(
+  self : EditorState,
+  ids : Array[String],
+) -> Unit {
+  let current = self.plain_svg_ids.get()
+  let new_ids = current.copy()
+  for id in ids {
+    if not(new_ids.contains(id)) {
+      new_ids.push(id)
+    }
+  }
+  self.plain_svg_ids.set(new_ids)
+}
+
+///|
+/// プレーンSVG要素をクリア
+pub fn EditorState::clear_plain_svg_ids(self : EditorState) -> Unit {
+  self.plain_svg_ids.set([])
 }

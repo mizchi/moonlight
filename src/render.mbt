@@ -2436,8 +2436,8 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
         for highlight in connected_highlights {
           append_child_ffi(container, highlight)
         }
-        // リサイズハンドル（単一選択の場合のみ）
-        if selected_ids.length() == 1 {
+        // リサイズハンドル（単一選択かつリサイズ可能な場合のみ）
+        if selected_ids.length() == 1 && state.can_resize_element(el.id) {
           let handles = render_resize_handles(el)
           for handle in handles {
             append_child_ffi(container, handle)

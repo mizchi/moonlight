@@ -177,9 +177,15 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   // 初期 SVG が指定されていればパース、なければサンプル要素を追加
   match options.initial_svg {
     Some(svg_str) => {
-      let elements = import_svg_elements(svg_str, new_id)
-      if elements.length() > 0 {
-        state.elements.set(elements)
+      let result = import_svg_validated(svg_str, new_id)
+      if result.elements.length() > 0 {
+        state.elements.set(result.elements)
+        // プレーンSVG要素を登録
+        if result.plain_svg_ids.length() > 0 {
+          state.register_plain_svg_ids(result.plain_svg_ids)
+        }
+        // バリデーション実行
+        state.revalidate()
       }
       // initial_svg が指定されていれば、空でもサンプルは表示しない
     }
@@ -216,9 +222,16 @@ fn create_editor_handle_js(
       id_counter.set(current + 1)
       "el-\{current + 1}"
     }
-    let elements = import_svg_elements(svg_str, new_id)
-    if elements.length() > 0 {
-      state.elements.set(elements)
+    let result = import_svg_validated(svg_str, new_id)
+    if result.elements.length() > 0 {
+      state.elements.set(result.elements)
+      // プレーンSVG要素を登録
+      state.clear_plain_svg_ids() // 既存のIDをクリア
+      if result.plain_svg_ids.length() > 0 {
+        state.register_plain_svg_ids(result.plain_svg_ids)
+      }
+      // バリデーション実行
+      state.revalidate()
     }
   }
   let clear = fn() -> Unit { state.elements.set([]) }
@@ -274,9 +287,16 @@ fn load_state(
     store_name,
     scene_key,
     fn(svg_str) {
-      let elements = import_svg_elements(svg_str, new_id)
-      if elements.length() > 0 {
-        state.elements.set(elements)
+      let result = import_svg_validated(svg_str, new_id)
+      if result.elements.length() > 0 {
+        state.elements.set(result.elements)
+        // プレーンSVG要素を登録（IndexedDBから読み込みなので既存はクリア）
+        state.clear_plain_svg_ids()
+        if result.plain_svg_ids.length() > 0 {
+          state.register_plain_svg_ids(result.plain_svg_ids)
+        }
+        // バリデーション実行
+        state.revalidate()
       }
       on_loaded()
     },
@@ -1655,12 +1675,18 @@ fn setup_keyboard_shortcuts(
           let _ = e._call("preventDefault", [])
           read_clipboard_text(
             fn(text) {
-              let imported = import_svg_elements(text, new_id)
-              for el in imported {
+              let result = import_svg_validated(text, new_id)
+              for el in result.elements {
                 @core.execute_command(history, state, @model.AddElement(el))
               }
-              if imported.length() > 0 {
-                let ids = imported
+              if result.elements.length() > 0 {
+                // プレーンSVG要素を登録（既存に追加）
+                if result.plain_svg_ids.length() > 0 {
+                  state.register_plain_svg_ids(result.plain_svg_ids)
+                }
+                // バリデーション実行
+                state.revalidate()
+                let ids = result.elements
                   .filter(fn(el) { el.parent_id is None })
                   .map(fn(el) { el.id })
                 state.select_multiple(ids)
@@ -2525,12 +2551,18 @@ fn render_embedded_toolbar(
       "Import SVG (Ctrl+Shift+V)",
       fn() {
         open_file_dialog(".svg", fn(text) {
-          let imported = import_svg_elements(text, new_id)
-          for el in imported {
+          let result = import_svg_validated(text, new_id)
+          for el in result.elements {
             @core.execute_command(history, state, @model.AddElement(el))
           }
-          if imported.length() > 0 {
-            let ids = imported
+          if result.elements.length() > 0 {
+            // プレーンSVG要素を登録（既存に追加）
+            if result.plain_svg_ids.length() > 0 {
+              state.register_plain_svg_ids(result.plain_svg_ids)
+            }
+            // バリデーション実行
+            state.revalidate()
+            let ids = result.elements
               .filter(fn(el) { el.parent_id is None })
               .map(fn(el) { el.id })
             state.select_multiple(ids)
