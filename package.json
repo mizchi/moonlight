@@ -21,7 +21,7 @@
     "rolldown": "1.0.0-beta.57",
     "tsdown": "^0.18.3",
     "vite": "8.0.0-beta.5",
-    "vite-plugin-moonbit": "^0.1.0",
+    "vite-plugin-moonbit": "^0.1.2",
     "wrangler": "^4.54.0"
   },
   "type": "module"

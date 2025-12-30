@@ -33,8 +33,8 @@ importers:
         specifier: 8.0.0-beta.5
         version: 8.0.0-beta.5(@types/node@25.0.3)
       vite-plugin-moonbit:
-        specifier: ^0.1.0
-        version: 0.1.0(vite@8.0.0-beta.5(@types/node@25.0.3))
+        specifier: ^0.1.2
+        version: 0.1.2(vite@8.0.0-beta.5(@types/node@25.0.3))
       wrangler:
         specifier: ^4.54.0
         version: 4.54.0
@@ -1213,8 +1213,8 @@ packages:
       synckit:
         optional: true
 
-  vite-plugin-moonbit@0.1.0:
-    resolution: {integrity: sha512-6X6u32YTuo700Mgog1s1Zb05A93+6uZBDqxQaBpJUDQJdvjW3pX0mVKB8djXxR9dwXsOqKvZzKxV5UQwTvvEdg==}
+  vite-plugin-moonbit@0.1.2:
+    resolution: {integrity: sha512-ct4ZLYJTNFUs31omD+F5aqQ3dVoNfHMdZKepKg7YoipqlrlTBGeVST5h8DShF97DjUBQz0kl65ioBnSvu5jniQ==}
     peerDependencies:
       vite: '>=5.0.0'
 
@@ -2392,7 +2392,7 @@ snapshots:
     dependencies:
       rolldown: 1.0.0-beta.57
 
-  vite-plugin-moonbit@0.1.0(vite@8.0.0-beta.5(@types/node@25.0.3)):
+  vite-plugin-moonbit@0.1.2(vite@8.0.0-beta.5(@types/node@25.0.3)):
     dependencies:
       vite: 8.0.0-beta.5(@types/node@25.0.3)
 

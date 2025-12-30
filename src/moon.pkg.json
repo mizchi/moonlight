@@ -27,10 +27,6 @@
       "alias": "components"
     },
     {
-      "path": "mizchi/moonlight/bezier_fit",
-      "alias": "bezier"
-    },
-    {
       "path": "mizchi/moonlight/lib",
       "alias": "lib"
     }

@@ -17,6 +17,7 @@ export default defineConfig({
         webcomponent: resolve(__dirname, 'webcomponent.html'),
         preview: resolve(__dirname, 'preview.html'),
         'free_draw': resolve(__dirname, 'free_draw.html'),
+        viewer: resolve(__dirname, 'viewer.html'),
       },
     },
   },
