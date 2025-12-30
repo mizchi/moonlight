@@ -1,9 +1,6 @@
 // UI コンポーネント - ボタン
 
 ///|
-using @element {div, text}
-
-///|
 /// ツールバーボタン用のユニーク ID カウンター
 let toolbar_btn_id_counter : Ref[Int] = { val: 0 }
 
@@ -72,7 +69,7 @@ pub fn toolbar_button(
   let btn_style = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid \{theme.ui_border}; border-radius: 4px; background: \{theme.ui_bg}; min-width: 36px; height: 40px; position: relative; color: \{theme.ui_text};"
   let shortcut_style = "color: \{theme.ui_text_muted}; font-size: 9px; font-family: system-ui, sans-serif; line-height: 1;"
   let popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
-  div(style="position: relative; display: inline-block;", [
+  @element.div(style="position: relative; display: inline-block;", [
     @element.create_element(
       "button",
       [
@@ -86,18 +83,18 @@ pub fn toolbar_button(
         ("mouseleave", @element.Handler(fn(_) { hide_popover(popover_id) })),
       ],
       match shortcut {
-        Some(key) => [icon, @element.span(style=shortcut_style, [text(key)])]
+        Some(key) => [icon, @element.span(style=shortcut_style, [@element.text(key)])]
         None => [icon]
       },
     ),
     // Popover ツールチップ
-    div(
+    @element.div(
       style=popover_style,
       attrs=[
         ("id", @element.AttrString(popover_id)),
         ("popover", @element.AttrString("manual")),
       ],
-      [text(tooltip)],
+      [@element.text(tooltip)],
     ),
   ])
 }

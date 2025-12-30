@@ -1933,3 +1933,107 @@ test "compute_line_move_topology - U shape move middle segment" {
   assert_eq(c_coords.x, 100.0)
   assert_eq(c_coords.y, 120.0) // B の新しい終点
 }
+
+// ============================================================
+// テキスト色継承のテスト (Excalidraw 仕様)
+// ============================================================
+
+///|
+test "get_text_fill_color - parent_stroke がある場合は parent_stroke を返す" {
+  let text_style : Style = {
+    fill: Some("#ffffff"),
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+  let result = get_text_fill_color(text_style, Some("#ff0000"))
+  assert_eq(result, "#ff0000")
+}
+
+///|
+test "get_text_fill_color - parent_stroke が None の場合はテキストの fill を返す" {
+  let text_style : Style = {
+    fill: Some("#00ff00"),
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+  let result = get_text_fill_color(text_style, None)
+  assert_eq(result, "#00ff00")
+}
+
+///|
+test "get_text_fill_color - parent_stroke も fill も None の場合は 'none' を返す" {
+  let text_style : Style = {
+    fill: None,
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  }
+  let result = get_text_fill_color(text_style, None)
+  assert_eq(result, "none")
+}
+
+///|
+test "get_parent_stroke - 親要素が見つかった場合はその stroke を返す" {
+  let parent = Element::new("parent-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
+    .with_style({
+      fill: Some("#ffffff"),
+      stroke: Some("#0000ff"),
+      stroke_width: Some(2.0),
+      opacity: None,
+      stroke_dasharray: None,
+      marker_start: None,
+      marker_end: None,
+    })
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
+    .with_parent("parent-1")
+  let elements = [parent, child]
+  let result = get_parent_stroke(elements, child.parent_id)
+  assert_eq(result, Some("#0000ff"))
+}
+
+///|
+test "get_parent_stroke - parent_id が None の場合は None を返す" {
+  let el = Element::new("el-1", 0.0, 0.0, Text("Hello", Some(16.0)))
+  let elements = [el]
+  let result = get_parent_stroke(elements, el.parent_id)
+  assert_eq(result, None)
+}
+
+///|
+test "get_parent_stroke - 親要素が見つからない場合は None を返す" {
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
+    .with_parent("non-existent")
+  let elements = [child]
+  let result = get_parent_stroke(elements, child.parent_id)
+  assert_eq(result, None)
+}
+
+///|
+test "get_parent_stroke - 親要素に stroke がない場合は None を返す" {
+  let parent = Element::new("parent-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
+    .with_style({
+      fill: Some("#ffffff"),
+      stroke: None,
+      stroke_width: None,
+      opacity: None,
+      stroke_dasharray: None,
+      marker_start: None,
+      marker_end: None,
+    })
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
+    .with_parent("parent-1")
+  let elements = [parent, child]
+  let result = get_parent_stroke(elements, child.parent_id)
+  assert_eq(result, None)
+}

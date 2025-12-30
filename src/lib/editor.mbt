@@ -117,12 +117,15 @@ pub fn redraw_svg(state : @core.EditorState) -> Unit {
   append_child(svg, bg)
   // 要素を描画（選択状態に応じてハイライト）
   let selected_id = get_selected_id(state)
-  for el in state.elements.get() {
+  let elements = state.elements.get()
+  for el in elements {
     let is_selected = match selected_id {
       Some(id) => el.id == id
       None => false
     }
-    let dom_el = render_element_to_svg(el, is_selected)
+    // 親要素のストローク色を取得（テキスト要素の色継承用）
+    let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
+    let dom_el = render_element_to_svg_with_parent(el, is_selected, parent_stroke)
     append_child(svg, dom_el)
   }
 }

@@ -3,6 +3,10 @@
   "import": [
     "mizchi/moonlight/model",
     {
+      "path": "mizchi/luna/luna/signal",
+      "alias": "luna"
+    },
+    {
       "path": "mizchi/luna/luna/dom/element",
       "alias": "element"
     },

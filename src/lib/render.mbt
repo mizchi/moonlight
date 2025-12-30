@@ -140,6 +140,17 @@ pub fn render_element_to_svg(
   el : @model.Element,
   is_selected : Bool,
 ) -> @js.Any {
+  render_element_to_svg_with_parent(el, is_selected, None)
+}
+
+///|
+/// 要素を SVG DOM 要素として描画（親のストローク色を考慮）
+/// parent_stroke: 親要素のストローク色（テキスト要素の場合に使用）
+pub fn render_element_to_svg_with_parent(
+  el : @model.Element,
+  is_selected : Bool,
+  parent_stroke : String?,
+) -> @js.Any {
   let style = el.style
   let fill = style.fill.unwrap_or("none")
   let stroke = style.stroke.unwrap_or("#000000")
@@ -240,7 +251,9 @@ pub fn render_element_to_svg(
       let text = create_svg_element_ns("text")
       set_svg_attr(text, "x", num_to_str(el.x))
       set_svg_attr(text, "y", num_to_str(el.y))
-      set_svg_attr(text, "fill", fill)
+      // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
+      let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
+      set_svg_attr(text, "fill", text_fill)
       set_svg_attr(text, "font-size", num_to_str(font_size.unwrap_or(16.0)))
       set_svg_attr(text, "text-anchor", "middle")
       set_svg_attr(text, "dominant-baseline", "middle")
@@ -513,16 +526,7 @@ pub fn export_elements_to_svg(
   svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"
   for el in elements {
     // 子テキスト要素の場合、親の stroke 色を取得
-    let parent_stroke : String? = match el.parent_id {
-      Some(pid) => {
-        let parent = elements.iter().find_first(fn(e) { e.id == pid })
-        match parent {
-          Some(p) => p.style.stroke
-          None => None
-        }
-      }
-      None => None
-    }
+    let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
     svg = svg + "  " + element_to_svg_string_with_parent(el, parent_stroke) + "\n"
   }
   svg = svg + "</svg>"
@@ -560,10 +564,7 @@ fn element_to_svg_string_with_parent(
     @model.Text(content, font_size) => {
       let fs = font_size.unwrap_or(16.0)
       // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
-      let text_fill = match parent_stroke {
-        Some(s) => s
-        None => fill
-      }
+      let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
       "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{content}</text>"
     }
     @model.Polyline(points) => {

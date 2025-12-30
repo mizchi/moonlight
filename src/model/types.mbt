@@ -68,6 +68,7 @@ pub(all) struct Theme {
   // UI用
   ui_bg : String // UIパネル背景
   ui_bg_hover : String // UIホバー背景
+  ui_bg_muted : String // UI薄い背景（アコーディオンヘッダーなど）
   ui_border : String // UIボーダー
   ui_text : String // UIテキスト
   ui_text_muted : String // UI補助テキスト
@@ -94,6 +95,7 @@ pub fn Theme::light() -> Theme {
     text: "#000000",
     ui_bg: "rgba(255,255,255,0.98)",
     ui_bg_hover: "#f3f4f6",
+    ui_bg_muted: "#f9fafb",
     ui_border: "#d1d5db",
     ui_text: "#1f2937",
     ui_text_muted: "#6b7280",
@@ -111,6 +113,7 @@ pub fn Theme::dark() -> Theme {
     text: "#ffffff",
     ui_bg: "rgba(31,31,31,0.98)",
     ui_bg_hover: "#374151",
+    ui_bg_muted: "#27272a",
     ui_border: "#4b5563",
     ui_text: "#f3f4f6",
     ui_text_muted: "#9ca3af",
@@ -229,6 +232,37 @@ pub fn Element::with_parent(self : Element, parent_id : String) -> Element {
 /// スタイルを設定した要素を作成
 pub fn Element::with_style(self : Element, style : Style) -> Element {
   { ..self, style, }
+}
+
+///|
+/// テキスト要素の塗りつぶし色を計算
+/// Excalidraw 仕様: 親要素がある場合、親の stroke 色をテキストの fill として使用
+/// parent_stroke: 親要素のストローク色
+/// 戻り値: テキストに適用する fill 色
+pub fn get_text_fill_color(
+  text_style : Style,
+  parent_stroke : String?,
+) -> String {
+  match parent_stroke {
+    Some(stroke) => stroke
+    None => text_style.fill.unwrap_or("none")
+  }
+}
+
+///|
+/// 要素配列から指定IDの親要素のストローク色を取得
+pub fn get_parent_stroke(elements : Array[Element], parent_id : String?) -> String? {
+  match parent_id {
+    None => None
+    Some(pid) => {
+      for el in elements {
+        if el.id == pid {
+          return el.style.stroke
+        }
+      }
+      None
+    }
+  }
 }
 
 ///|

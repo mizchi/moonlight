@@ -646,16 +646,7 @@ pub fn elements_to_moonlight_svg(
   // 要素
   for el in elements {
     // 子テキスト要素の場合、親の stroke 色を取得
-    let parent_stroke : String? = match el.parent_id {
-      Some(pid) => {
-        let parent = elements.iter().find_first(fn(e) { e.id == pid })
-        match parent {
-          Some(p) => p.style.stroke
-          None => None
-        }
-      }
-      None => None
-    }
+    let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
     sb.write_string("  ")
     sb.write_string(element_to_moonlight_svg_with_parent(el, parent_stroke))
     sb.write_string("\n")
@@ -698,15 +689,8 @@ fn element_to_moonlight_svg_with_parent(
   let is_text = el.shape is @model.Text(_, _)
   if is_text {
     // テキストの場合、親があれば親の stroke を使用
-    match parent_stroke {
-      Some(s) => attrs.write_string(" fill=\"\{s}\"")
-      None =>
-        if style.fill is Some(v) {
-          attrs.write_string(" fill=\"\{v}\"")
-        } else {
-          attrs.write_string(" fill=\"none\"")
-        }
-    }
+    let text_fill = @model.get_text_fill_color(style, parent_stroke)
+    attrs.write_string(" fill=\"\{text_fill}\"")
   } else {
     if style.fill is Some(v) {
       attrs.write_string(" fill=\"\{v}\"")
@@ -1853,8 +1837,10 @@ fn render_element_with_effect(
     }
     guard current_el is Some(el) else { return }
 
+    // 親要素のストローク色を取得（テキスト要素の色継承用）
+    let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
     // 要素の属性を更新（位置・サイズ両方）
-    update_element_attrs(dom_el, el)
+    update_element_attrs(dom_el, el, parent_stroke)
   })
 
   // テキスト編集状態の変化を監視して visibility を制御
@@ -1882,7 +1868,12 @@ fn render_element_with_effect(
 
 ///|
 /// 要素の属性を直接 DOM 更新（位置・サイズ・スタイル）
-fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
+/// parent_stroke: 親要素のストローク色（テキスト要素の場合に使用）
+fn update_element_attrs(
+  dom_el : @js.Any,
+  el : @model.Element,
+  parent_stroke : String?,
+) -> Unit {
   // 位置・サイズの更新
   match el.shape {
     @model.Rect(w, h, _, _) => {
@@ -1914,7 +1905,8 @@ fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
     @model.Text(content, font_size) => {
       // Text はグループ内の子要素を更新
       let size = font_size.unwrap_or(16.0)
-      let fill = el.style.fill.unwrap_or("none")
+      // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
+      let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
       let stroke = el.style.stroke.unwrap_or("")
       let stroke_width = el.style.stroke_width.unwrap_or(0.0)
       update_text_children_with_style(
@@ -1923,7 +1915,7 @@ fn update_element_attrs(dom_el : @js.Any, el : @model.Element) -> Unit {
         el.y,
         content,
         size,
-        fill,
+        text_fill,
         stroke,
         stroke_width,
       )
