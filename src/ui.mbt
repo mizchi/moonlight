@@ -498,11 +498,20 @@ pub fn render_style_editor(
         ])
       },
     ),
-    // Text 専用オプション - フォント選択（ShapeConfig.has_font で制御）
+    // Text 専用オプション - フォント選択（has_font または子テキストがある場合）
     show(
       fn() {
         match state.find_element(element_id) {
-          Some(el) => el.shape.config().has_font
+          Some(el) => {
+            // 自身がTextの場合、または子テキストがある場合に表示
+            if el.shape.config().has_font {
+              true
+            } else {
+              // 子要素にTextがあるかチェック
+              let children = state.get_children(element_id)
+              children.iter().any(fn(child) { child.shape is @model.Text(_, _) })
+            }
+          }
           None => false
         }
       },
@@ -685,9 +694,32 @@ fn render_text_style_editor(
 }
 
 ///|
+/// フォント変更対象のテキスト要素IDを取得
+/// - 選択要素がTextの場合: その要素のID
+/// - 選択要素に子Textがある場合: 最初の子TextのID
+/// - それ以外: None
+fn get_font_target_id(state : @core.EditorState) -> String? {
+  guard state.get_selected_id() is Some(id) else { return None }
+  guard state.find_element(id) is Some(el) else { return None }
+
+  // 自身がTextの場合
+  if el.shape is @model.Text(_, _) {
+    return Some(id)
+  }
+
+  // 子要素にTextがあるかチェック
+  let children = state.get_children(id)
+  for child in children {
+    if child.shape is @model.Text(_, _) {
+      return Some(child.id)
+    }
+  }
+  None
+}
+
+///|
 /// 共通フォントボタン群
-/// Note: element_id はフォールバック用。実際は state.get_selected_id() を使用して
-/// 選択中の要素を動的に取得する（Luna の Show 再レンダリング問題の回避）
+/// Note: 選択要素がTextの場合は直接、親要素の場合は子Textのフォントを変更
 fn render_font_buttons_shared(
   state : @core.EditorState,
   history : @model.History,
@@ -700,10 +732,10 @@ fn render_font_buttons_shared(
       button(
         style=toggle_button_style,
         dyn_style=fn() {
-          // 動的に現在選択中の要素を取得
-          let is_selected = match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
+          // フォント変更対象のテキスト要素を取得
+          let is_selected = match get_font_target_id(state) {
+            Some(target_id) =>
+              match state.find_element(target_id) {
                 Some(el) => el.style.font_family == font_value
                 None => false
               }
@@ -716,15 +748,15 @@ fn render_font_buttons_shared(
           }
         },
         on=events().click(fn(_) {
-          // 動的に現在選択中の要素を取得してスタイルを更新
-          if state.get_selected_id() is Some(current_id) {
-            if state.find_element(current_id) is Some(el) {
+          // フォント変更対象のテキスト要素を取得してスタイルを更新
+          if get_font_target_id(state) is Some(target_id) {
+            if state.find_element(target_id) is Some(el) {
               let old_style = el.style
               let new_style = { ..old_style, font_family: font_value }
               @core.execute_command(
                 history,
                 state,
-                @model.UpdateStyle(current_id, old_style, new_style),
+                @model.UpdateStyle(target_id, old_style, new_style),
               )
             }
           }
