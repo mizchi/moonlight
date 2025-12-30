@@ -136,7 +136,31 @@ free-draw.html              # デモ HTML
 free-draw.ts                # Vite エントリ
 ```
 
+## 今後の機能追加
+
+### 編集機能
+
+- [ ] **アンカーポイントの削除**: 不要なアンカーを削除し、隣接セグメントを再計算
+- [ ] **中間アンカーの追加**: パス上の任意の位置にアンカーポイントを挿入
+- [ ] **形状の再計算**: 選択範囲を点列に戻してベジェ近似をやり直す
+- [ ] **許容度の再計算**: epsilon/max_error を変更して再フィット
+
+### パス操作
+
+- [ ] **マージ**: 異なるパスのアンカーポイント同士を接続して1つのパスに結合
+- [ ] **切り離し**: アンカーポイントでパスを分割、2つの独立したパスに
+
+### 実装メモ
+
+```
+削除: segments[i] を削除 → segments[i-1].p3 と segments[i+1].p0 を再接続
+追加: bezier_point(seg, t) で分割点を計算 → de Casteljau で2セグメントに分割
+マージ: path_a.segments[-1].p3 == path_b.segments[0].p0 なら結合
+切り離し: アンカーで split → 2つの PathData に分離
+```
+
 ## 参考
 
 - [Schneider Algorithm](https://pomax.github.io/bezierinfo/#curvefitting) - ベジェフィットの元論文
 - [Ramer-Douglas-Peucker](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) - 点列簡略化
+- [de Casteljau's Algorithm](https://pomax.github.io/bezierinfo/#decasteljau) - ベジェ曲線の分割
