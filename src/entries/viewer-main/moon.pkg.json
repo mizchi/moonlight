@@ -1,0 +1,10 @@
+{
+  "is-main": true,
+  "import": [
+    {
+      "path": "mizchi/moonlight/entries/viewer",
+      "alias": "viewer"
+    }
+  ],
+  "supported-targets": ["js"]
+}

@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/render"
+
+import(
+  "mizchi/moonlight/model"
+)
+
+// Values
+pub fn add_marker_attrs(Array[(String, String)], @model.Style) -> Unit
+
+pub fn add_style_attrs(Array[(String, String)], @model.Style) -> Unit
+
+pub fn element_to_moonlight_svg(@model.Element) -> String
+
+pub fn element_to_moonlight_svg_with_parent(@model.Element, String?) -> String
+
+pub fn element_to_svg_string(@model.Element) -> String
+
+pub fn element_to_svg_string_with_parent(@model.Element, String?) -> String
+
+pub fn elements_to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
+
+pub fn elements_to_moonlight_svg_default(Array[@model.Element], Int, Int) -> String
+
+pub fn elements_to_svg(Array[@model.Element], Int, Int) -> String
+
+pub fn elements_to_svg_with_options(Array[@model.Element], Int, Int, String) -> String
+
+pub fn generate_arrow_defs() -> String
+
+pub fn num_to_str(Double) -> String
+
+pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

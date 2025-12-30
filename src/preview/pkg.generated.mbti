@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/preview"
+
+// Values
+
+// Errors
+
+// Types and methods
+type PreviewState
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,10 @@
+{
+  "is-main": true,
+  "import": [
+    {
+      "path": "mizchi/moonlight/entries/static-editor",
+      "alias": "editor"
+    }
+  ],
+  "supported-targets": ["js"]
+}

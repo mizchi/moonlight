@@ -1,0 +1,67 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/entries/static-editor"
+
+import(
+  "mizchi/moonlight/model"
+)
+
+// Values
+pub fn circle(String, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn create_id_generator() -> () -> String
+
+pub fn dashed_style(String, Double, String) -> @model.Style
+
+pub fn default_style() -> @model.Style
+
+pub fn element_to_svg(@model.Element) -> String
+
+pub fn ellipse(String, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn fill_style(String, String) -> @model.Style
+
+pub fn find_by_id(Array[@model.Element], String) -> @model.Element?
+
+pub fn import_svg(String, () -> String) -> Array[@model.Element]
+
+pub fn line(String, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn move_element(@model.Element, Double, Double) -> @model.Element
+
+pub fn path(String, String, @model.Style) -> @model.Element
+
+pub fn rect(String, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn remove_by_id(Array[@model.Element], String) -> Array[@model.Element]
+
+pub fn rounded_rect(String, Double, Double, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn stroke_style(String, Double) -> @model.Style
+
+pub fn text(String, Double, Double, String, Double, @model.Style) -> @model.Element
+
+pub fn to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
+
+pub fn to_svg(Array[@model.Element], Int, Int) -> String
+
+pub fn to_svg_with_options(Array[@model.Element], Int, Int, String) -> String
+
+pub fn update_by_id(Array[@model.Element], String, (@model.Element) -> @model.Element) -> Array[@model.Element]
+
+pub fn update_style(@model.Element, @model.Style) -> @model.Element
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @model {type Element}
+
+pub using @model {type Point}
+
+pub using @model {type ShapeType}
+
+pub using @model {type Style}
+
+// Traits
+

@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/entries/viewer"
+
+import(
+  "mizchi/moonlight/model"
+)
+
+// Values
+pub fn circle(String, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn default_style() -> @model.Style
+
+pub fn element_to_svg(@model.Element) -> String
+
+pub fn fill_style(String, String) -> @model.Style
+
+pub fn line(String, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn line_style(String, Double) -> @model.Style
+
+pub fn rect(String, Double, Double, Double, Double, @model.Style) -> @model.Element
+
+pub fn text(String, Double, Double, String, Double, @model.Style) -> @model.Element
+
+pub fn to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
+
+pub fn to_svg(Array[@model.Element], Int, Int) -> String
+
+pub fn to_svg_with_options(Array[@model.Element], Int, Int, String) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @model {type Element}
+
+pub using @model {type Point}
+
+pub using @model {type ShapeType}
+
+pub using @model {type Style}
+
+// Traits
+

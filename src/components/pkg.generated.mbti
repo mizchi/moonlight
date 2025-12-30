@@ -1,20 +1,47 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "internal/app/components"
+package "mizchi/moonlight/components"
 
 import(
-  "internal/app/model"
   "mizchi/js/browser/dom"
   "mizchi/luna/luna/dom/element"
+  "mizchi/luna/luna/signal"
+  "mizchi/moonlight/model"
 )
 
 // Values
+pub fn accordion_header_style(@model.Theme) -> String
+
+pub fn accordion_section(String, Bool, @model.Theme, () -> @element.DomNode) -> @element.DomNode
+
+pub fn collapsible_section(String, @signal.Signal[Bool], @model.Theme, () -> @element.DomNode) -> @element.DomNode
+
+pub fn color_picker_dropdown(String, Array[String], (String) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn color_picker_with_input(String, String, Array[String], (String) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn color_swatch(String, Int, Bool, () -> Unit) -> @element.DomNode
+
+pub fn color_swatch_grid(Array[String], String, Int, Int, (String) -> Unit) -> @element.DomNode
+
+pub fn color_swatch_style(String, Int) -> String
+
 pub fn create_happy_window() -> @dom.Window
+
+pub fn dropdown_panel_style(@model.Theme) -> String
+
+pub fn flex_column_style(Int) -> String
+
+pub fn flex_row_style(Int) -> String
+
+pub fn grid_style(Int, Int) -> String
 
 pub let icon_arrow : String
 
 pub let icon_bring_forward : String
 
 pub let icon_circle : String
+
+pub let icon_close : String
 
 pub let icon_copy : String
 
@@ -23,6 +50,8 @@ pub let icon_dark_mode : String
 pub let icon_delete : String
 
 pub let icon_duplicate : String
+
+pub let icon_edit_expand : String
 
 pub let icon_ellipse : String
 
@@ -52,11 +81,51 @@ pub let icon_zoom_in : String
 
 pub let icon_zoom_out : String
 
+pub fn id_field(String, () -> String, (String) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn id_input_style(@model.Theme) -> String
+
+pub fn label_style(@model.Theme) -> String
+
+pub fn menu_button_style(@model.Theme) -> String
+
+pub fn number_field(String, Double, (Double) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn number_field_dyn(String, () -> Double, (Double) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn panel_section(@model.Theme, Array[@element.DomNode]) -> @element.DomNode
+
+pub fn panel_section_style(@model.Theme) -> String
+
+pub fn readonly_field(String, String, @model.Theme) -> @element.DomNode
+
+pub fn readonly_field_dyn(String, () -> String, @model.Theme) -> @element.DomNode
+
+pub fn readonly_field_style(@model.Theme) -> String
+
+pub fn row_style() -> String
+
+pub fn section_divider(@model.Theme) -> @element.DomNode
+
+pub fn section_divider_style(@model.Theme) -> String
+
+pub fn small_button_style(@model.Theme) -> String
+
+pub fn small_input_style(@model.Theme) -> String
+
 pub fn svg_icon(String, Int) -> @element.DomNode
+
+pub fn text_field(String, String, (String) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn text_field_dyn(String, () -> String, (String) -> Unit, @model.Theme) -> @element.DomNode
+
+pub fn text_input_style(@model.Theme) -> String
 
 pub fn toolbar_button(@element.DomNode, String?, String, () -> Unit, theme? : @model.Theme) -> @element.DomNode
 
 pub fn toolbar_separator(@model.Theme) -> @element.DomNode
+
+pub fn tree_item_style(@model.Theme, Bool) -> String
 
 // Errors
 

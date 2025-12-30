@@ -1,2 +1,2 @@
 // Free Draw Demo - Bezier Approximation
-import 'mbt:mizchi/moonlight/free-draw';
+import 'mbt:mizchi/moonlight/free_draw';

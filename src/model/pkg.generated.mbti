@@ -1,12 +1,12 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "internal/app/model"
+package "mizchi/moonlight/model"
 
 // Values
 pub fn anchor_to_string(Anchor) -> String
 
-pub fn apply_command_pure(Command, Array[Element], Array[String]) -> CommandResult
-
 pub fn apply_element_move(Array[Element], String, Double, Double) -> Array[Element]
+
+pub fn build_connection_graph(Array[Element]) -> ConnectionGraph
 
 pub fn calc_bring_forward(Int, Int) -> Int?
 
@@ -32,6 +32,12 @@ pub fn calc_send_to_back(Int, Int) -> Int?
 
 pub fn calc_text_resize(Double, Double, Double, HandlePosition, Double) -> TextResizeResult
 
+pub fn can_add_element(Element, Array[Element]) -> (Bool, Array[ValidationIssue])
+
+pub fn can_delete_element(String, Array[Element]) -> (Bool, Array[ValidationIssue])
+
+pub fn compute_line_move_topology(Array[Element], String, Double, Double, Double, Double) -> Array[LineCoords]
+
 pub let css_var_fill : String
 
 pub let css_var_stroke : String
@@ -48,6 +54,42 @@ pub fn find_nearest_connection(Array[Element], Point, Array[String], Double) -> 
 
 pub fn format_shape(ShapeType) -> String
 
+pub fn get_element_capability(ValidationResult, String) -> ElementCapability
+
+pub fn get_element_issues(ValidationResult, String) -> Array[ValidationIssue]
+
+pub fn get_errors(ValidationResult) -> Array[ValidationIssue]
+
+pub fn get_parent_stroke(Array[Element], String?) -> String?
+
+pub fn get_text_fill_color(Style, String?) -> String
+
+pub fn get_warnings(ValidationResult) -> Array[ValidationIssue]
+
+pub fn is_element_operable(ValidationResult, String) -> Bool
+
+pub let issue_circular_parent : String
+
+pub let issue_duplicate_id : String
+
+pub let issue_invalid_id : String
+
+pub let issue_invalid_parent : String
+
+pub let issue_invalid_shape : String
+
+pub let issue_line_same_points : String
+
+pub let issue_negative_dimension : String
+
+pub let issue_orphan_connection : String
+
+pub let issue_self_connection : String
+
+pub let issue_text_empty : String
+
+pub fn move_element_with_relations(Array[Element], String, Double, Double) -> Array[Element]
+
 pub fn num_str(Double) -> String
 
 pub fn parse_anchor(String) -> Anchor?
@@ -56,13 +98,33 @@ pub fn parse_handle_position(String) -> HandlePosition
 
 pub fn preset_colors() -> Array[PresetColor]
 
+pub fn recalculate_on_partial_move(Array[MoveTarget], Array[Element]) -> RecalculationResult
+
 pub fn[T] reorder_array(Array[T], Int, Int) -> Array[T]
+
+pub fn resize_element_with_relations(Array[Element], String, ShapeType) -> Array[Element]
 
 pub fn shape_name(ShapeType) -> String
 
 pub fn snap_to_grid(Double, Double, Int, Bool) -> (Double, Double)
 
-pub fn unapply_command_pure(Command, Array[Element], Array[String]) -> CommandResult
+pub fn suggest_repairs(Array[ValidationIssue]) -> Array[RepairAction]
+
+pub fn test_count_issues_by_code(Array[ValidationIssue], String) -> Int
+
+pub fn test_make_circle(String, Double, Double, Double) -> Element
+
+pub fn test_make_connected_line(String, Double, Double, Double, Double, Connection?, Connection?) -> Element
+
+pub fn test_make_line(String, Double, Double, Double, Double) -> Element
+
+pub fn test_make_rect(String, Double, Double, Double, Double) -> Element
+
+pub fn test_make_text(String, Double, Double, String) -> Element
+
+pub fn validate_elements(Array[Element]) -> ValidationResult
+
+pub fn validate_single_element(Element, Array[Element]) -> Array[ValidationIssue]
 
 // Errors
 
@@ -77,6 +139,8 @@ pub(all) enum Anchor {
   TopRight
   BottomLeft
   BottomRight
+  LineStart
+  LineEnd
 }
 pub impl Eq for Anchor
 pub impl Show for Anchor
@@ -130,13 +194,6 @@ pub(all) enum Command {
 pub impl Eq for Command
 pub impl Show for Command
 
-pub(all) struct CommandResult {
-  elements : Array[Element]
-  selected_ids : Array[String]
-}
-pub impl Eq for CommandResult
-pub impl Show for CommandResult
-
 pub(all) struct ConnectedLineUpdate {
   line_id : String
   new_x : Double
@@ -153,6 +210,28 @@ pub(all) struct Connection {
 }
 pub impl Eq for Connection
 pub impl Show for Connection
+
+pub(all) struct ConnectionGraph {
+  adjacency : Map[String, Array[Edge]]
+  edges : Array[Edge]
+  line_to_edge : Map[String, Edge]
+}
+pub fn ConnectionGraph::are_directly_connected(Self, String, String) -> Bool
+pub fn ConnectionGraph::connection_distance(Self, String, String) -> Int
+pub fn ConnectionGraph::distance_map_from(Self, String) -> Map[String, Int]
+pub fn ConnectionGraph::find_all_paths(Self, String, String, Array[Element], Int) -> Array[Path]
+pub fn ConnectionGraph::find_shortest_path(Self, String, String, Array[Element]) -> Path?
+pub fn ConnectionGraph::get_all_components(Self) -> Array[Array[String]]
+pub fn ConnectionGraph::get_connected_component(Self, String) -> Array[String]
+pub fn ConnectionGraph::get_connected_lines(Self, String) -> Array[String]
+pub fn ConnectionGraph::get_neighbors(Self, String) -> Array[String]
+pub fn ConnectionGraph::get_stats(Self, Array[String]) -> GraphStats
+pub fn ConnectionGraph::has_cycle(Self) -> Bool
+pub fn ConnectionGraph::is_hub(Self, String) -> Bool
+pub fn ConnectionGraph::is_isolated(Self, String) -> Bool
+pub fn ConnectionGraph::is_leaf(Self, String) -> Bool
+pub fn ConnectionGraph::new() -> Self
+pub impl Show for ConnectionGraph
 
 pub(all) struct ContextMenu {
   x : Double
@@ -177,6 +256,16 @@ pub(all) struct DragState {
 pub impl Eq for DragState
 pub impl Show for DragState
 
+pub(all) struct Edge {
+  from_id : String
+  to_id : String
+  line_id : String
+  from_anchor : Anchor
+  to_anchor : Anchor
+}
+pub impl Eq for Edge
+pub impl Show for Edge
+
 pub(all) struct Element {
   id : String
   x : Double
@@ -198,6 +287,20 @@ pub fn Element::with_style(Self, Style) -> Self
 pub impl Eq for Element
 pub impl Show for Element
 
+pub(all) struct ElementCapability {
+  can_move : Bool
+  can_resize : Bool
+  can_edit : Bool
+  can_delete : Bool
+  can_connect : Bool
+  can_add_child : Bool
+}
+pub fn ElementCapability::full() -> Self
+pub fn ElementCapability::move_only() -> Self
+pub fn ElementCapability::none() -> Self
+pub impl Eq for ElementCapability
+pub impl Show for ElementCapability
+
 pub(all) struct EllipseResizeResult {
   cx : Double
   cy : Double
@@ -206,6 +309,17 @@ pub(all) struct EllipseResizeResult {
 }
 pub impl Eq for EllipseResizeResult
 pub impl Show for EllipseResizeResult
+
+pub(all) struct GraphStats {
+  node_count : Int
+  edge_count : Int
+  component_count : Int
+  hub_count : Int
+  leaf_count : Int
+  isolated_count : Int
+}
+pub impl Eq for GraphStats
+pub impl Show for GraphStats
 
 pub(all) enum HandlePosition {
   NW
@@ -235,6 +349,16 @@ pub fn LineConnections::none() -> Self
 pub impl Eq for LineConnections
 pub impl Show for LineConnections
 
+pub(all) struct LineCoords {
+  id : String
+  x : Double
+  y : Double
+  x2 : Double
+  y2 : Double
+}
+pub impl Eq for LineCoords
+pub impl Show for LineCoords
+
 pub(all) struct LineResizeResult {
   x1 : Double
   y1 : Double
@@ -243,6 +367,18 @@ pub(all) struct LineResizeResult {
 }
 pub impl Eq for LineResizeResult
 pub impl Show for LineResizeResult
+
+pub(all) struct MoveResult {
+  elements : Array[Element]
+}
+
+pub(all) struct MoveTarget {
+  id : String
+  new_x : Double
+  new_y : Double
+}
+pub impl Eq for MoveTarget
+pub impl Show for MoveTarget
 
 pub(all) struct MultiDragState {
   element_ids : Array[String]
@@ -262,6 +398,14 @@ pub(all) struct NearestConnectionResult {
 pub impl Eq for NearestConnectionResult
 pub impl Show for NearestConnectionResult
 
+pub(all) struct Path {
+  nodes : Array[String]
+  edges : Array[Edge]
+  total_distance : Double
+}
+pub impl Eq for Path
+pub impl Show for Path
+
 pub(all) struct Point {
   x : Double
   y : Double
@@ -277,6 +421,13 @@ pub(all) struct PresetColor {
 pub impl Eq for PresetColor
 pub impl Show for PresetColor
 
+pub(all) struct RecalculationResult {
+  element_updates : Array[MoveTarget]
+  line_updates : Array[LineCoords]
+}
+pub impl Eq for RecalculationResult
+pub impl Show for RecalculationResult
+
 pub(all) struct RectResizeResult {
   x : Double
   y : Double
@@ -285,6 +436,15 @@ pub(all) struct RectResizeResult {
 }
 pub impl Eq for RectResizeResult
 pub impl Show for RectResizeResult
+
+pub(all) enum RepairAction {
+  RemoveConnection(String, String)
+  RemoveParent(String)
+  DeleteElement(String)
+  RegenerateId(String, String)
+}
+pub impl Eq for RepairAction
+pub impl Show for RepairAction
 
 pub(all) struct ResizeState {
   element_id : String
@@ -347,6 +507,7 @@ pub(all) struct Theme {
   text : String
   ui_bg : String
   ui_bg_hover : String
+  ui_bg_muted : String
   ui_border : String
   ui_text : String
   ui_text_muted : String
@@ -363,6 +524,31 @@ pub(all) enum ThemeMode {
 }
 pub impl Eq for ThemeMode
 pub impl Show for ThemeMode
+
+pub(all) struct ValidationIssue {
+  level : ValidationLevel
+  element_id : String?
+  code : String
+  message : String
+}
+pub impl Eq for ValidationIssue
+pub impl Show for ValidationIssue
+
+pub(all) enum ValidationLevel {
+  Error
+  Warning
+  Info
+}
+pub impl Eq for ValidationLevel
+pub impl Show for ValidationLevel
+
+pub(all) struct ValidationResult {
+  is_valid : Bool
+  issues : Array[ValidationIssue]
+  capabilities : Map[String, ElementCapability]
+}
+pub fn ValidationResult::valid() -> Self
+pub impl Show for ValidationResult
 
 pub(all) struct Viewport {
   scroll_x : Double

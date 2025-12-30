@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/bezier_fit"
+
+// Values
+pub fn approximate(Array[Point], Options) -> String
+
+pub fn bezier_point(BezierSegment, Double) -> Point
+
+pub fn delete_anchor(Array[BezierSegment], Int) -> Array[BezierSegment]
+
+pub fn disconnect_at_anchor(Array[BezierSegment], Int) -> (Array[BezierSegment], Array[BezierSegment])
+
+pub fn fit_bezier(Array[Point], Double) -> Array[BezierSegment]
+
+pub fn insert_anchor(Array[BezierSegment], Int, Double) -> Array[BezierSegment]
+
+pub fn is_closed_path(Array[Point], Double) -> Bool
+
+pub fn merge_paths(Array[BezierSegment], Array[BezierSegment]) -> Array[BezierSegment]
+
+pub fn rdp_simplify(Array[Point], Double) -> Array[Point]
+
+pub fn refit(Array[BezierSegment], Int, Options) -> Array[BezierSegment]
+
+pub fn refit_range(Array[BezierSegment], Int, Int, Int, Options) -> Array[BezierSegment]
+
+pub fn resample(Array[Point], Double) -> Array[Point]
+
+pub fn segments_to_points(Array[BezierSegment], Int) -> Array[Point]
+
+pub fn split_path(Array[BezierSegment], Int) -> (Array[BezierSegment], Array[BezierSegment])
+
+pub fn split_segment(BezierSegment, Double) -> (BezierSegment, BezierSegment)
+
+pub fn to_svg_path(Array[BezierSegment]) -> String
+
+pub fn to_svg_path_closed(Array[BezierSegment]) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct BezierSegment {
+  p0 : Point
+  c1 : Point
+  c2 : Point
+  p3 : Point
+}
+pub impl Eq for BezierSegment
+pub impl Show for BezierSegment
+
+pub(all) struct Options {
+  min_resample_dist : Double
+  epsilon : Double
+  max_error : Double
+}
+pub fn Options::default() -> Self
+pub impl Eq for Options
+pub impl Show for Options
+
+pub(all) struct Point {
+  x : Double
+  y : Double
+}
+pub fn Point::distance(Self, Self) -> Double
+pub fn Point::new(Double, Double) -> Self
+pub impl Eq for Point
+pub impl Show for Point
+
+// Type aliases
+
+// Traits
+

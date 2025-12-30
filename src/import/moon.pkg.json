@@ -1,0 +1,10 @@
+{
+  "import": [
+    "mizchi/moonlight/model",
+    {
+      "path": "mizchi/js/core",
+      "alias": "js"
+    }
+  ],
+  "supported-targets": ["js"]
+}

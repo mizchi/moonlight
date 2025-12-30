@@ -1,0 +1,6 @@
+{
+  "import": [
+    "mizchi/moonlight/model"
+  ],
+  "supported-targets": ["wasm", "wasm-gc", "js"]
+}

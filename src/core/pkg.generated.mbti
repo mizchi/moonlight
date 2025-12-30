@@ -1,0 +1,184 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/core"
+
+import(
+  "mizchi/luna/luna/signal"
+  "mizchi/moonlight/model"
+)
+
+// Values
+pub fn execute_command(@model.History, EditorState, @model.Command) -> Unit
+
+pub fn redo_command(@model.History, EditorState) -> Bool
+
+pub fn undo_command(@model.History, EditorState) -> Bool
+
+// Errors
+
+// Types and methods
+pub(all) struct AnchorDragState {
+  source_element_id : String
+  source_anchor_type : AnchorType
+  source_x : Double
+  source_y : Double
+  current_x : Double
+  current_y : Double
+}
+
+pub(all) enum AnchorType {
+  Top
+  Bottom
+  Left
+  Right
+  Center
+  LineStart
+  LineEnd
+}
+
+pub(all) enum EditorMode {
+  Full
+  Embedded
+}
+
+pub struct EditorState {
+  width : Int
+  height : Int
+  canvas_width : @signal.Signal[Int]
+  canvas_height : @signal.Signal[Int]
+  doc_width : @signal.Signal[Double]
+  doc_height : @signal.Signal[Double]
+  elements : @signal.Signal[Array[@model.Element]]
+  selected_ids : @signal.Signal[Array[String]]
+  drag_state : @signal.Signal[@model.DragState?]
+  multi_drag_state : @signal.Signal[@model.MultiDragState?]
+  resize_state : @signal.Signal[@model.ResizeState?]
+  box_select : @signal.Signal[@model.BoxSelectState?]
+  context_menu : @signal.Signal[@model.ContextMenu?]
+  viewport : @signal.Signal[@model.Viewport]
+  grid_enabled : @signal.Signal[Bool]
+  grid_size : @signal.Signal[Int]
+  is_panning : @signal.Signal[Bool]
+  pan_start : @signal.Signal[(Double, Double)?]
+  text_edit : @signal.Signal[@model.TextEditState?]
+  pending_connection : @signal.Signal[PendingConnection?]
+  placement_state : @signal.Signal[PlacementState?]
+  mouse_scene_pos : @signal.Signal[@model.Point]
+  mouse_in_canvas : @signal.Signal[Bool]
+  preview_bg : @signal.Signal[String]
+  embed_bg : @signal.Signal[String]
+  theme_mode : @signal.Signal[@model.ThemeMode]
+  is_mobile : @signal.Signal[Bool]
+  panel_visible : @signal.Signal[Bool]
+  mode : EditorMode
+  modal_open : @signal.Signal[Bool]
+  has_focus : @signal.Signal[Bool]
+  is_readonly : @signal.Signal[Bool]
+  show_toolbar : @signal.Signal[Bool]
+  anchor_drag_state : @signal.Signal[AnchorDragState?]
+  svg_el : @signal.Signal[@mizchi/js/core.Any]
+  container_el : @signal.Signal[@mizchi/js/core.Any]
+}
+pub fn EditorState::add_element(Self, @model.Element) -> Unit
+pub fn EditorState::add_element_raw(Self, @model.Element) -> Unit
+pub fn EditorState::add_to_selection(Self, String) -> Unit
+pub fn EditorState::bring_forward(Self, String) -> (Int, Int)?
+pub fn EditorState::bring_to_front(Self, String) -> (Int, Int)?
+pub fn EditorState::cancel_placement(Self) -> Unit
+pub fn EditorState::center_child_elements(Self, String) -> Unit
+pub fn EditorState::delete_selected(Self) -> Unit
+pub fn EditorState::drag_move(Self, Double, Double) -> Unit
+pub fn EditorState::end_box_select(Self) -> Unit
+pub fn EditorState::end_drag(Self) -> Unit
+pub fn EditorState::end_multi_drag(Self) -> Unit
+pub fn EditorState::end_pan(Self) -> Unit
+pub fn EditorState::end_placement(Self) -> Unit
+pub fn EditorState::end_resize(Self) -> Unit
+pub fn EditorState::end_text_edit(Self) -> Unit
+pub fn EditorState::find_element(Self, String) -> @model.Element?
+pub fn EditorState::find_nearest_connection_point(Self, @model.Point, Array[String], Double) -> (@model.Element, @model.Anchor, @model.Point)?
+pub fn EditorState::fit_to_canvas(Self) -> Unit
+pub fn EditorState::get_arrow_style(Self) -> @model.Style
+pub fn EditorState::get_arrow_style_initial(Self) -> @model.Style
+pub fn EditorState::get_children(Self, String) -> Array[@model.Element]
+pub fn EditorState::get_default_style(Self) -> @model.Style
+pub fn EditorState::get_element_index(Self, String) -> Int?
+pub fn EditorState::get_line_style(Self) -> @model.Style
+pub fn EditorState::get_parent_id(Self, String) -> String?
+pub fn EditorState::get_placement_position(Self) -> @model.Point
+pub fn EditorState::get_selected_id(Self) -> String?
+pub fn EditorState::get_text_style(Self) -> @model.Style
+pub fn EditorState::get_theme(Self) -> @model.Theme
+pub fn EditorState::get_viewport_center(Self) -> @model.Point
+pub fn EditorState::has_element_with_id(Self, String) -> Bool
+pub fn EditorState::hide_context_menu(Self) -> Unit
+pub fn EditorState::hit_test(Self, Double, Double) -> @model.Element?
+pub fn EditorState::is_box_selecting(Self) -> Bool
+pub fn EditorState::is_child_element(Self, String) -> Bool
+pub fn EditorState::is_dragging(Self) -> Bool
+pub fn EditorState::is_multi_dragging(Self) -> Bool
+pub fn EditorState::is_placing(Self) -> Bool
+pub fn EditorState::is_resizing(Self) -> Bool
+pub fn EditorState::is_selected(Self, String) -> Bool
+pub fn EditorState::move_element(Self, String, Double, Double) -> Unit
+pub fn EditorState::multi_drag_move(Self, Double, Double) -> Unit
+pub fn EditorState::new(Int, Int) -> Self
+pub fn EditorState::new_with_mode(Int, Int, EditorMode) -> Self
+pub fn EditorState::pan(Self, Double, Double) -> Unit
+pub fn EditorState::pan_move(Self, Double, Double) -> Unit
+pub fn EditorState::remove_element(Self, String) -> Unit
+pub fn EditorState::remove_element_raw(Self, String) -> Unit
+pub fn EditorState::remove_from_selection(Self, String) -> Unit
+pub fn EditorState::rename_element_id(Self, String, String) -> Bool
+pub fn EditorState::rename_element_raw(Self, String, String) -> Unit
+pub fn EditorState::reorder_element_raw(Self, String, Int) -> Unit
+pub fn EditorState::reset_viewport(Self) -> Unit
+pub fn EditorState::resize_move(Self, Double, Double) -> Unit
+pub fn EditorState::select(Self, String?) -> Unit
+pub fn EditorState::select_all(Self) -> Unit
+pub fn EditorState::select_multiple(Self, Array[String]) -> Unit
+pub fn EditorState::send_backward(Self, String) -> (Int, Int)?
+pub fn EditorState::send_to_back(Self, String) -> (Int, Int)?
+pub fn EditorState::show_context_menu(Self, Double, Double, Double, Double, String?) -> Unit
+pub fn EditorState::snap_to_grid(Self, Double, Double) -> (Double, Double)
+pub fn EditorState::start_box_select(Self, Double, Double) -> Unit
+pub fn EditorState::start_drag(Self, String, Double, Double) -> Unit
+pub fn EditorState::start_multi_drag(Self, Double, Double) -> Unit
+pub fn EditorState::start_pan(Self, Double, Double) -> Unit
+pub fn EditorState::start_placement(Self, String, String, @model.Anchor, @model.Point, Bool, is_arrow? : Bool) -> Unit
+pub fn EditorState::start_resize(Self, String, @model.HandlePosition, Double, Double) -> Unit
+pub fn EditorState::start_text_edit(Self, String, Double, Double) -> Unit
+pub fn EditorState::start_text_edit_existing(Self, String, String, Double, Double, String, Double?) -> Unit
+pub fn EditorState::sync_related_elements(Self, String) -> Unit
+pub fn EditorState::toggle_grid(Self) -> Unit
+pub fn EditorState::update_box_select(Self, Double, Double) -> Unit
+pub fn EditorState::update_connected_lines(Self, String) -> Unit
+pub fn EditorState::update_connected_lines_except(Self, String, String) -> Unit
+pub fn EditorState::update_element(Self, String, (@model.Element) -> @model.Element) -> Unit
+pub fn EditorState::update_line_connection(Self, String, @model.LineConnections) -> Unit
+pub fn EditorState::update_placement(Self, @model.Point) -> Unit
+pub fn EditorState::update_style_raw(Self, String, @model.Style) -> Unit
+pub fn EditorState::update_text_raw(Self, String, String) -> Unit
+pub fn EditorState::zoom_at(Self, Double, Double, Bool) -> Unit
+pub fn EditorState::zoom_in(Self) -> Unit
+pub fn EditorState::zoom_out(Self) -> Unit
+
+pub(all) struct PendingConnection {
+  target_id : String
+  anchor : @model.Anchor
+  point : @model.Point
+}
+
+pub(all) struct PlacementState {
+  element_id : String
+  anchor_element_id : String
+  anchor : @model.Anchor
+  anchor_point : @model.Point
+  is_line : Bool
+  is_arrow : Bool
+  has_moved : Bool
+}
+
+// Type aliases
+
+// Traits
+
