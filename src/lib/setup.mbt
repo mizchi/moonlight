@@ -65,6 +65,8 @@ pub fn setup_editor(
   // コンテキストメニューをセットアップ
   let context_menu = ContextMenuState::new()
   setup_context_menu(state, context_menu, new_id)
+  // ヘルプボタンをセットアップ
+  setup_help_button(state, options.show_help_button)
   // エディタハンドルを作成
   let export_svg = fn() -> String {
     let bg_color = match state.theme_mode.get() {

@@ -16,6 +16,7 @@ pub(all) struct EditorOptions {
   is_readonly : Bool // 読み取り専用（デフォルト: false）
   toolbar_visible : Bool // ツールバー表示（デフォルト: true）
   initial_svg : String? // 初期SVG（デフォルト: None）
+  show_help_button : Bool // ヘルプボタン表示（デフォルト: true）
 }
 
 ///|
@@ -30,6 +31,7 @@ pub fn EditorOptions::default() -> EditorOptions {
     is_readonly: false,
     toolbar_visible: true,
     initial_svg: None,
+    show_help_button: true,
   }
 }
 
@@ -77,6 +79,11 @@ pub fn EditorOptions::from_js(obj : @js.Any) -> EditorOptions {
   } else {
     Some(obj._get("initialSvg").cast())
   }
+  let show_help_button : Bool = if is_undefined_ffi(obj._get("showHelpButton")) {
+    default_opts.show_help_button
+  } else {
+    obj._get("showHelpButton").cast()
+  }
   {
     width,
     height,
@@ -86,6 +93,7 @@ pub fn EditorOptions::from_js(obj : @js.Any) -> EditorOptions {
     is_readonly,
     toolbar_visible,
     initial_svg,
+    show_help_button,
   }
 }
 

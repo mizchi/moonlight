@@ -159,6 +159,11 @@ fn handle_key(
       set_select_mode(state)
       true
     }
+    // ?: ヘルプページを開く
+    "?" => {
+      open_help_page()
+      true
+    }
     _ => false
   }
 }

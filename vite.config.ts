@@ -18,6 +18,7 @@ export default defineConfig({
         preview: resolve(__dirname, 'examples/preview.html'),
         'free_draw': resolve(__dirname, 'examples/free_draw.html'),
         viewer: resolve(__dirname, 'examples/viewer.html'),
+        help: resolve(__dirname, 'docs/help.html'),
       },
     },
   },

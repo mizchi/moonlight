@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight Help</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #666666;
+      --border: #e0e0e0;
+      --accent: #2563eb;
+      --kbd-bg: #f3f4f6;
+      --section-bg: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a1a;
+        --text: #f0f0f0;
+        --text-muted: #999999;
+        --border: #333333;
+        --accent: #60a5fa;
+        --kbd-bg: #2a2a2a;
+        --section-bg: #222222;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h1::before {
+      content: '';
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 6px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin: 2rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 1rem;
+      margin: 1.5rem 0 0.5rem;
+      color: var(--text-muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: var(--section-bg);
+      font-weight: 600;
+    }
+    kbd {
+      display: inline-block;
+      padding: 0.2em 0.5em;
+      font-family: ui-monospace, monospace;
+      font-size: 0.9em;
+      background: var(--kbd-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      min-width: 1.5em;
+      text-align: center;
+    }
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .example-card {
+      background: var(--section-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .example-card h4 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .example-card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .example-card a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .example-card a:hover {
+      text-decoration: underline;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--section-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .links a:hover {
+      border-color: var(--accent);
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Moonlight Help</h1>
+  <p class="subtitle">Lightweight SVG Editor - Keyboard Shortcuts & Documentation</p>
+
+  <h2>Keyboard Shortcuts</h2>
+
+  <h3>Tools (Shape Creation)</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><kbd>1</kbd></td><td>Create Rectangle</td></tr>
+      <tr><td><kbd>2</kbd></td><td>Create Circle</td></tr>
+      <tr><td><kbd>3</kbd></td><td>Create Ellipse</td></tr>
+      <tr><td><kbd>4</kbd></td><td>Create Line</td></tr>
+      <tr><td><kbd>5</kbd></td><td>Create Arrow</td></tr>
+      <tr><td><kbd>6</kbd></td><td>Create Text</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Edit</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td><td>Delete selected element</td></tr>
+      <tr><td><kbd>Escape</kbd></td><td>Cancel operation / Deselect</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy selected element</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste element</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select all (full mode only)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Navigation</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move selected element (10px)</td></tr>
+      <tr><td><kbd>Shift</kbd>+Arrow</td><td>Resize selected element</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Mode</h3>
+  <table>
+    <thead>
+      <tr><th>Key</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><kbd>V</kbd></td><td>Switch to Select mode</td></tr>
+      <tr><td><kbd>P</kbd></td><td>Toggle Free Draw mode</td></tr>
+      <tr><td><kbd>?</kbd></td><td>Show this help page</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Mouse Operations</h2>
+  <table>
+    <thead>
+      <tr><th>Action</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Click</td><td>Select element</td></tr>
+      <tr><td>Drag</td><td>Move element / Box select</td></tr>
+      <tr><td>Right-click</td><td>Context menu</td></tr>
+      <tr><td>Double-click on Text</td><td>Edit text</td></tr>
+      <tr><td>Shift+Click</td><td>Add/remove from selection</td></tr>
+      <tr><td>Drag handle</td><td>Resize element</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Examples</h2>
+  <div class="examples">
+    <div class="example-card">
+      <h4>Embed Mode</h4>
+      <p>Basic embedding in your web page with full editor functionality.</p>
+      <a href="/examples/embed.html">View Example &rarr;</a>
+    </div>
+    <div class="example-card">
+      <h4>Web Component</h4>
+      <p>Use as a custom element <code>&lt;moonlight-editor&gt;</code>.</p>
+      <a href="/examples/webcomponent.html">View Example &rarr;</a>
+    </div>
+    <div class="example-card">
+      <h4>Preview Mode</h4>
+      <p>Read-only preview with modal editor popup.</p>
+      <a href="/examples/preview.html">View Example &rarr;</a>
+    </div>
+    <div class="example-card">
+      <h4>Free Draw</h4>
+      <p>Experimental freehand drawing with bezier curve approximation.</p>
+      <a href="/examples/free_draw.html">View Example &rarr;</a>
+    </div>
+    <div class="example-card">
+      <h4>Viewer</h4>
+      <p>Minimal SVG viewer component.</p>
+      <a href="/examples/viewer.html">View Example &rarr;</a>
+    </div>
+  </div>
+
+  <h2>Links</h2>
+  <div class="links">
+    <a href="https://github.com/mizchi/moonlight">GitHub Repository</a>
+    <a href="/">Editor (Full Mode)</a>
+    <a href="/examples/embed.html">Embed Demo</a>
+  </div>
+
+  <footer>
+    <p>Moonlight - Lightweight SVG Editor built with <a href="https://www.moonbitlang.com/">MoonBit</a></p>
+  </footer>
+</body>
+</html>
