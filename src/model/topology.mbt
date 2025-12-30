@@ -36,7 +36,6 @@ pub fn ConnectionGraph::new() -> ConnectionGraph {
 /// 要素配列からグラフを構築
 pub fn build_connection_graph(elements : Array[Element]) -> ConnectionGraph {
   let graph = ConnectionGraph::new()
-
   for el in elements {
     // Line 要素のみ処理
     guard el.shape is Line(_, _) else { continue }
@@ -74,12 +73,14 @@ pub fn build_connection_graph(elements : Array[Element]) -> ConnectionGraph {
       _ => ()
     }
   }
-
   graph
 }
 
 ///|
-fn add_edge_to_adjacency(adjacency : Map[String, Array[Edge]], edge : Edge) -> Unit {
+fn add_edge_to_adjacency(
+  adjacency : Map[String, Array[Edge]],
+  edge : Edge,
+) -> Unit {
   match adjacency.get(edge.from_id) {
     Some(edges) => edges.push(edge)
     None => adjacency[edge.from_id] = [edge]
@@ -148,21 +149,18 @@ pub fn ConnectionGraph::get_connected_component(
 ) -> Array[String] {
   let visited : Array[String] = []
   let queue : Array[String] = [start_id]
-
   while queue.length() > 0 {
     let current = queue.remove(0)
     if visited.contains(current) {
       continue
     }
     visited.push(current)
-
     for neighbor in self.get_neighbors(current) {
       if not(visited.contains(neighbor)) {
         queue.push(neighbor)
       }
     }
   }
-
   visited
 }
 
@@ -173,7 +171,6 @@ pub fn ConnectionGraph::get_all_components(
 ) -> Array[Array[String]] {
   let components : Array[Array[String]] = []
   let visited : Array[String] = []
-
   for node_id in self.adjacency.keys() {
     if not(visited.contains(node_id)) {
       let component = self.get_connected_component(node_id)
@@ -185,7 +182,6 @@ pub fn ConnectionGraph::get_all_components(
       components.push(component)
     }
   }
-
   components
 }
 
@@ -220,15 +216,12 @@ pub fn ConnectionGraph::find_shortest_path(
   let visited : Array[String] = []
   let queue : Array[String] = [from_id]
   visited.push(from_id)
-
   while queue.length() > 0 {
     let current = queue.remove(0)
-
     if current == to_id {
       // パスが見つかった - 経路を再構築
       return Some(reconstruct_path(from_id, to_id, parent, elements))
     }
-
     match self.adjacency.get(current) {
       Some(edges) =>
         for edge in edges {
@@ -241,7 +234,6 @@ pub fn ConnectionGraph::find_shortest_path(
       None => ()
     }
   }
-
   None // パスが見つからない
 }
 
@@ -275,17 +267,18 @@ fn reconstruct_path(
 
   // 距離を計算
   let total_distance = calc_path_distance(nodes, elements)
-
   { nodes, edges, total_distance }
 }
 
 ///|
 /// パスの合計距離を計算（ユークリッド距離）
-fn calc_path_distance(node_ids : Array[String], elements : Array[Element]) -> Double {
+fn calc_path_distance(
+  node_ids : Array[String],
+  elements : Array[Element],
+) -> Double {
   if node_ids.length() < 2 {
     return 0.0
   }
-
   let mut total = 0.0
   for i = 0; i < node_ids.length() - 1; i = i + 1 {
     let p1 = get_element_center(elements, node_ids[i])
@@ -336,15 +329,12 @@ pub fn ConnectionGraph::connection_distance(
   let distance : Map[String, Int] = {}
   distance[from_id] = 0
   let queue : Array[String] = [from_id]
-
   while queue.length() > 0 {
     let current = queue.remove(0)
     let current_dist = distance.get(current).unwrap_or(0)
-
     if current == to_id {
       return current_dist
     }
-
     for neighbor in self.get_neighbors(current) {
       if distance.get(neighbor) is None {
         distance[neighbor] = current_dist + 1
@@ -352,7 +342,6 @@ pub fn ConnectionGraph::connection_distance(
       }
     }
   }
-
   -1 // 接続されていない
 }
 
@@ -365,11 +354,9 @@ pub fn ConnectionGraph::distance_map_from(
   let distances : Map[String, Int] = {}
   distances[start_id] = 0
   let queue : Array[String] = [start_id]
-
   while queue.length() > 0 {
     let current = queue.remove(0)
     let current_dist = distances.get(current).unwrap_or(0)
-
     for neighbor in self.get_neighbors(current) {
       if distances.get(neighbor) is None {
         distances[neighbor] = current_dist + 1
@@ -377,7 +364,6 @@ pub fn ConnectionGraph::distance_map_from(
       }
     }
   }
-
   distances
 }
 
@@ -440,7 +426,6 @@ pub fn recalculate_on_partial_move(
     if moved_ids.contains(el.id) {
       continue
     }
-
     let mut new_x = el.x
     let mut new_y = el.y
     let mut new_x2 = x2
@@ -449,7 +434,7 @@ pub fn recalculate_on_partial_move(
 
     // 始点の接続先が移動した場合
     match conns.start {
-      Some(conn) if moved_ids.contains(conn.element_id) => {
+      Some(conn) if moved_ids.contains(conn.element_id) =>
         // 更新後の要素からアンカー位置を取得
         for updated_el in updated_elements {
           if updated_el.id == conn.element_id {
@@ -460,13 +445,12 @@ pub fn recalculate_on_partial_move(
             break
           }
         }
-      }
       _ => ()
     }
 
     // 終点の接続先が移動した場合
     match conns.end {
-      Some(conn) if moved_ids.contains(conn.element_id) => {
+      Some(conn) if moved_ids.contains(conn.element_id) =>
         for updated_el in updated_elements {
           if updated_el.id == conn.element_id {
             let p = updated_el.get_anchor_point(conn.anchor)
@@ -476,10 +460,8 @@ pub fn recalculate_on_partial_move(
             break
           }
         }
-      }
       _ => ()
     }
-
     if needs_update {
       line_updates.push({
         id: el.id,
@@ -515,15 +497,10 @@ pub fn recalculate_on_partial_move(
 
       // 子要素自体が移動対象でない場合のみ更新
       if not(moved_ids.contains(el.id)) {
-        element_updates.push({
-          id: el.id,
-          new_x: el.x + dx,
-          new_y: el.y + dy,
-        })
+        element_updates.push({ id: el.id, new_x: el.x + dx, new_y: el.y + dy })
       }
     }
   }
-
   { element_updates, line_updates }
 }
 
@@ -533,13 +510,19 @@ pub fn recalculate_on_partial_move(
 
 ///|
 /// 要素が「ハブ」（3つ以上の接続を持つ）かどうか判定
-pub fn ConnectionGraph::is_hub(self : ConnectionGraph, element_id : String) -> Bool {
+pub fn ConnectionGraph::is_hub(
+  self : ConnectionGraph,
+  element_id : String,
+) -> Bool {
   self.get_neighbors(element_id).length() >= 3
 }
 
 ///|
 /// 要素が「リーフ」（1つの接続のみ持つ）かどうか判定
-pub fn ConnectionGraph::is_leaf(self : ConnectionGraph, element_id : String) -> Bool {
+pub fn ConnectionGraph::is_leaf(
+  self : ConnectionGraph,
+  element_id : String,
+) -> Bool {
   self.get_neighbors(element_id).length() == 1
 }
 
@@ -572,7 +555,6 @@ pub fn ConnectionGraph::get_stats(
   let mut hub_count = 0
   let mut leaf_count = 0
   let mut isolated_count = 0
-
   for id in all_element_ids {
     let neighbor_count = self.get_neighbors(id).length()
     if neighbor_count >= 3 {
@@ -583,7 +565,6 @@ pub fn ConnectionGraph::get_stats(
       isolated_count = isolated_count + 1
     }
   }
-
   {
     node_count: self.adjacency.length(),
     edge_count: self.edges.length(),
@@ -599,7 +580,6 @@ pub fn ConnectionGraph::get_stats(
 /// グラフに循環がある場合 true
 pub fn ConnectionGraph::has_cycle(self : ConnectionGraph) -> Bool {
   let visited : Array[String] = []
-
   for start_id in self.adjacency.keys() {
     if visited.contains(start_id) {
       continue
@@ -613,7 +593,6 @@ pub fn ConnectionGraph::has_cycle(self : ConnectionGraph) -> Bool {
         return true // サイクル検出
       }
       visited.push(current)
-
       for neighbor in self.get_neighbors(current) {
         // 親ノードへの戻りは無視
         match parent {
@@ -628,7 +607,6 @@ pub fn ConnectionGraph::has_cycle(self : ConnectionGraph) -> Bool {
       }
     }
   }
-
   false
 }
 
@@ -643,7 +621,6 @@ pub fn ConnectionGraph::find_all_paths(
   max_paths : Int,
 ) -> Array[Path] {
   let paths : Array[Path] = []
-
   if from_id == to_id {
     paths.push({ nodes: [from_id], edges: [], total_distance: 0.0 })
     return paths
@@ -664,13 +641,15 @@ pub fn ConnectionGraph::find_all_paths(
     if paths.length() >= max_paths {
       return
     }
-
     if current == target {
       let total_distance = calc_path_distance(current_nodes, elements)
-      paths.push({ nodes: current_nodes.copy(), edges: current_edges.copy(), total_distance })
+      paths.push({
+        nodes: current_nodes.copy(),
+        edges: current_edges.copy(),
+        total_distance,
+      })
       return
     }
-
     match graph.adjacency.get(current) {
       Some(edges) =>
         for edge in edges {
@@ -678,7 +657,6 @@ pub fn ConnectionGraph::find_all_paths(
             visited.push(edge.to_id)
             current_nodes.push(edge.to_id)
             current_edges.push(edge)
-
             dfs(
               edge.to_id,
               target,
@@ -690,7 +668,6 @@ pub fn ConnectionGraph::find_all_paths(
               paths,
               max_paths,
             )
-
             ignore(visited.pop())
             ignore(current_nodes.pop())
             ignore(current_edges.pop())
@@ -703,18 +680,9 @@ pub fn ConnectionGraph::find_all_paths(
   let visited : Array[String] = [from_id]
   let current_nodes : Array[String] = [from_id]
   let current_edges : Array[Edge] = []
-
   dfs(
-    from_id,
-    to_id,
-    visited,
-    current_nodes,
-    current_edges,
-    self,
-    elements,
-    paths,
+    from_id, to_id, visited, current_nodes, current_edges, self, elements, paths,
     max_paths,
   )
-
   paths
 }

@@ -16,6 +16,7 @@ export default defineConfig({
         embed: resolve(__dirname, 'embed.html'),
         webcomponent: resolve(__dirname, 'webcomponent.html'),
         preview: resolve(__dirname, 'preview.html'),
+        'free-draw': resolve(__dirname, 'free-draw.html'),
       },
     },
   },

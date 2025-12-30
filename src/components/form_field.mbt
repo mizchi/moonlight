@@ -61,7 +61,7 @@ pub fn text_field(
     @element.input(
       type_="text",
       style=text_input_style(theme),
-      value=value,
+      value~,
       on=@element.events().change(fn(e) {
         let v = get_input_value_ff(e.as_any())
         on_change(v)
@@ -136,10 +136,9 @@ pub fn readonly_field_dyn(
 ) -> @element.DomNode {
   @element.div(style=row_style(), [
     @element.span(style=label_style(theme), [@element.text(label)]),
-    @element.span(
-      style=readonly_field_style(theme),
-      [@element.text_dyn(get_value)],
-    ),
+    @element.span(style=readonly_field_style(theme), [
+      @element.text_dyn(get_value),
+    ]),
   ])
 }
 
@@ -156,9 +155,7 @@ extern "js" fn get_event_value_ffi(e : @js.Any) -> String =
 
 ///|
 fn parse_double(s : String) -> Double? {
-  try {
-    Some(@strconv.parse_double(s))
-  } catch {
+  Some(@strconv.parse_double(s)) catch {
     _ => None
   }
 }

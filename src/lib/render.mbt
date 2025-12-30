@@ -527,7 +527,10 @@ pub fn export_elements_to_svg(
   for el in elements {
     // 子テキスト要素の場合、親の stroke 色を取得
     let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
-    svg = svg + "  " + element_to_svg_string_with_parent(el, parent_stroke) + "\n"
+    svg = svg +
+      "  " +
+      element_to_svg_string_with_parent(el, parent_stroke) +
+      "\n"
   }
   svg = svg + "</svg>"
   svg

@@ -28,3 +28,70 @@
 ## Icebox
 
 - [ ] Round やCSSによるパラメータを折りたたみで対応する
+
+## Model 層の新機能（組み込み検討）
+
+### Validation モジュール (`src/model/validation.mbt`)
+
+要素の操作可能性を検証し、UI層での操作制御に使用できる。
+
+#### 機能一覧
+
+| 関数 | 説明 |
+|-----|------|
+| `validate_elements(elements)` | 全要素を検証し ValidationResult を返す |
+| `get_element_capability(result, id)` | 要素の操作権限を取得 |
+| `is_element_operable(result, id)` | 要素が操作可能か判定 |
+| `get_element_issues(result, id)` | 要素の問題リストを取得 |
+| `can_add_element(new_el, existing)` | 追加可能か事前チェック |
+| `can_delete_element(id, elements)` | 削除可能か事前チェック |
+| `suggest_repairs(issues)` | 修復アクションを提案 |
+
+#### 検証項目
+
+- **ID**: 空ID (Error), 重複ID (Error)
+- **親子関係**: 存在しない親 (Warning), 循環参照 (Error)
+- **接続**: 孤立した接続 (Warning), 自己接続 (Warning)
+- **形状**: 負の寸法 (Error), 同一点Line (Warning), 空テキスト (Info)
+
+#### 操作権限 (ElementCapability)
+
+```
+can_move      : Bool  // エラーでも true（常に移動可能）
+can_resize    : Bool
+can_edit      : Bool
+can_delete    : Bool
+can_connect   : Bool  // Line のみ
+can_add_child : Bool
+```
+
+#### UI への組み込み案
+
+- [ ] SVG Import 後に validate して問題を通知
+- [ ] 要素選択時に capability に応じてツールバーを制御
+- [ ] 削除時に接続/子要素の警告ダイアログ表示
+- [ ] 問題のある要素をハイライト表示
+
+### Topology モジュール (`src/model/topology.mbt`)
+
+要素間の接続グラフを構築し、パス探索や接続距離計算を行う。
+
+#### 機能一覧
+
+| 関数 | 説明 |
+|-----|------|
+| `build_connection_graph(elements)` | 接続グラフを構築 |
+| `graph.get_neighbors(id)` | 隣接要素を取得 |
+| `graph.are_directly_connected(id1, id2)` | 直接接続判定 |
+| `graph.get_connected_component(id)` | 連結成分を取得 |
+| `graph.connection_distance(from, to)` | 接続距離（ホップ数） |
+| `graph.find_shortest_path(from, to, elements)` | 最短パス探索 |
+| `graph.has_cycle()` | サイクル検出 |
+| `recalculate_on_partial_move(targets, elements)` | 部分移動時の再計算 |
+
+#### UI への組み込み案
+
+- [ ] 要素選択時に接続されている要素をハイライト
+- [ ] グループ選択: 連結成分を一括選択
+- [ ] レイアウト自動整列（接続グラフに基づく）
+- [ ] 接続パスのビジュアライズ

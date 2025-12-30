@@ -1985,18 +1985,23 @@ test "get_text_fill_color - parent_stroke も fill も None の場合は 'none' 
 
 ///|
 test "get_parent_stroke - 親要素が見つかった場合はその stroke を返す" {
-  let parent = Element::new("parent-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
-    .with_style({
-      fill: Some("#ffffff"),
-      stroke: Some("#0000ff"),
-      stroke_width: Some(2.0),
-      opacity: None,
-      stroke_dasharray: None,
-      marker_start: None,
-      marker_end: None,
-    })
-  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
-    .with_parent("parent-1")
+  let parent = Element::new(
+    "parent-1",
+    0.0,
+    0.0,
+    Rect(100.0, 100.0, None, None),
+  ).with_style({
+    fill: Some("#ffffff"),
+    stroke: Some("#0000ff"),
+    stroke_width: Some(2.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  })
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0))).with_parent(
+    "parent-1",
+  )
   let elements = [parent, child]
   let result = get_parent_stroke(elements, child.parent_id)
   assert_eq(result, Some("#0000ff"))
@@ -2012,8 +2017,9 @@ test "get_parent_stroke - parent_id が None の場合は None を返す" {
 
 ///|
 test "get_parent_stroke - 親要素が見つからない場合は None を返す" {
-  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
-    .with_parent("non-existent")
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0))).with_parent(
+    "non-existent",
+  )
   let elements = [child]
   let result = get_parent_stroke(elements, child.parent_id)
   assert_eq(result, None)
@@ -2021,18 +2027,23 @@ test "get_parent_stroke - 親要素が見つからない場合は None を返す
 
 ///|
 test "get_parent_stroke - 親要素に stroke がない場合は None を返す" {
-  let parent = Element::new("parent-1", 0.0, 0.0, Rect(100.0, 100.0, None, None))
-    .with_style({
-      fill: Some("#ffffff"),
-      stroke: None,
-      stroke_width: None,
-      opacity: None,
-      stroke_dasharray: None,
-      marker_start: None,
-      marker_end: None,
-    })
-  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0)))
-    .with_parent("parent-1")
+  let parent = Element::new(
+    "parent-1",
+    0.0,
+    0.0,
+    Rect(100.0, 100.0, None, None),
+  ).with_style({
+    fill: Some("#ffffff"),
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+  })
+  let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0))).with_parent(
+    "parent-1",
+  )
   let elements = [parent, child]
   let result = get_parent_stroke(elements, child.parent_id)
   assert_eq(result, None)

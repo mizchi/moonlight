@@ -1,50 +1,11 @@
 // Topology モジュールのテスト
-
-// ============================================================
-// テストヘルパー
-// ============================================================
-
-///|
-fn make_rect(id : String, x : Double, y : Double, w : Double, h : Double) -> Element {
-  Element::new(id, x, y, Rect(w, h, None, None))
-}
-
-///|
-fn make_circle(id : String, x : Double, y : Double, r : Double) -> Element {
-  Element::new(id, x, y, Circle(r))
-}
-
-///|
-fn make_line(
-  id : String,
-  x1 : Double,
-  y1 : Double,
-  x2 : Double,
-  y2 : Double,
-) -> Element {
-  { ..Element::new(id, x1, y1, Line(x2, y2)), connections: None }
-}
-
-///|
-fn make_connected_line(
-  id : String,
-  x1 : Double,
-  y1 : Double,
-  x2 : Double,
-  y2 : Double,
-  start_conn : Connection?,
-  end_conn : Connection?,
-) -> Element {
-  {
-    ..Element::new(id, x1, y1, Line(x2, y2)),
-    connections: Some({ start: start_conn, end: end_conn }),
-  }
-}
+// ヘルパー関数は test_helpers.mbt を使用
 
 // ============================================================
 // グラフ構築テスト
 // ============================================================
 
+///|
 test "build_connection_graph: empty elements" {
   let elements : Array[Element] = []
   let graph = build_connection_graph(elements)
@@ -52,21 +13,23 @@ test "build_connection_graph: empty elements" {
   inspect(graph.adjacency.length(), content="0")
 }
 
+///|
 test "build_connection_graph: no connections" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_line("line1", 100.0, 50.0, 200.0, 50.0),
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_line("line1", 100.0, 50.0, 200.0, 50.0),
   ]
   let graph = build_connection_graph(elements)
   inspect(graph.edges.length(), content="0")
 }
 
+///|
 test "build_connection_graph: single connection" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -81,13 +44,14 @@ test "build_connection_graph: single connection" {
   inspect(graph.adjacency.length(), content="2")
 }
 
+///|
 test "build_connection_graph: multiple connections" {
   // rect1 -- line1 -- rect2 -- line2 -- rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -96,7 +60,7 @@ test "build_connection_graph: multiple connections" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       50.0,
@@ -114,11 +78,12 @@ test "build_connection_graph: multiple connections" {
 // 接続検出テスト
 // ============================================================
 
+///|
 test "get_neighbors: connected nodes" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -134,18 +99,20 @@ test "get_neighbors: connected nodes" {
   inspect(neighbors[0], content="rect2")
 }
 
+///|
 test "get_neighbors: no connections" {
-  let elements = [make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
+  let elements = [test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
   let graph = build_connection_graph(elements)
   let neighbors = graph.get_neighbors("rect1")
   inspect(neighbors.length(), content="0")
 }
 
+///|
 test "are_directly_connected: true" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -160,20 +127,22 @@ test "are_directly_connected: true" {
   inspect(graph.are_directly_connected("rect2", "rect1"), content="true")
 }
 
+///|
 test "are_directly_connected: false" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
   ]
   let graph = build_connection_graph(elements)
   inspect(graph.are_directly_connected("rect1", "rect2"), content="false")
 }
 
+///|
 test "get_connected_lines" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -193,13 +162,14 @@ test "get_connected_lines" {
 // 連結成分テスト
 // ============================================================
 
+///|
 test "get_connected_component: single component" {
   // rect1 -- rect2 -- rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -208,7 +178,7 @@ test "get_connected_component: single component" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       50.0,
@@ -226,14 +196,15 @@ test "get_connected_component: single component" {
   inspect(component.contains("rect3"), content="true")
 }
 
+///|
 test "get_all_components: two components" {
   // rect1 -- rect2    rect3 -- rect4
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 0.0, 200.0, 100.0, 100.0),
-    make_rect("rect4", 200.0, 200.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 0.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect4", 200.0, 200.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -242,7 +213,7 @@ test "get_all_components: two components" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       100.0,
       250.0,
@@ -261,17 +232,19 @@ test "get_all_components: two components" {
 // 接続距離テスト
 // ============================================================
 
+///|
 test "connection_distance: same node" {
-  let elements = [make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
+  let elements = [test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
   let graph = build_connection_graph(elements)
   inspect(graph.connection_distance("rect1", "rect1"), content="0")
 }
 
+///|
 test "connection_distance: directly connected" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -285,13 +258,14 @@ test "connection_distance: directly connected" {
   inspect(graph.connection_distance("rect1", "rect2"), content="1")
 }
 
+///|
 test "connection_distance: two hops" {
   // rect1 -- rect2 -- rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -300,7 +274,7 @@ test "connection_distance: two hops" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       50.0,
@@ -314,22 +288,24 @@ test "connection_distance: two hops" {
   inspect(graph.connection_distance("rect1", "rect3"), content="2")
 }
 
+///|
 test "connection_distance: not connected" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
   ]
   let graph = build_connection_graph(elements)
   inspect(graph.connection_distance("rect1", "rect2"), content="-1")
 }
 
+///|
 test "distance_map_from" {
   // rect1 -- rect2 -- rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -338,7 +314,7 @@ test "distance_map_from" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       50.0,
@@ -359,8 +335,9 @@ test "distance_map_from" {
 // パス探索テスト
 // ============================================================
 
+///|
 test "find_shortest_path: same node" {
-  let elements = [make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
+  let elements = [test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
   let graph = build_connection_graph(elements)
   let path = graph.find_shortest_path("rect1", "rect1", elements)
   inspect(path is Some(_), content="true")
@@ -373,11 +350,12 @@ test "find_shortest_path: same node" {
   }
 }
 
+///|
 test "find_shortest_path: direct connection" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -399,10 +377,11 @@ test "find_shortest_path: direct connection" {
   }
 }
 
+///|
 test "find_shortest_path: no path" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
   ]
   let graph = build_connection_graph(elements)
   let path = graph.find_shortest_path("rect1", "rect2", elements)
@@ -413,14 +392,15 @@ test "find_shortest_path: no path" {
 // トポロジー分類テスト
 // ============================================================
 
+///|
 test "is_hub: true for 3+ connections" {
   // rect1, rect2, rect3 all connected to center
   let elements = [
-    make_rect("center", 200.0, 200.0, 100.0, 100.0),
-    make_rect("rect1", 0.0, 200.0, 100.0, 100.0),
-    make_rect("rect2", 400.0, 200.0, 100.0, 100.0),
-    make_rect("rect3", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("center", 200.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect1", 0.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect2", 400.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect3", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       250.0,
@@ -429,7 +409,7 @@ test "is_hub: true for 3+ connections" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "center", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       250.0,
@@ -438,7 +418,7 @@ test "is_hub: true for 3+ connections" {
       Some({ element_id: "center", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line3",
       250.0,
       100.0,
@@ -453,8 +433,9 @@ test "is_hub: true for 3+ connections" {
   inspect(graph.is_leaf("rect1"), content="true")
 }
 
+///|
 test "is_isolated: no connections" {
-  let elements = [make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
+  let elements = [test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0)]
   let graph = build_connection_graph(elements)
   inspect(graph.is_isolated("rect1"), content="true")
 }
@@ -463,13 +444,14 @@ test "is_isolated: no connections" {
 // サイクル検出テスト
 // ============================================================
 
+///|
 test "has_cycle: linear graph" {
   // rect1 -- rect2 -- rect3 (no cycle)
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 400.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -478,7 +460,7 @@ test "has_cycle: linear graph" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       50.0,
@@ -492,15 +474,16 @@ test "has_cycle: linear graph" {
   inspect(graph.has_cycle(), content="false")
 }
 
+///|
 test "has_cycle: triangle" {
   // rect1 -- rect2
   //   \      /
   //    rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 100.0, 200.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 100.0, 200.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -509,7 +492,7 @@ test "has_cycle: triangle" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       250.0,
       100.0,
@@ -518,7 +501,7 @@ test "has_cycle: triangle" {
       Some({ element_id: "rect2", anchor: Bottom }),
       Some({ element_id: "rect3", anchor: TopRight }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line3",
       50.0,
       100.0,
@@ -536,11 +519,12 @@ test "has_cycle: triangle" {
 // 部分移動時の再計算テスト
 // ============================================================
 
+///|
 test "recalculate_on_partial_move: line update" {
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -569,9 +553,13 @@ test "recalculate_on_partial_move: line update" {
   }
 }
 
+///|
 test "recalculate_on_partial_move: child element update" {
-  let rect1 = make_rect("rect1", 100.0, 100.0, 100.0, 100.0)
-  let text1 = { ..make_rect("text1", 150.0, 150.0, 50.0, 20.0), parent_id: Some("rect1") }
+  let rect1 = test_make_rect("rect1", 100.0, 100.0, 100.0, 100.0)
+  let text1 = {
+    ..test_make_rect("text1", 150.0, 150.0, 50.0, 20.0),
+    parent_id: Some("rect1"),
+  }
   let elements = [rect1, text1]
 
   // rect1 を (200, 200) に移動
@@ -596,15 +584,16 @@ test "recalculate_on_partial_move: child element update" {
 // グラフ統計テスト
 // ============================================================
 
+///|
 test "get_stats" {
   // center is hub (3 connections), rect1-3 are leaves
   let elements = [
-    make_rect("center", 200.0, 200.0, 100.0, 100.0),
-    make_rect("rect1", 0.0, 200.0, 100.0, 100.0),
-    make_rect("rect2", 400.0, 200.0, 100.0, 100.0),
-    make_rect("rect3", 200.0, 0.0, 100.0, 100.0),
-    make_rect("isolated", 500.0, 500.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("center", 200.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect1", 0.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect2", 400.0, 200.0, 100.0, 100.0),
+    test_make_rect("rect3", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("isolated", 500.0, 500.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       250.0,
@@ -613,7 +602,7 @@ test "get_stats" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "center", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       300.0,
       250.0,
@@ -622,7 +611,7 @@ test "get_stats" {
       Some({ element_id: "center", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line3",
       250.0,
       100.0,
@@ -635,7 +624,6 @@ test "get_stats" {
   let graph = build_connection_graph(elements)
   let all_ids = ["center", "rect1", "rect2", "rect3", "isolated"]
   let stats = graph.get_stats(all_ids)
-
   inspect(stats.edge_count, content="3")
   inspect(stats.hub_count, content="1")
   inspect(stats.leaf_count, content="3")
@@ -646,12 +634,13 @@ test "get_stats" {
 // find_all_paths テスト
 // ============================================================
 
+///|
 test "find_all_paths: single path" {
   // rect1 -- rect2
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -666,15 +655,16 @@ test "find_all_paths: single path" {
   inspect(paths.length(), content="1")
 }
 
+///|
 test "find_all_paths: multiple paths" {
   // rect1 -- rect2
   //   \      /
   //    rect3
   let elements = [
-    make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
-    make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
-    make_rect("rect3", 100.0, 200.0, 100.0, 100.0),
-    make_connected_line(
+    test_make_rect("rect1", 0.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect2", 200.0, 0.0, 100.0, 100.0),
+    test_make_rect("rect3", 100.0, 200.0, 100.0, 100.0),
+    test_make_connected_line(
       "line1",
       100.0,
       50.0,
@@ -683,7 +673,7 @@ test "find_all_paths: multiple paths" {
       Some({ element_id: "rect1", anchor: Right }),
       Some({ element_id: "rect2", anchor: Left }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line2",
       250.0,
       100.0,
@@ -692,7 +682,7 @@ test "find_all_paths: multiple paths" {
       Some({ element_id: "rect2", anchor: Bottom }),
       Some({ element_id: "rect3", anchor: TopRight }),
     ),
-    make_connected_line(
+    test_make_connected_line(
       "line3",
       50.0,
       100.0,

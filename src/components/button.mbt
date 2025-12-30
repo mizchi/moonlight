@@ -83,7 +83,8 @@ pub fn toolbar_button(
         ("mouseleave", @element.Handler(fn(_) { hide_popover(popover_id) })),
       ],
       match shortcut {
-        Some(key) => [icon, @element.span(style=shortcut_style, [@element.text(key)])]
+        Some(key) =>
+          [icon, @element.span(style=shortcut_style, [@element.text(key)])]
         None => [icon]
       },
     ),

@@ -691,12 +691,10 @@ fn element_to_moonlight_svg_with_parent(
     // テキストの場合、親があれば親の stroke を使用
     let text_fill = @model.get_text_fill_color(style, parent_stroke)
     attrs.write_string(" fill=\"\{text_fill}\"")
+  } else if style.fill is Some(v) {
+    attrs.write_string(" fill=\"\{v}\"")
   } else {
-    if style.fill is Some(v) {
-      attrs.write_string(" fill=\"\{v}\"")
-    } else {
-      attrs.write_string(" fill=\"none\"")
-    }
+    attrs.write_string(" fill=\"none\"")
   }
   if style.stroke is Some(v) {
     attrs.write_string(" stroke=\"\{v}\"")

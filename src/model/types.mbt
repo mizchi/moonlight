@@ -251,7 +251,10 @@ pub fn get_text_fill_color(
 
 ///|
 /// 要素配列から指定IDの親要素のストローク色を取得
-pub fn get_parent_stroke(elements : Array[Element], parent_id : String?) -> String? {
+pub fn get_parent_stroke(
+  elements : Array[Element],
+  parent_id : String?,
+) -> String? {
   match parent_id {
     None => None
     Some(pid) => {

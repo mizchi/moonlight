@@ -125,7 +125,9 @@ pub fn redraw_svg(state : @core.EditorState) -> Unit {
     }
     // 親要素のストローク色を取得（テキスト要素の色継承用）
     let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
-    let dom_el = render_element_to_svg_with_parent(el, is_selected, parent_stroke)
+    let dom_el = render_element_to_svg_with_parent(
+      el, is_selected, parent_stroke,
+    )
     append_child(svg, dom_el)
   }
 }

@@ -1,0 +1,8 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "mizchi/moonlight/bezier_fit", "alias": "bezier" },
+    { "path": "mizchi/js/core", "alias": "js" }
+  ],
+  "supported-targets": ["js"]
+}
