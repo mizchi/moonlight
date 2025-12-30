@@ -434,6 +434,7 @@ pub fn setup_interaction(
               stroke_dasharray: None,
               marker_start: None,
               marker_end: None,
+              font_family: None,
             },
             transform: None,
             parent_id: None,

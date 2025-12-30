@@ -37,8 +37,13 @@ pub fn ConnectionGraph::new() -> ConnectionGraph {
 pub fn build_connection_graph(elements : Array[Element]) -> ConnectionGraph {
   let graph = ConnectionGraph::new()
   for el in elements {
-    // Line 要素のみ処理
-    guard el.shape is Line(_, _) else { continue }
+    // Line または Path 要素のみ処理
+    let is_connectable = match el.shape {
+      Line(_, _) => true
+      Path(_, _, _, _, _) => true
+      _ => false
+    }
+    guard is_connectable else { continue }
     guard el.connections is Some(conns) else { continue }
 
     // 始点と終点の両方に接続がある場合、エッジを作成

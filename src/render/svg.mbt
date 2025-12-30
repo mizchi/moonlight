@@ -130,7 +130,7 @@ pub fn element_to_svg_string_with_parent(
         .join(" ")
       "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
     }
-    @model.Path(d) =>
+    @model.Path(d, _, _, _, _) =>
       "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
   }
 }

@@ -120,6 +120,7 @@ pub fn default_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -134,6 +135,7 @@ pub fn fill_style(fill : String, stroke : String) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -148,6 +150,7 @@ pub fn line_style(stroke : String, stroke_width : Double) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 

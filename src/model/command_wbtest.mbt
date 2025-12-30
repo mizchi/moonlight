@@ -109,6 +109,7 @@ test "Command - UpdateStyle" {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let cmd : Command = UpdateStyle("el-1", old_style, new_style)
   match cmd {

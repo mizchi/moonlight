@@ -342,6 +342,7 @@ fn default_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -356,6 +357,7 @@ fn line_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -370,6 +372,7 @@ fn arrow_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: Some(@model.Arrow),
+    font_family: None,
   }
 }
 
@@ -384,6 +387,7 @@ fn text_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 

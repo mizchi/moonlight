@@ -200,8 +200,9 @@ fn parse_shape(
         return None
       }
       let d : String = d_raw.cast()
-      // pathの開始座標を取得（簡易実装）
-      Some((@model.Path(d), 0.0, 0.0))
+      // pathの始点・終点を抽出
+      let (start_x, start_y, end_x, end_y) = parse_path_endpoints(d)
+      Some((@model.Path(d, start_x, start_y, end_x, end_y), start_x, start_y))
     }
     _ => None
   }
@@ -273,6 +274,14 @@ fn parse_style(el : @js.Any) -> @model.Style {
   } else {
     Some(@model.Arrow)
   }
+  // font-family を取得
+  let font_family_raw = get_attribute(el, "font-family")
+  let font_family : String? = if @js.is_nullish(font_family_raw) {
+    None
+  } else {
+    let ff : String = font_family_raw.cast()
+    Some(ff)
+  }
   {
     fill,
     stroke,
@@ -281,6 +290,7 @@ fn parse_style(el : @js.Any) -> @model.Style {
     stroke_dasharray,
     marker_start,
     marker_end,
+    font_family,
   }
 }
 
@@ -408,4 +418,213 @@ fn update_connection_ids(
       connections: new_connections,
     }
   }
+}
+
+///|
+/// SVG path d属性から始点・終点を抽出
+/// 返り値: (start_x, start_y, end_x, end_y)
+fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
+  let start_x : Ref[Double] = { val: 0.0 }
+  let start_y : Ref[Double] = { val: 0.0 }
+  let end_x : Ref[Double] = { val: 0.0 }
+  let end_y : Ref[Double] = { val: 0.0 }
+  let current_x : Ref[Double] = { val: 0.0 }
+  let current_y : Ref[Double] = { val: 0.0 }
+  let found_start : Ref[Bool] = { val: false }
+  let numbers = extract_path_numbers(d)
+  let commands = extract_path_commands(d)
+  let num_idx : Ref[Int] = { val: 0 }
+  for cmd in commands {
+    let c = cmd
+    match c {
+      'M' | 'm' => {
+        if num_idx.val + 1 < numbers.length() {
+          let x = numbers[num_idx.val]
+          let y = numbers[num_idx.val + 1]
+          num_idx.val = num_idx.val + 2
+          if c == 'M' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          if not(found_start.val) {
+            start_x.val = current_x.val
+            start_y.val = current_y.val
+            found_start.val = true
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'L' | 'l' => {
+        if num_idx.val + 1 < numbers.length() {
+          let x = numbers[num_idx.val]
+          let y = numbers[num_idx.val + 1]
+          num_idx.val = num_idx.val + 2
+          if c == 'L' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'C' | 'c' => {
+        if num_idx.val + 5 < numbers.length() {
+          let x = numbers[num_idx.val + 4]
+          let y = numbers[num_idx.val + 5]
+          num_idx.val = num_idx.val + 6
+          if c == 'C' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'Q' | 'q' => {
+        if num_idx.val + 3 < numbers.length() {
+          let x = numbers[num_idx.val + 2]
+          let y = numbers[num_idx.val + 3]
+          num_idx.val = num_idx.val + 4
+          if c == 'Q' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'S' | 's' => {
+        if num_idx.val + 3 < numbers.length() {
+          let x = numbers[num_idx.val + 2]
+          let y = numbers[num_idx.val + 3]
+          num_idx.val = num_idx.val + 4
+          if c == 'S' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'T' | 't' => {
+        if num_idx.val + 1 < numbers.length() {
+          let x = numbers[num_idx.val]
+          let y = numbers[num_idx.val + 1]
+          num_idx.val = num_idx.val + 2
+          if c == 'T' {
+            current_x.val = x
+            current_y.val = y
+          } else {
+            current_x.val = current_x.val + x
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'H' | 'h' => {
+        if num_idx.val < numbers.length() {
+          let x = numbers[num_idx.val]
+          num_idx.val = num_idx.val + 1
+          if c == 'H' {
+            current_x.val = x
+          } else {
+            current_x.val = current_x.val + x
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'V' | 'v' => {
+        if num_idx.val < numbers.length() {
+          let y = numbers[num_idx.val]
+          num_idx.val = num_idx.val + 1
+          if c == 'V' {
+            current_y.val = y
+          } else {
+            current_y.val = current_y.val + y
+          }
+          end_x.val = current_x.val
+          end_y.val = current_y.val
+        }
+      }
+      'Z' | 'z' => {
+        current_x.val = start_x.val
+        current_y.val = start_y.val
+        end_x.val = current_x.val
+        end_y.val = current_y.val
+      }
+      _ => ()
+    }
+  }
+  (start_x.val, start_y.val, end_x.val, end_y.val)
+}
+
+///|
+fn extract_path_commands(d : String) -> Array[Char] {
+  let commands : Array[Char] = []
+  for c in d {
+    match c {
+      'M' | 'm' | 'L' | 'l' | 'H' | 'h' | 'V' | 'v' | 'C' | 'c' | 'S' | 's' |
+      'Q' | 'q' | 'T' | 't' | 'A' | 'a' | 'Z' | 'z' =>
+        commands.push(c)
+      _ => ()
+    }
+  }
+  commands
+}
+
+///|
+fn extract_path_numbers(d : String) -> Array[Double] {
+  let numbers : Array[Double] = []
+  let current : Array[Char] = []
+  let in_number : Ref[Bool] = { val: false }
+  for c in d {
+    match c {
+      '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '.' | '-' => {
+        if c == '-' && in_number.val && current.length() > 0 {
+          let s = String::from_array(current)
+          if parse_double(s) is Some(n) {
+            numbers.push(n)
+          }
+          current.clear()
+        }
+        current.push(c)
+        in_number.val = true
+      }
+      _ => {
+        if in_number.val && current.length() > 0 {
+          let s = String::from_array(current)
+          if parse_double(s) is Some(n) {
+            numbers.push(n)
+          }
+          current.clear()
+        }
+        in_number.val = false
+      }
+    }
+  }
+  if current.length() > 0 {
+    let s = String::from_array(current)
+    if parse_double(s) is Some(n) {
+      numbers.push(n)
+    }
+  }
+  numbers
 }

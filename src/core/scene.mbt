@@ -215,6 +215,7 @@ pub fn EditorState::get_default_style(_self : EditorState) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -229,6 +230,7 @@ pub fn EditorState::get_text_style(_self : EditorState) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -243,6 +245,7 @@ pub fn EditorState::get_line_style(_self : EditorState) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -257,6 +260,7 @@ pub fn EditorState::get_arrow_style(_self : EditorState) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: Some(@model.Arrow),
+    font_family: None,
   }
 }
 
@@ -273,6 +277,7 @@ pub fn EditorState::get_arrow_style_initial(
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None, // 初期は矢印なし
+    font_family: None,
   }
 }
 

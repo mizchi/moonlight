@@ -154,6 +154,7 @@ pub(all) struct Style {
   stroke_dasharray : String? // 破線パターン (e.g., "5,5", "10,5,2,5")
   marker_start : ArrowType? // 始点の矢印
   marker_end : ArrowType? // 終点の矢印
+  font_family : String? // フォント (e.g., "sans-serif", "serif", "monospace")
 } derive(Show, Eq)
 
 ///|
@@ -167,6 +168,7 @@ pub fn Style::default() -> Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 

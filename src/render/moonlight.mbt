@@ -124,7 +124,7 @@ pub fn element_to_moonlight_svg_with_parent(
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
       "<polyline points=\"\{points_str}\"\{attrs_str}/>"
     }
-    @model.Path(d) => "<path d=\"\{d}\"\{attrs_str}/>"
+    @model.Path(d, _, _, _, _) => "<path d=\"\{d}\"\{attrs_str}/>"
     @model.Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
       let fs_attr = " font-size=\"\{size}\""

@@ -760,6 +760,7 @@ test "Element::with_style" {
     stroke_dasharray: Some("5,5"),
     marker_start: Some(Arrow),
     marker_end: Some(Arrow),
+    font_family: None,
   }
   let el = Element::new("el-1", 0.0, 0.0, Circle(10.0)).with_style(style)
   assert_eq(el.style.fill, Some("#ff0000"))
@@ -890,6 +891,7 @@ test "Style equality - same styles" {
     stroke_dasharray: Some("5,5"),
     marker_start: Some(Arrow),
     marker_end: None,
+    font_family: None,
   }
   let style2 : Style = {
     fill: Some("#ff0000"),
@@ -899,6 +901,7 @@ test "Style equality - same styles" {
     stroke_dasharray: Some("5,5"),
     marker_start: Some(Arrow),
     marker_end: None,
+    font_family: None,
   }
   assert_eq(style1, style2)
 }
@@ -1948,6 +1951,7 @@ test "get_text_fill_color - parent_stroke がある場合は parent_stroke を�
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let result = get_text_fill_color(text_style, Some("#ff0000"))
   assert_eq(result, "#ff0000")
@@ -1963,6 +1967,7 @@ test "get_text_fill_color - parent_stroke が None の場合はテキストの f
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let result = get_text_fill_color(text_style, None)
   assert_eq(result, "#00ff00")
@@ -1978,6 +1983,7 @@ test "get_text_fill_color - parent_stroke も fill も None の場合は 'none' 
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let result = get_text_fill_color(text_style, None)
   assert_eq(result, "none")
@@ -1998,6 +2004,7 @@ test "get_parent_stroke - 親要素が見つかった場合はその stroke を�
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   })
   let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0))).with_parent(
     "parent-1",
@@ -2040,6 +2047,7 @@ test "get_parent_stroke - 親要素に stroke がない場合は None を返す"
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   })
   let child = Element::new("child-1", 50.0, 50.0, Text("Hello", Some(16.0))).with_parent(
     "parent-1",

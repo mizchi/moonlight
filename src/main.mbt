@@ -532,6 +532,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let blue_stroke : @model.Style = {
     fill: Some("transparent"),
@@ -541,6 +542,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let yellow_fill : @model.Style = {
     fill: Some("#ffee44"),
@@ -550,6 +552,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let yellow_stroke : @model.Style = {
     fill: Some("transparent"),
@@ -559,6 +562,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let brown_fill : @model.Style = {
     fill: Some("#8b7080"),
@@ -568,6 +572,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
   let default_rect : @model.Style = {
     fill: Some("transparent"),
@@ -577,6 +582,7 @@ fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 
   // 行1: Moonbit → Luna → JS

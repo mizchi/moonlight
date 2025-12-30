@@ -176,13 +176,17 @@ pub fn text(
 pub fn path(
   id : String,
   d : String,
+  start_x : Double,
+  start_y : Double,
+  end_x : Double,
+  end_y : Double,
   style : @model.Style,
 ) -> @model.Element {
   {
     id,
     x: 0.0,
     y: 0.0,
-    shape: @model.Path(d),
+    shape: @model.Path(d, start_x, start_y, end_x, end_y),
     style,
     transform: None,
     parent_id: None,
@@ -205,6 +209,7 @@ pub fn default_style() -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -219,6 +224,7 @@ pub fn fill_style(fill : String, stroke : String) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -233,6 +239,7 @@ pub fn stroke_style(stroke : String, stroke_width : Double) -> @model.Style {
     stroke_dasharray: None,
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
@@ -251,6 +258,7 @@ pub fn dashed_style(
     stroke_dasharray: Some(dasharray),
     marker_start: None,
     marker_end: None,
+    font_family: None,
   }
 }
 
