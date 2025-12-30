@@ -13,11 +13,11 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        embed: resolve(__dirname, 'embed.html'),
-        webcomponent: resolve(__dirname, 'webcomponent.html'),
-        preview: resolve(__dirname, 'preview.html'),
-        'free_draw': resolve(__dirname, 'free_draw.html'),
-        viewer: resolve(__dirname, 'viewer.html'),
+        embed: resolve(__dirname, 'examples/embed.html'),
+        webcomponent: resolve(__dirname, 'examples/webcomponent.html'),
+        preview: resolve(__dirname, 'examples/preview.html'),
+        'free_draw': resolve(__dirname, 'examples/free_draw.html'),
+        viewer: resolve(__dirname, 'examples/viewer.html'),
       },
     },
   },

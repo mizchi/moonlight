@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Moonlight WebComponent Mode', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/webcomponent.html');
+    await page.goto('/examples/webcomponent.html');
   });
 
   test('should display webcomponent page title', async ({ page }) => {

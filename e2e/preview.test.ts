@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Moonlight Preview Mode', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/preview.html');
+    await page.goto('/examples/preview.html');
   });
 
   test('should display preview page title', async ({ page }) => {

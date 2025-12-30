@@ -28,7 +28,7 @@ test.describe("Validation and Capability", () => {
       page,
     }) => {
       // embed ページを使用（window.editor が利用可能）
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Moonlight SVG をインポート
@@ -51,7 +51,7 @@ test.describe("Validation and Capability", () => {
     test("should show style options in context menu for Moonlight elements", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Moonlight SVG をインポート
@@ -77,7 +77,7 @@ test.describe("Validation and Capability", () => {
     test("should not show resize handles for plain SVG elements", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Plain SVG をインポート
@@ -107,7 +107,7 @@ test.describe("Validation and Capability", () => {
     test("should show restricted context menu for plain SVG elements", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Plain SVG をインポート
@@ -136,7 +136,7 @@ test.describe("Validation and Capability", () => {
     test.skip("should still allow moving plain SVG elements", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Plain SVG をインポート
@@ -171,7 +171,7 @@ test.describe("Validation and Capability", () => {
     test("should mark line with orphan connection as move only", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Orphan connection SVG をインポート
@@ -201,7 +201,7 @@ test.describe("Validation and Capability", () => {
     test("should allow deleting element with orphan connection", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Orphan connection SVG をインポート
@@ -231,7 +231,7 @@ test.describe("Validation and Capability", () => {
     test("should allow layer operations for plain SVG elements", async ({
       page,
     }) => {
-      await page.goto("http://localhost:5173/embed.html");
+      await page.goto("http://localhost:5173/examples/embed.html");
       await page.waitForSelector("svg");
 
       // Plain SVG をインポート

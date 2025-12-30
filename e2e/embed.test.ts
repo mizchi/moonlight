@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Moonlight Embed Mode', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
   });
 
   test('should display embed page title', async ({ page }) => {
@@ -80,7 +80,7 @@ test.describe('Moonlight Embed Mode', () => {
 
 test.describe('Moonlight Embed Mode - Drag and Drop', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     // Wait for editor to be ready
     await expect(page.locator('#output')).toContainText('Editor created');
   });
@@ -247,7 +247,7 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
 // Context menu is disabled in embed mode by design
 test.describe.skip('Moonlight Embed Mode - Context Menu', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     // Wait for editor to be ready
     await expect(page.locator('#output')).toContainText('Editor created');
   });
@@ -357,7 +357,7 @@ test.describe.skip('Moonlight Embed Mode - Context Menu', () => {
 
 test.describe('Moonlight Embed Mode - Anchor Points', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     await expect(page.locator('#output')).toContainText('Editor created');
   });
 
@@ -409,7 +409,7 @@ test.describe('Moonlight Embed Mode - Anchor Points', () => {
 // Keyboard shortcuts are not set up in embed mode by design
 test.describe.skip('Moonlight Embed Mode - Keyboard Shortcuts', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     await expect(page.locator('#output')).toContainText('Editor created');
     // Click on editor to focus
     await page.locator('#editor').click();
@@ -490,7 +490,7 @@ test.describe.skip('Moonlight Embed Mode - Keyboard Shortcuts', () => {
 
 test.describe('Moonlight Embed Mode - Anchor Drag', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     await expect(page.locator('#output')).toContainText('Editor created');
   });
 
@@ -698,7 +698,7 @@ test.describe('Moonlight Embed Mode - Anchor Drag', () => {
 
 test.describe('Moonlight Embed Mode - Edit Modal', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/embed.html');
+    await page.goto('/examples/embed.html');
     await expect(page.locator('#output')).toContainText('Editor created');
   });
 
