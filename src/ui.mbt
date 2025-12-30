@@ -686,10 +686,12 @@ fn render_text_style_editor(
 
 ///|
 /// 共通フォントボタン群
+/// Note: element_id はフォールバック用。実際は state.get_selected_id() を使用して
+/// 選択中の要素を動的に取得する（Luna の Show 再レンダリング問題の回避）
 fn render_font_buttons_shared(
   state : @core.EditorState,
   history : @model.History,
-  element_id : String,
+  _element_id : String,
 ) -> @element.DomNode {
   let buttons : Array[@element.DomNode] = []
   for preset in font_family_presets {
@@ -698,8 +700,13 @@ fn render_font_buttons_shared(
       button(
         style=toggle_button_style,
         dyn_style=fn() {
-          let is_selected = match state.find_element(element_id) {
-            Some(el) => el.style.font_family == font_value
+          // 動的に現在選択中の要素を取得
+          let is_selected = match state.get_selected_id() {
+            Some(id) =>
+              match state.find_element(id) {
+                Some(el) => el.style.font_family == font_value
+                None => false
+              }
             None => false
           }
           if is_selected {
@@ -709,14 +716,17 @@ fn render_font_buttons_shared(
           }
         },
         on=events().click(fn(_) {
-          if state.find_element(element_id) is Some(el) {
-            let old_style = el.style
-            let new_style = { ..old_style, font_family: font_value }
-            @core.execute_command(
-              history,
-              state,
-              @model.UpdateStyle(element_id, old_style, new_style),
-            )
+          // 動的に現在選択中の要素を取得してスタイルを更新
+          if state.get_selected_id() is Some(current_id) {
+            if state.find_element(current_id) is Some(el) {
+              let old_style = el.style
+              let new_style = { ..old_style, font_family: font_value }
+              @core.execute_command(
+                history,
+                state,
+                @model.UpdateStyle(current_id, old_style, new_style),
+              )
+            }
           }
         }),
         [text(label)],

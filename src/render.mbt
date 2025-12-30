@@ -1936,6 +1936,7 @@ fn update_element_attrs(
       let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
       let stroke = el.style.stroke.unwrap_or("")
       let stroke_width = el.style.stroke_width.unwrap_or(0.0)
+      let font_family = el.style.font_family.unwrap_or("")
       update_text_children_with_style(
         dom_el,
         el.x,
@@ -1945,6 +1946,7 @@ fn update_element_attrs(
         text_fill,
         stroke,
         stroke_width,
+        font_family,
       )
     }
     _ => ()
@@ -2076,8 +2078,9 @@ extern "js" fn update_text_children_with_style(
   fill : String,
   stroke : String,
   stroke_width : Double,
+  font_family : String,
 ) =
-  #| (group, x, y, content, fontSize, fill, stroke, strokeWidth) => {
+  #| (group, x, y, content, fontSize, fill, stroke, strokeWidth, fontFamily) => {
   #|   const children = group.children;
   #|   // ヒットエリアのサイズを計算（係数0.55に統一）
   #|   const lines = content.split('\n');
@@ -2102,6 +2105,12 @@ extern "js" fn update_text_children_with_style(
   #|       child.setAttribute('x', x);
   #|       child.setAttribute('y', y);
   #|       child.setAttribute('font-size', fontSize);
+  #|       // フォントファミリー更新
+  #|       if (fontFamily) {
+  #|         child.setAttribute('font-family', fontFamily);
+  #|       } else {
+  #|         child.removeAttribute('font-family');
+  #|       }
   #|       // テキスト内容を更新
   #|       if (lineCount === 1) {
   #|         child.textContent = content;
