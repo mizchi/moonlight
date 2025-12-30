@@ -176,6 +176,27 @@ pub fn elements_to_svg(
 }
 
 ///|
+/// 要素を描画順にソート（親要素を先、子要素を後に）
+/// 子要素（Text等）が親要素（Line等）の上に描画されるようにする
+pub fn sort_elements_for_render(
+  elements : Array[@model.Element],
+) -> Array[@model.Element] {
+  // 親要素（parent_id が None）を先に、子要素を後に
+  let parents : Array[@model.Element] = []
+  let children : Array[@model.Element] = []
+  for el in elements {
+    if el.parent_id is None {
+      parents.push(el)
+    } else {
+      children.push(el)
+    }
+  }
+  // 親の後に子を追加（子は親の描画後に描画される = 上に表示）
+  parents.append(children)
+  parents
+}
+
+///|
 /// 要素配列を標準 SVG 文字列にエクスポート（オプション付き）
 pub fn elements_to_svg_with_options(
   elements : Array[@model.Element],
@@ -193,8 +214,9 @@ pub fn elements_to_svg_with_options(
   }
   // 背景
   svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"
-  // 要素
-  for el in elements {
+  // 要素（子要素が親要素の上に描画されるようソート）
+  let sorted = sort_elements_for_render(elements)
+  for el in sorted {
     let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
     svg = svg +
       "  " +

@@ -2,6 +2,25 @@
 // Signal や DOM に依存しない純粋な計算関数
 
 ///|
+/// 要素を描画順にソート（親要素を先、子要素を後に）
+/// 子要素（Text等）が親要素（Line等）の上に描画されるようにする
+pub fn sort_elements_for_render(elements : Array[Element]) -> Array[Element] {
+  // 親要素（parent_id が None）を先に、子要素を後に
+  let parents : Array[Element] = []
+  let children : Array[Element] = []
+  for el in elements {
+    if el.parent_id is None {
+      parents.push(el)
+    } else {
+      children.push(el)
+    }
+  }
+  // 親の後に子を追加（子は親の描画後に描画される = 上に表示）
+  parents.append(children)
+  parents
+}
+
+///|
 /// 2D 座標点
 pub(all) struct Point {
   x : Double
@@ -190,6 +209,105 @@ pub(all) enum ShapeType {
   /// テキスト: 内容, フォントサイズ
   Text(String, Double?)
 } derive(Show, Eq)
+
+///|
+/// シェープごとの設定（UI表示、編集可能なスタイル、アンカー、接続）
+pub(all) struct ShapeConfig {
+  /// Stroke 色を表示・編集可能か
+  has_stroke : Bool
+  /// Fill 色を表示・編集可能か
+  has_fill : Bool
+  /// Stroke 幅を表示・編集可能か
+  has_stroke_width : Bool
+  /// フォント選択を表示するか（Text用）
+  has_font : Bool
+  /// 破線パターンを表示するか（Line, Path用）
+  has_dasharray : Bool
+  /// 矢印を表示するか（Line, Path用）
+  has_arrows : Bool
+  /// 他の要素への接続をサポートするか（Line, Path用）
+  can_connect : Bool
+  /// 接続ターゲットになれるか（Line, Path 以外）
+  is_connection_target : Bool
+  /// 利用可能なアンカータイプ
+  anchor_types : Array[Anchor]
+}
+
+///|
+/// シェープタイプから設定を取得
+pub fn ShapeType::config(self : ShapeType) -> ShapeConfig {
+  match self {
+    Rect(_, _, _, _) => {
+      has_stroke: true,
+      has_fill: true,
+      has_stroke_width: true,
+      has_font: false,
+      has_dasharray: false,
+      has_arrows: false,
+      can_connect: false,
+      is_connection_target: true,
+      anchor_types: [
+        Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft,
+        BottomRight,
+      ],
+    }
+    Circle(_) | Ellipse(_, _) => {
+      has_stroke: true,
+      has_fill: true,
+      has_stroke_width: true,
+      has_font: false,
+      has_dasharray: false,
+      has_arrows: false,
+      can_connect: false,
+      is_connection_target: true,
+      anchor_types: [Center, Top, Bottom, Left, Right],
+    }
+    Line(_, _) => {
+      has_stroke: true,
+      has_fill: false, // Line は Fill 不要
+      has_stroke_width: true,
+      has_font: false,
+      has_dasharray: true,
+      has_arrows: true,
+      can_connect: true,
+      is_connection_target: false, // Line は接続ターゲットにならない
+      anchor_types: [LineStart, LineEnd],
+    }
+    Polyline(_) => {
+      has_stroke: true,
+      has_fill: false,
+      has_stroke_width: true,
+      has_font: false,
+      has_dasharray: true,
+      has_arrows: false,
+      can_connect: false,
+      is_connection_target: false,
+      anchor_types: [LineStart, LineEnd],
+    }
+    Path(_, _, _, _, _) => {
+      has_stroke: true,
+      has_fill: false, // Path は Fill 不要（フリーハンド線）
+      has_stroke_width: true,
+      has_font: false,
+      has_dasharray: true,
+      has_arrows: true,
+      can_connect: true,
+      is_connection_target: false, // Path は接続ターゲットにならない
+      anchor_types: [LineStart, LineEnd, Center],
+    }
+    Text(_, _) => {
+      has_stroke: true, // Text の色（実質 fill だが stroke として扱う）
+      has_fill: false, // Text は Fill 不要
+      has_stroke_width: false,
+      has_font: true,
+      has_dasharray: false,
+      has_arrows: false,
+      can_connect: false,
+      is_connection_target: true, // Text も接続ターゲットになれる
+      anchor_types: [Center], // Text は中心のみ
+    }
+  }
+}
 
 ///|
 /// 図形要素
@@ -388,26 +506,9 @@ pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
 }
 
 ///|
-/// 全てのアンカー位置を取得
+/// 全てのアンカー位置を取得（ShapeConfig.anchor_types を使用）
 pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
-  // 図形タイプに応じたアンカーを返す
-  let anchors : Array[Anchor] = match self.shape {
-    Circle(_) | Ellipse(_, _) => [Center, Top, Bottom, Left, Right]
-    Line(_, _) => [LineStart, LineEnd] // Line は始点と終点のみ
-    Path(_, _, _, _, _) => [LineStart, LineEnd, Center] // Path も始点と終点
-    _ =>
-      [
-        Center,
-        Top,
-        Bottom,
-        Left,
-        Right,
-        TopLeft,
-        TopRight,
-        BottomLeft,
-        BottomRight,
-      ]
-  }
+  let anchors = self.shape.config().anchor_types
   anchors.map(fn(a) { (a, self.get_anchor_point(a)) })
 }
 

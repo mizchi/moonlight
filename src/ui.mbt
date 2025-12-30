@@ -447,6 +447,7 @@ fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
 ///|
 /// 共通スタイルエディタコンポーネント（コンテキストメニュー・詳細パネル両方で使用）
 /// close_menu: メニューを閉じるコールバック（コンテキストメニュー用、詳細パネルでは空の関数を渡す）
+/// ShapeConfig を使用して、シェープごとに表示する項目を制御
 pub fn render_style_editor(
   state : @core.EditorState,
   history : @model.History,
@@ -457,41 +458,64 @@ pub fn render_style_editor(
   let section_style = "margin-bottom: 8px;"
   let label_style = "font-size: 11px; color: \{theme.ui_text_muted}; min-width: 40px;"
   @element.fragment([
-    // Stroke セクション
-    div(style=section_style, [
-      div(
-        style="display: flex; align-items: center; gap: 8px;",
-        [
-          @element.span(style=label_style, [text("Stroke")]),
-          render_color_editor(state, history, element_id, false, close_menu),
-        ],
-      ),
-    ]),
-    // Fill セクション
-    div(style=section_style, [
-      div(
-        style="display: flex; align-items: center; gap: 8px;",
-        [
-          @element.span(style=label_style, [text("Fill")]),
-          render_color_editor(state, history, element_id, true, close_menu),
-        ],
-      ),
-    ]),
-    // Text 専用オプション（フォント選択）
+    // Stroke セクション（ShapeConfig.has_stroke で制御）
     show(
       fn() {
         match state.find_element(element_id) {
-          Some(el) => el.shape is @model.Text(_, _)
+          Some(el) => el.shape.config().has_stroke
+          None => false
+        }
+      },
+      fn() {
+        div(style=section_style, [
+          div(
+            style="display: flex; align-items: center; gap: 8px;",
+            [
+              @element.span(style=label_style, [text("Stroke")]),
+              render_color_editor(state, history, element_id, false, close_menu),
+            ],
+          ),
+        ])
+      },
+    ),
+    // Fill セクション（ShapeConfig.has_fill で制御）
+    show(
+      fn() {
+        match state.find_element(element_id) {
+          Some(el) => el.shape.config().has_fill
+          None => false
+        }
+      },
+      fn() {
+        div(style=section_style, [
+          div(
+            style="display: flex; align-items: center; gap: 8px;",
+            [
+              @element.span(style=label_style, [text("Fill")]),
+              render_color_editor(state, history, element_id, true, close_menu),
+            ],
+          ),
+        ])
+      },
+    ),
+    // Text 専用オプション - フォント選択（ShapeConfig.has_font で制御）
+    show(
+      fn() {
+        match state.find_element(element_id) {
+          Some(el) => el.shape.config().has_font
           None => false
         }
       },
       fn() { render_text_style_editor(state, history, element_id, close_menu) },
     ),
-    // Line 専用オプション（破線、矢印）
+    // Line/Path 専用オプション - 破線・矢印（ShapeConfig.has_dasharray/has_arrows で制御）
     show(
       fn() {
         match state.find_element(element_id) {
-          Some(el) => el.shape is @model.Line(_, _)
+          Some(el) => {
+            let config = el.shape.config()
+            config.has_dasharray || config.has_arrows
+          }
           None => false
         }
       },
@@ -1134,41 +1158,55 @@ fn render_element_details(
       let noop = fn() {  }
       @element.fragment([
         render_style_editor(state, history, id, noop),
-        // stroke-width（詳細パネル専用）
-        div(style="display: flex; align-items: center; gap: 8px; margin-top: 8px;", [
-          @element.span(style="font-size: 11px; color: #666; min-width: 40px;", [
-            text("Width"),
-          ]),
-          input(
-            type_="number",
-            style="width: 50px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 10px;",
-            attrs=[
-              ("min", @element.AttrString("0")),
-              ("step", @element.AttrString("0.5")),
-            ],
-            dyn_value=fn() {
-              match state.find_element(id) {
-                Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
-                None => "1"
-              }
-            },
-            on=events().change(fn(e) {
-              if state.find_element(id) is Some(el) {
-                let value = get_event_target_value(e.as_any())
-                if parse_double(value) is Some(w) {
-                  let old_style = el.style
-                  let new_style = { ..old_style, stroke_width: Some(w) }
-                  @core.execute_command(
-                    history,
-                    state,
-                    @model.UpdateStyle(id, old_style, new_style),
-                  )
-                }
-              }
-            }),
-          ),
-          @element.span(style="font-size: 10px; color: #999;", [text("px")]),
-        ]),
+        // stroke-width（詳細パネル専用、ShapeConfig.has_stroke_width で制御）
+        show(
+          fn() {
+            match state.find_element(id) {
+              Some(el) => el.shape.config().has_stroke_width
+              None => false
+            }
+          },
+          fn() {
+            div(
+              style="display: flex; align-items: center; gap: 8px; margin-top: 8px;",
+              [
+                @element.span(
+                  style="font-size: 11px; color: #666; min-width: 40px;",
+                  [text("Width")],
+                ),
+                input(
+                  type_="number",
+                  style="width: 50px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 10px;",
+                  attrs=[
+                    ("min", @element.AttrString("0")),
+                    ("step", @element.AttrString("0.5")),
+                  ],
+                  dyn_value=fn() {
+                    match state.find_element(id) {
+                      Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
+                      None => "1"
+                    }
+                  },
+                  on=events().change(fn(e) {
+                    if state.find_element(id) is Some(el) {
+                      let value = get_event_target_value(e.as_any())
+                      if parse_double(value) is Some(w) {
+                        let old_style = el.style
+                        let new_style = { ..old_style, stroke_width: Some(w) }
+                        @core.execute_command(
+                          history,
+                          state,
+                          @model.UpdateStyle(id, old_style, new_style),
+                        )
+                      }
+                    }
+                  }),
+                ),
+                @element.span(style="font-size: 10px; color: #999;", [text("px")]),
+              ],
+            )
+          },
+        ),
       ])
     }),
   ])

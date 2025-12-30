@@ -177,8 +177,9 @@ pub fn elements_to_moonlight_svg(
       "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n",
     )
   }
-  // 要素
-  for el in elements {
+  // 要素（子要素が親要素の上に描画されるようソート）
+  let sorted = @model.sort_elements_for_render(elements)
+  for el in sorted {
     // 子テキスト要素の場合、親の stroke 色を取得
     let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
     sb.write_string("  ")

@@ -2309,6 +2309,68 @@ fn embedded_editor_app(
 }
 
 ///|
+/// 16進数カラーコードから明度を計算（0.0〜1.0）
+fn get_color_luminance(hex : String) -> Double {
+  // #RRGGBB 形式を想定、文字配列に変換
+  let chars : Array[Char] = hex.to_upper().iter().collect()
+  let start = if chars.length() > 0 && chars[0] == '#' { 1 } else { 0 }
+  guard chars.length() >= start + 6 else { return 0.5 }
+  // 各チャンネルを抽出
+  let r = (hex_char_to_int(chars[start]) * 16 +
+    hex_char_to_int(chars[start + 1])).to_double()
+  let g = (hex_char_to_int(chars[start + 2]) * 16 +
+    hex_char_to_int(chars[start + 3])).to_double()
+  let b = (hex_char_to_int(chars[start + 4]) * 16 +
+    hex_char_to_int(chars[start + 5])).to_double()
+  // 相対輝度の計算（sRGB）
+  (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+}
+
+///|
+/// 16進数文字を数値に変換
+fn hex_char_to_int(c : Char) -> Int {
+  match c {
+    '0' => 0
+    '1' => 1
+    '2' => 2
+    '3' => 3
+    '4' => 4
+    '5' => 5
+    '6' => 6
+    '7' => 7
+    '8' => 8
+    '9' => 9
+    'A' => 10
+    'B' => 11
+    'C' => 12
+    'D' => 13
+    'E' => 14
+    'F' => 15
+    _ => 0
+  }
+}
+
+///|
+/// テキスト色に対してコントラストのある背景色を返す
+fn get_contrasting_bg(text_color : String, theme : @model.ThemeMode) -> String {
+  let luminance = get_color_luminance(text_color)
+  // テキストが暗い（明度 < 0.5）なら明るい背景、逆なら暗い背景
+  if luminance < 0.5 {
+    // 暗いテキスト → 明るい背景
+    match theme {
+      @model.Light => "#ffffff"
+      @model.Dark => "#e0e0e0"
+    }
+  } else {
+    // 明るいテキスト → 暗い背景
+    match theme {
+      @model.Light => "#2a2a2a"
+      @model.Dark => "#1a1a2e"
+    }
+  }
+}
+
+///|
 /// テキスト入力コンテナ（FFI 要素を Effect で手動管理）
 fn render_text_input_container(
   state : @core.EditorState,
@@ -2337,9 +2399,28 @@ fn render_text_input_container(
     if text_edit is Some(edit_state) {
       let vp = state.viewport.get()
       let theme = state.theme_mode.get()
-      let text_color = match theme {
+      let elements = state.elements.get()
+      // テキスト色を取得（既存テキストの色または親要素のstroke）
+      let default_text_color = match theme {
         @model.Dark => "#ffffff"
         @model.Light => "#000000"
+      }
+      let text_color = match edit_state.editing_id {
+        Some(id) =>
+          // 既存テキストの編集
+          match state.find_element(id) {
+            Some(el) => {
+              let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
+              @model.get_text_fill_color(el.style, parent_stroke)
+            }
+            None => default_text_color
+          }
+        None =>
+          // 新規テキスト作成（親要素のstrokeを使用）
+          match state.find_element(edit_state.parent_id) {
+            Some(parent) => parent.style.stroke.unwrap_or(default_text_color)
+            None => default_text_color
+          }
       }
       let (text_x, text_y) : (Double, Double) = match
         state.find_element(edit_state.parent_id) {
@@ -2351,11 +2432,9 @@ fn render_text_input_container(
         }
         None => (edit_state.x, edit_state.y)
       }
-      // 背景色（テーマに応じて変更）
-      let bg_color = match theme {
-        @model.Dark => "#1a1a2e"
-        @model.Light => "#ffffff"
-      }
+      // 背景色（テキスト色とのコントラストを考慮）
+      // テキスト色が暗い（#000000に近い）場合は明るい背景、逆の場合は暗い背景
+      let bg_color = get_contrasting_bg(text_color, theme)
       // Embed モード（モーダルなし）ではパーセント指定、それ以外はピクセル指定
       let is_embed_view = state.mode is @core.Embedded &&
         not(state.modal_open.get())
