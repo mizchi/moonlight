@@ -10,7 +10,9 @@ priv struct State {
   mut points : Array[@bezier.Point]
   mut paths : Array[PathData]
   // Drag state
-  mut dragging : DragTarget?
+  mut dragging : DragState?
+  // Hover state
+  mut hovered_path : Int?
   // Options
   mut resample_dist : Double
   mut epsilon : Double
@@ -24,11 +26,26 @@ priv struct PathData {
 }
 
 ///|
-/// ドラッグ対象
+/// ドラッグ状態
+priv enum DragState {
+  Point(DragTarget)
+  Path(PathDrag)
+}
+
+///|
+/// ポイントドラッグ対象
 priv struct DragTarget {
   path_idx : Int
   seg_idx : Int
-  point_type : PointType // p0, c1, c2, p3
+  point_type : PointType
+}
+
+///|
+/// パス全体ドラッグ
+priv struct PathDrag {
+  path_idx : Int
+  start_x : Double
+  start_y : Double
 }
 
 ///|
@@ -45,6 +62,7 @@ let state : State = {
   points: [],
   paths: [],
   dragging: None,
+  hovered_path: None,
   resample_dist: 4.0,
   epsilon: 2.0,
   max_error: 8.0,
@@ -128,6 +146,18 @@ extern "js" fn get_int_field(obj : @js.Any, field : String) -> Int =
   #| (obj, field) => obj[field]
 
 ///|
+extern "js" fn get_path_at_point(e : @js.Any) -> Int =
+  #| (e) => {
+  #|   const el = e.target;
+  #|   if (!el.classList) return -1;
+  #|   if (el.classList.contains('hit-area')) {
+  #|     const idx = el.dataset.path;
+  #|     return idx !== undefined ? parseInt(idx) : -1;
+  #|   }
+  #|   return -1;
+  #| }
+
+///|
 extern "js" fn get_string_field(obj : @js.Any, field : String) -> String =
   #| (obj, field) => obj[field]
 
@@ -142,13 +172,25 @@ fn render() -> Unit {
 
   // 完了した paths を描画
   for path_idx, path in state.paths {
-    // Bezier path (セグメントから生成)
-    if path.segments.length() > 0 {
-      let svg_path = @bezier.to_svg_path(path.segments)
-      html = html + "<path class=\"bezier-path\" d=\"\{svg_path}\"/>"
+    if path.segments.length() == 0 {
+      continue
     }
-    // Control points and anchor points
-    if state.show_controls {
+    let svg_path = @bezier.to_svg_path(path.segments)
+    let is_hovered = match state.hovered_path {
+      Some(idx) => idx == path_idx
+      None => false
+    }
+
+    // Hit area (透明な太い線で当たり判定)
+    html = html +
+      "<path class=\"hit-area\" d=\"\{svg_path}\" data-path=\"\{path_idx}\"/>"
+
+    // Visible bezier path
+    let path_class = if is_hovered { "bezier-path hovered" } else { "bezier-path" }
+    html = html + "<path class=\"\{path_class}\" d=\"\{svg_path}\"/>"
+
+    // Control points and anchor points (ホバー時 or show_controls 時に表示)
+    if state.show_controls || is_hovered {
       for seg_idx, seg in path.segments {
         // Control lines (anchor to control point)
         html = html +
@@ -231,20 +273,27 @@ fn parse_drag_target(e : @js.Any) -> DragTarget? {
 ///|
 fn on_pointer_down(e : @js.Any) -> Unit {
   prevent_default(e)
+  let svg = get_element_by_id("canvas")
+  let x = get_svg_point_x(svg, e)
+  let y = get_svg_point_y(svg, e)
 
   // Check if clicking on a draggable point
   match parse_drag_target(e) {
     Some(target) => {
-      state.dragging = Some(target)
+      state.dragging = Some(Point(target))
       return
     }
     None => ()
   }
 
+  // Check if clicking on a path hit area
+  let path_idx = get_path_at_point(e)
+  if path_idx >= 0 {
+    state.dragging = Some(Path({ path_idx, start_x: x, start_y: y }))
+    return
+  }
+
   // Start drawing
-  let svg = get_element_by_id("canvas")
-  let x = get_svg_point_x(svg, e)
-  let y = get_svg_point_y(svg, e)
   state.is_drawing = true
   state.points = [@bezier.Point::new(x, y)]
   render()
@@ -252,25 +301,42 @@ fn on_pointer_down(e : @js.Any) -> Unit {
 
 ///|
 fn on_pointer_move(e : @js.Any) -> Unit {
-  prevent_default(e)
   let svg = get_element_by_id("canvas")
   let x = get_svg_point_x(svg, e)
   let y = get_svg_point_y(svg, e)
 
   // Handle dragging
   match state.dragging {
-    Some(target) => {
+    Some(Point(target)) => {
+      prevent_default(e)
       update_point(target, x, y)
+      render()
+      return
+    }
+    Some(Path(drag)) => {
+      prevent_default(e)
+      let dx = x - drag.start_x
+      move_path(drag.path_idx, dx, 0.0) // 水平移動のみ
+      state.dragging = Some(Path({ ..drag, start_x: x, start_y: y }))
       render()
       return
     }
     None => ()
   }
 
+  // Handle hover detection
+  let path_idx = get_path_at_point(e)
+  let new_hovered : Int? = if path_idx >= 0 { Some(path_idx) } else { None }
+  if new_hovered != state.hovered_path {
+    state.hovered_path = new_hovered
+    render()
+  }
+
   // Handle drawing
   if not(state.is_drawing) {
     return
   }
+  prevent_default(e)
   state.points.push(@bezier.Point::new(x, y))
   render()
   update_info()
@@ -312,6 +378,23 @@ fn update_point(target : DragTarget, x : Double, y : Double) -> Unit {
         path.segments[target.seg_idx + 1] = { ..next_seg, p0: new_point }
       }
     _ => ()
+  }
+}
+
+///|
+fn move_path(path_idx : Int, dx : Double, dy : Double) -> Unit {
+  if path_idx >= state.paths.length() {
+    return
+  }
+  let path = state.paths[path_idx]
+  for i, seg in path.segments {
+    let new_seg : @bezier.BezierSegment = {
+      p0: @bezier.Point::new(seg.p0.x + dx, seg.p0.y + dy),
+      c1: @bezier.Point::new(seg.c1.x + dx, seg.c1.y + dy),
+      c2: @bezier.Point::new(seg.c2.x + dx, seg.c2.y + dy),
+      p3: @bezier.Point::new(seg.p3.x + dx, seg.p3.y + dy),
+    }
+    path.segments[i] = new_seg
   }
 }
 

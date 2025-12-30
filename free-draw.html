@@ -90,6 +90,20 @@
     .draggable:active {
       cursor: grabbing;
     }
+    .hit-area {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 20;
+      cursor: grab;
+      pointer-events: stroke;
+    }
+    .hit-area:hover {
+      stroke: rgba(78, 204, 163, 0.2);
+    }
+    .bezier-path.hovered {
+      stroke: #ff8a80;
+      stroke-width: 3;
+    }
     .info {
       position: absolute;
       bottom: 20px;
