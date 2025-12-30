@@ -120,6 +120,8 @@ pub struct EditorState {
   tool_mode : @luna.Signal[ToolMode] // ツールモード（Select / FreeDraw）
   free_draw_state : @luna.Signal[FreeDrawState?] // フリードロー中の状態
   free_draw_options : @luna.Signal[FreeDrawOptions] // フリードローオプション
+  // 配置位置オフセット
+  last_placement_pos : @luna.Signal[@model.Point?] // 最後に配置した位置
 }
 
 ///|
@@ -181,6 +183,8 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
       epsilon: 2.0,
       max_error: 8.0,
     }),
+    // 配置位置オフセット
+    last_placement_pos: @luna.signal(None),
   }
 }
 
@@ -985,12 +989,28 @@ pub fn EditorState::get_viewport_center(self : EditorState) -> @model.Point {
 
 ///|
 /// 要素配置位置を取得（マウスがキャンバス内ならマウス位置、そうでなければ画面中央）
+/// 同じ座標に繰り返し配置する場合は +15px ずらす
 pub fn EditorState::get_placement_position(self : EditorState) -> @model.Point {
-  if self.mouse_in_canvas.get() {
+  let base_pos = if self.mouse_in_canvas.get() {
     self.mouse_scene_pos.get()
   } else {
     self.get_viewport_center()
   }
+  // 最後の配置位置と同じなら +15px ずらす
+  let offset = 15.0
+  let final_pos = match self.last_placement_pos.get() {
+    Some(last) =>
+      if (base_pos.x - last.x).abs() < 1.0 && (base_pos.y - last.y).abs() < 1.0 {
+        // 同じ位置なら右下にオフセット
+        @model.Point::{ x: last.x + offset, y: last.y + offset }
+      } else {
+        base_pos
+      }
+    None => base_pos
+  }
+  // 位置を記録
+  self.last_placement_pos.set(Some(final_pos))
+  final_pos
 }
 
 ///|
