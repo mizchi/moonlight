@@ -316,7 +316,8 @@ fn on_pointer_move(e : @js.Any) -> Unit {
     Some(Path(drag)) => {
       prevent_default(e)
       let dx = x - drag.start_x
-      move_path(drag.path_idx, dx, 0.0) // 水平移動のみ
+      let dy = y - drag.start_y
+      move_path(drag.path_idx, dx, dy)
       state.dragging = Some(Path({ ..drag, start_x: x, start_y: y }))
       render()
       return
