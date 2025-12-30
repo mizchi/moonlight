@@ -642,7 +642,11 @@ test "refit: produces valid segments" {
       p3: Point::new(100.0, 0.0),
     },
   ]
-  let options : Options = { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0 }
+  let options : Options = {
+    min_resample_dist: 2.0,
+    epsilon: 1.0,
+    max_error: 4.0,
+  }
   let result = refit(segments, 20, options)
   inspect(result.length() >= 1, content="true")
   // 始点と終点は近い位置に
@@ -683,7 +687,11 @@ test "refit_range: only affects range" {
       p3: Point::new(300.0, 0.0),
     },
   ]
-  let options : Options = { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0 }
+  let options : Options = {
+    min_resample_dist: 2.0,
+    epsilon: 1.0,
+    max_error: 4.0,
+  }
   let result = refit_range(segments, 1, 2, 20, options)
   // 最初と最後のセグメントの始点・終点は変わらない
   inspect(result[0].p0.x, content="0")

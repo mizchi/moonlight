@@ -416,10 +416,12 @@ fn determine_capability(
   }
 
   // 警告でも move_only にすべき重大なケースをチェック
-  let has_critical_warning = issues.iter().any(fn(i) {
-    i.level == Warning &&
+  let has_critical_warning = issues
+    .iter()
+    .any(fn(i) {
+      i.level == Warning &&
       (i.code == issue_invalid_parent || i.code == issue_orphan_connection)
-  })
+    })
   if has_critical_warning {
     return ElementCapability::move_and_delete()
   }

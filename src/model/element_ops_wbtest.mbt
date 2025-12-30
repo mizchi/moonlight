@@ -253,7 +253,9 @@ test "move_element_with_relations - element not found returns unchanged" {
   let elements = [rect]
 
   // 存在しない要素を移動
-  let result = move_element_with_relations(elements, "nonexistent", 200.0, 200.0)
+  let result = move_element_with_relations(
+    elements, "nonexistent", 200.0, 200.0,
+  )
 
   // 元の配列がそのまま返される
   assert_eq(result.length(), 1)

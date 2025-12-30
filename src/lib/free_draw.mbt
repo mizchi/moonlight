@@ -2,7 +2,11 @@
 
 ///|
 /// フリードロー開始
-pub fn start_free_draw(state : @core.EditorState, x : Double, y : Double) -> Unit {
+pub fn start_free_draw(
+  state : @core.EditorState,
+  x : Double,
+  y : Double,
+) -> Unit {
   let point : @model.Point = { x, y }
   state.free_draw_state.set(Some({ points: [point] }))
 }

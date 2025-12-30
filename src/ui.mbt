@@ -468,13 +468,10 @@ pub fn render_style_editor(
       },
       fn() {
         div(style=section_style, [
-          div(
-            style="display: flex; align-items: center; gap: 8px;",
-            [
-              @element.span(style=label_style, [text("Stroke")]),
-              render_color_editor(state, history, element_id, false, close_menu),
-            ],
-          ),
+          div(style="display: flex; align-items: center; gap: 8px;", [
+            @element.span(style=label_style, [text("Stroke")]),
+            render_color_editor(state, history, element_id, false, close_menu),
+          ]),
         ])
       },
     ),
@@ -488,13 +485,10 @@ pub fn render_style_editor(
       },
       fn() {
         div(style=section_style, [
-          div(
-            style="display: flex; align-items: center; gap: 8px;",
-            [
-              @element.span(style=label_style, [text("Fill")]),
-              render_color_editor(state, history, element_id, true, close_menu),
-            ],
-          ),
+          div(style="display: flex; align-items: center; gap: 8px;", [
+            @element.span(style=label_style, [text("Fill")]),
+            render_color_editor(state, history, element_id, true, close_menu),
+          ]),
         ])
       },
     ),
@@ -502,16 +496,17 @@ pub fn render_style_editor(
     show(
       fn() {
         match state.find_element(element_id) {
-          Some(el) => {
+          Some(el) =>
             // 自身がTextの場合、または子テキストがある場合に表示
             if el.shape.config().has_font {
               true
             } else {
               // 子要素にTextがあるかチェック
               let children = state.get_children(element_id)
-              children.iter().any(fn(child) { child.shape is @model.Text(_, _) })
+              children
+              .iter()
+              .any(fn(child) { child.shape is @model.Text(_, _) })
             }
-          }
           None => false
         }
       },
@@ -543,63 +538,57 @@ fn render_color_editor(
   _close_menu : () -> Unit,
 ) -> @element.DomNode {
   // カラーパレット（基本色 + transparent）
-  let base_colors = ["#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00"]
-  div(
-    style="display: flex; align-items: center; gap: 3px;",
-    [
-      // 透明ボタン（is_fill の場合のみ）
-      if is_fill {
-        render_color_button(
-          state, history, element_id, is_fill, "transparent",
-        )
-      } else {
-        @element.fragment([])
-      },
-      // カラーパレット
-      @element.fragment(
-        base_colors.map(fn(color) {
-          render_color_button(state, history, element_id, is_fill, color)
-        }),
-      ),
-      // ネイティブカラーピッカー
-      input(
-        type_="color",
-        style="width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;",
-        dyn_value=fn() {
-          match state.find_element(element_id) {
-            Some(el) => {
-              let color = if is_fill {
-                el.style.fill.unwrap_or("transparent")
-              } else {
-                el.style.stroke.unwrap_or("#000000")
-              }
-              to_hex_color(
-                color,
-                if is_fill { "#ffffff" } else { "#000000" },
-              )
-            }
-            None => if is_fill { "#ffffff" } else { "#000000" }
-          }
-        },
-        on=events().input(fn(e) {
-          if state.find_element(element_id) is Some(el) {
-            let value = get_event_target_value(e.as_any())
-            let old_style = el.style
-            let new_style = if is_fill {
-              { ..old_style, fill: Some(value) }
+  let base_colors = [
+    "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00",
+  ]
+  div(style="display: flex; align-items: center; gap: 3px;", [
+    // 透明ボタン（is_fill の場合のみ）
+    if is_fill {
+      render_color_button(state, history, element_id, is_fill, "transparent")
+    } else {
+      @element.fragment([])
+    },
+    // カラーパレット
+    @element.fragment(
+      base_colors.map(fn(color) {
+        render_color_button(state, history, element_id, is_fill, color)
+      }),
+    ),
+    // ネイティブカラーピッカー
+    input(
+      type_="color",
+      style="width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;",
+      dyn_value=fn() {
+        match state.find_element(element_id) {
+          Some(el) => {
+            let color = if is_fill {
+              el.style.fill.unwrap_or("transparent")
             } else {
-              { ..old_style, stroke: Some(value) }
+              el.style.stroke.unwrap_or("#000000")
             }
-            @core.execute_command(
-              history,
-              state,
-              @model.UpdateStyle(element_id, old_style, new_style),
-            )
+            to_hex_color(color, if is_fill { "#ffffff" } else { "#000000" })
           }
-        }),
-      ),
-    ],
-  )
+          None => if is_fill { "#ffffff" } else { "#000000" }
+        }
+      },
+      on=events().input(fn(e) {
+        if state.find_element(element_id) is Some(el) {
+          let value = get_event_target_value(e.as_any())
+          let old_style = el.style
+          let new_style = if is_fill {
+            { ..old_style, fill: Some(value) }
+          } else {
+            { ..old_style, stroke: Some(value) }
+          }
+          @core.execute_command(
+            history,
+            state,
+            @model.UpdateStyle(element_id, old_style, new_style),
+          )
+        }
+      }),
+    ),
+  ])
 }
 
 ///|
@@ -685,10 +674,9 @@ fn render_text_style_editor(
       @element.span(style="font-size: 11px; color: \{theme.ui_text_muted};", [
         text("Font"),
       ]),
-      div(
-        style="display: flex; gap: 2px;",
-        [render_font_buttons_shared(state, history, element_id)],
-      ),
+      div(style="display: flex; gap: 2px;", [
+        render_font_buttons_shared(state, history, element_id),
+      ]),
     ],
   )
 }
@@ -781,10 +769,9 @@ fn render_line_style_editor(
     style="margin-top: 6px; padding-top: 6px; border-top: 1px solid \{theme.ui_border}; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
     [
       // 破線パターン選択
-      div(
-        style="display: flex; gap: 2px;",
-        [render_dasharray_buttons_shared(state, history, element_id)],
-      ),
+      div(style="display: flex; gap: 2px;", [
+        render_dasharray_buttons_shared(state, history, element_id),
+      ]),
       // セパレータ
       @element.span(style="color: #ccc;", [text("|")]),
       // Arrow トグルボタン
@@ -798,7 +785,8 @@ fn render_line_style_editor(
               None => false
             }
             if is_selected {
-              toggle_button_style + " background: #e3f2fd; border-color: #2196f3;"
+              toggle_button_style +
+              " background: #e3f2fd; border-color: #2196f3;"
             } else {
               toggle_button_style + " background: white;"
             }
@@ -830,7 +818,8 @@ fn render_line_style_editor(
               None => false
             }
             if is_selected {
-              toggle_button_style + " background: #e3f2fd; border-color: #2196f3;"
+              toggle_button_style +
+              " background: #e3f2fd; border-color: #2196f3;"
             } else {
               toggle_button_style + " background: white;"
             }
@@ -880,7 +869,8 @@ fn render_dasharray_buttons_shared(
               _ => false
             }
             if is_active {
-              toggle_button_style + " background: #e0e0ff; border-color: #6666ff;"
+              toggle_button_style +
+              " background: #e0e0ff; border-color: #6666ff;"
             } else {
               toggle_button_style + " background: #fff;"
             }
@@ -1250,7 +1240,8 @@ fn render_element_details(
                   ],
                   dyn_value=fn() {
                     match state.find_element(id) {
-                      Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
+                      Some(el) =>
+                        el.style.stroke_width.unwrap_or(1.0).to_string()
                       None => "1"
                     }
                   },
@@ -1269,7 +1260,9 @@ fn render_element_details(
                     }
                   }),
                 ),
-                @element.span(style="font-size: 10px; color: #999;", [text("px")]),
+                @element.span(style="font-size: 10px; color: #999;", [
+                  text("px"),
+                ]),
               ],
             )
           },

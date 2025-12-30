@@ -217,7 +217,11 @@ pub fn render_element_to_svg_with_parent(
         set_svg_attr(highlight, "x2", @model.num_str(x2))
         set_svg_attr(highlight, "y2", @model.num_str(y2))
         set_svg_attr(highlight, "stroke", "rgba(0, 102, 255, 0.3)")
-        set_svg_attr(highlight, "stroke-width", @model.num_str(stroke_width + 6.0))
+        set_svg_attr(
+          highlight,
+          "stroke-width",
+          @model.num_str(stroke_width + 6.0),
+        )
         set_svg_attr(highlight, "stroke-linecap", "round")
         set_svg_attr(highlight, "pointer-events", "none")
         append_child(group, highlight)
@@ -614,7 +618,10 @@ pub extern "js" fn remove_preview_line(svg : @js.Any) =
 
 ///|
 /// フリードロープレビューを描画
-pub fn draw_free_draw_preview(svg : @js.Any, points : Array[@model.Point]) -> Unit {
+pub fn draw_free_draw_preview(
+  svg : @js.Any,
+  points : Array[@model.Point],
+) -> Unit {
   if points.length() < 2 {
     remove_free_draw_preview(svg)
     return

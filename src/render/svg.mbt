@@ -195,11 +195,16 @@ pub fn elements_to_svg_with_options(
 ) -> String {
   let mut svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 \{width} \{height}\" width=\"\{width}\" height=\"\{height}\">\n"
   // 矢印マーカーが必要かチェック
-  let needs_arrows = elements.iter().any(fn(el) {
-    el.style.marker_start is Some(_) || el.style.marker_end is Some(_)
-  })
+  let needs_arrows = elements
+    .iter()
+    .any(fn(el) {
+      el.style.marker_start is Some(_) || el.style.marker_end is Some(_)
+    })
   if needs_arrows {
-    svg = svg + "  " + generate_arrow_defs().replace(old="\n", new="\n  ") + "\n"
+    svg = svg +
+      "  " +
+      generate_arrow_defs().replace(old="\n", new="\n  ") +
+      "\n"
   }
   // 背景
   svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"

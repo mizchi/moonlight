@@ -439,7 +439,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
   for cmd in commands {
     let c = cmd
     match c {
-      'M' | 'm' => {
+      'M' | 'm' =>
         // moveto
         if num_idx.val + 1 < numbers.length() {
           let x = numbers[num_idx.val]
@@ -460,8 +460,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'L' | 'l' => {
+      'L' | 'l' =>
         // lineto
         if num_idx.val + 1 < numbers.length() {
           let x = numbers[num_idx.val]
@@ -477,8 +476,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'C' | 'c' => {
+      'C' | 'c' =>
         // cubic bezier - 6 numbers, last 2 are end point
         if num_idx.val + 5 < numbers.length() {
           let x = numbers[num_idx.val + 4]
@@ -494,8 +492,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'Q' | 'q' => {
+      'Q' | 'q' =>
         // quadratic bezier - 4 numbers, last 2 are end point
         if num_idx.val + 3 < numbers.length() {
           let x = numbers[num_idx.val + 2]
@@ -511,8 +508,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'S' | 's' => {
+      'S' | 's' =>
         // smooth cubic - 4 numbers
         if num_idx.val + 3 < numbers.length() {
           let x = numbers[num_idx.val + 2]
@@ -528,8 +524,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'T' | 't' => {
+      'T' | 't' =>
         // smooth quadratic - 2 numbers
         if num_idx.val + 1 < numbers.length() {
           let x = numbers[num_idx.val]
@@ -545,8 +540,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'H' | 'h' => {
+      'H' | 'h' =>
         // horizontal lineto - 1 number
         if num_idx.val < numbers.length() {
           let x = numbers[num_idx.val]
@@ -559,8 +553,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
-      'V' | 'v' => {
+      'V' | 'v' =>
         // vertical lineto - 1 number
         if num_idx.val < numbers.length() {
           let y = numbers[num_idx.val]
@@ -573,7 +566,6 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
           end_x.val = current_x.val
           end_y.val = current_y.val
         }
-      }
       'Z' | 'z' => {
         // close path - return to start
         current_x.val = start_x.val
@@ -593,9 +585,26 @@ fn extract_path_commands(d : String) -> Array[Char] {
   let commands : Array[Char] = []
   for c in d {
     match c {
-      'M' | 'm' | 'L' | 'l' | 'H' | 'h' | 'V' | 'v' | 'C' | 'c' | 'S' | 's' |
-      'Q' | 'q' | 'T' | 't' | 'A' | 'a' | 'Z' | 'z' =>
-        commands.push(c)
+      'M'
+      | 'm'
+      | 'L'
+      | 'l'
+      | 'H'
+      | 'h'
+      | 'V'
+      | 'v'
+      | 'C'
+      | 'c'
+      | 'S'
+      | 's'
+      | 'Q'
+      | 'q'
+      | 'T'
+      | 't'
+      | 'A'
+      | 'a'
+      | 'Z'
+      | 'z' => commands.push(c)
       _ => ()
     }
   }

@@ -164,6 +164,7 @@ fn setup_cursor_effect(state : @core.EditorState, svg : @js.Any) -> Unit {
     }
     set_style_property(svg, "cursor", cursor)
   })
+
 }
 
 ///|

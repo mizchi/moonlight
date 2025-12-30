@@ -79,9 +79,9 @@ fn get_element_anchors_with_type(
       let actual_end_y = el.y + (end_y - start_y)
       [
         (el.x, el.y, @core.LineStart), // Start
-        (actual_end_x, actual_end_y, @core.LineEnd), // End
+        (actual_end_x, actual_end_y, @core.LineEnd),
       ]
-    }
+    } // End
     @model.Text(_, _) => [(el.x, el.y, @core.Center)] // Just the position
     _ => []
   }

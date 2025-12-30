@@ -186,7 +186,11 @@ fn render() -> Unit {
       "<path class=\"hit-area\" d=\"\{svg_path}\" data-path=\"\{path_idx}\"/>"
 
     // Visible bezier path
-    let path_class = if is_hovered { "bezier-path hovered" } else { "bezier-path" }
+    let path_class = if is_hovered {
+      "bezier-path hovered"
+    } else {
+      "bezier-path"
+    }
     html = html + "<path class=\"\{path_class}\" d=\"\{svg_path}\"/>"
 
     // Control points and anchor points (ホバー時 or show_controls 時に表示)
@@ -437,7 +441,6 @@ fn on_pointer_up(_e : @js.Any) -> Unit {
     console_log(
       "[Bezier] Raw: \{raw_count} -> Resampled: \{resampled_count} -> RDP: \{simplified_count} -> Segments: \{segment_count} (control points: \{segment_count * 4}) | Compression: \{ratio}%",
     )
-
     let path_data : PathData = { segments, }
     state.paths.push(path_data)
   }

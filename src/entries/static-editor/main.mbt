@@ -6,12 +6,16 @@
 // 型のリエクスポート
 // =============================================================================
 
+///|
 pub type Element = @model.Element
 
+///|
 pub type Style = @model.Style
 
+///|
 pub type ShapeType = @model.ShapeType
 
+///|
 pub type Point = @model.Point
 
 // =============================================================================
@@ -20,7 +24,10 @@ pub type Point = @model.Point
 
 ///|
 /// SVG 文字列をパースして Element 配列を返す
-pub fn import_svg(svg_str : String, new_id : () -> String) -> Array[@model.Element] {
+pub fn import_svg(
+  svg_str : String,
+  new_id : () -> String,
+) -> Array[@model.Element] {
   @import.import_svg_elements(svg_str, new_id)
 }
 
@@ -268,7 +275,11 @@ pub fn dashed_style(
 
 ///|
 /// 要素を移動
-pub fn move_element(el : @model.Element, dx : Double, dy : Double) -> @model.Element {
+pub fn move_element(
+  el : @model.Element,
+  dx : Double,
+  dy : Double,
+) -> @model.Element {
   { ..el, x: el.x + dx, y: el.y + dy }
 }
 
@@ -278,7 +289,7 @@ pub fn update_style(
   el : @model.Element,
   style : @model.Style,
 ) -> @model.Element {
-  { ..el, style }
+  { ..el, style, }
 }
 
 ///|

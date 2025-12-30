@@ -263,75 +263,88 @@ pub(all) struct ShapeConfig {
 /// シェープタイプから設定を取得
 pub fn ShapeType::config(self : ShapeType) -> ShapeConfig {
   match self {
-    Rect(_, _, _, _) => {
-      has_stroke: true,
-      has_fill: true,
-      has_stroke_width: true,
-      has_font: false,
-      has_dasharray: false,
-      has_arrows: false,
-      can_connect: false,
-      is_connection_target: true,
-      anchor_types: [
-        Center, Top, Bottom, Left, Right, TopLeft, TopRight, BottomLeft,
-        BottomRight,
-      ],
-    }
-    Circle(_) | Ellipse(_, _) => {
-      has_stroke: true,
-      has_fill: true,
-      has_stroke_width: true,
-      has_font: false,
-      has_dasharray: false,
-      has_arrows: false,
-      can_connect: false,
-      is_connection_target: true,
-      anchor_types: [Center, Top, Bottom, Left, Right],
-    }
-    Line(_, _) => {
-      has_stroke: true,
-      has_fill: false, // Line は Fill 不要
-      has_stroke_width: true,
-      has_font: false,
-      has_dasharray: true,
-      has_arrows: true,
-      can_connect: true,
-      is_connection_target: false, // Line は接続ターゲットにならない
-      anchor_types: [LineStart, LineEnd],
-    }
-    Polyline(_) => {
-      has_stroke: true,
-      has_fill: false,
-      has_stroke_width: true,
-      has_font: false,
-      has_dasharray: true,
-      has_arrows: false,
-      can_connect: false,
-      is_connection_target: false,
-      anchor_types: [LineStart, LineEnd],
-    }
-    Path(_, _, _, _, _) => {
-      has_stroke: true,
-      has_fill: false, // Path は Fill 不要（フリーハンド線）
-      has_stroke_width: true,
-      has_font: false,
-      has_dasharray: true,
-      has_arrows: true,
-      can_connect: true,
-      is_connection_target: false, // Path は接続ターゲットにならない
-      anchor_types: [LineStart, LineEnd, Center],
-    }
-    Text(_, _) => {
-      has_stroke: true, // Text の色（実質 fill だが stroke として扱う）
-      has_fill: false, // Text は Fill 不要
-      has_stroke_width: false,
-      has_font: true,
-      has_dasharray: false,
-      has_arrows: false,
-      can_connect: false,
-      is_connection_target: true, // Text も接続ターゲットになれる
-      anchor_types: [Center], // Text は中心のみ
-    }
+    Rect(_, _, _, _) =>
+      {
+        has_stroke: true,
+        has_fill: true,
+        has_stroke_width: true,
+        has_font: false,
+        has_dasharray: false,
+        has_arrows: false,
+        can_connect: false,
+        is_connection_target: true,
+        anchor_types: [
+          Center,
+          Top,
+          Bottom,
+          Left,
+          Right,
+          TopLeft,
+          TopRight,
+          BottomLeft,
+          BottomRight,
+        ],
+      }
+    Circle(_) | Ellipse(_, _) =>
+      {
+        has_stroke: true,
+        has_fill: true,
+        has_stroke_width: true,
+        has_font: false,
+        has_dasharray: false,
+        has_arrows: false,
+        can_connect: false,
+        is_connection_target: true,
+        anchor_types: [Center, Top, Bottom, Left, Right],
+      }
+    Line(_, _) =>
+      {
+        has_stroke: true,
+        has_fill: false, // Line は Fill 不要
+        has_stroke_width: true,
+        has_font: false,
+        has_dasharray: true,
+        has_arrows: true,
+        can_connect: true,
+        is_connection_target: false, // Line は接続ターゲットにならない
+        anchor_types: [LineStart, LineEnd],
+      }
+    Polyline(_) =>
+      {
+        has_stroke: true,
+        has_fill: false,
+        has_stroke_width: true,
+        has_font: false,
+        has_dasharray: true,
+        has_arrows: false,
+        can_connect: false,
+        is_connection_target: false,
+        anchor_types: [LineStart, LineEnd],
+      }
+    Path(_, _, _, _, _) =>
+      {
+        has_stroke: true,
+        has_fill: false, // Path は Fill 不要（フリーハンド線）
+        has_stroke_width: true,
+        has_font: false,
+        has_dasharray: true,
+        has_arrows: true,
+        can_connect: true,
+        is_connection_target: false, // Path は接続ターゲットにならない
+        anchor_types: [LineStart, LineEnd, Center],
+      }
+    Text(_, _) =>
+      {
+        has_stroke: true, // Text の色（実質 fill だが stroke として扱う）
+        has_fill: false, // Text は Fill 不要
+        has_stroke_width: false,
+        has_font: true,
+        has_dasharray: false,
+        has_arrows: false,
+        can_connect: false,
+        is_connection_target: true, // Text も接続ターゲットになれる
+        anchor_types: [Center], // Text は中心のみ
+      }
   }
 }
 
@@ -512,10 +525,8 @@ pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
     // Path: el.x, el.y が現在の始点位置（ドラッグ後）
     // 終点は相対位置で計算
     (Path(_, _, _, _, _), LineStart) => { x: self.x, y: self.y }
-    (Path(_, start_x, start_y, end_x, end_y), LineEnd) => {
-      x: self.x + (end_x - start_x),
-      y: self.y + (end_y - start_y),
-    }
+    (Path(_, start_x, start_y, end_x, end_y), LineEnd) =>
+      { x: self.x + (end_x - start_x), y: self.y + (end_y - start_y) }
     _ => {
       let bbox = self.bounding_box()
       let cx = bbox.x + bbox.width / 2.0

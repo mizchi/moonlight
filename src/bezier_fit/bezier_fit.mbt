@@ -631,7 +631,6 @@ pub fn split_segment(
 
   // 右側セグメント: p0123 -> p123 -> p23 -> p3
   let right : BezierSegment = { p0: p0123, c1: p123, c2: p23, p3: seg.p3 }
-
   (left, right)
 }
 
@@ -685,7 +684,6 @@ pub fn delete_anchor(
     c2: right_seg.c2,
     p3: right_seg.p3,
   }
-
   let result : Array[BezierSegment] = []
   for i = 0; i < anchor_idx - 1; i = i + 1 {
     result.push(segments[i])
@@ -726,7 +724,6 @@ pub fn merge_paths(
     let connector = create_line_segment(last_a.p3, first_b.p0)
     result.push(connector)
   }
-
   for seg in path_b {
     result.push(seg)
   }
@@ -799,7 +796,11 @@ pub fn refit_range(
   options : Options,
 ) -> Array[BezierSegment] {
   let start = if start_idx < 0 { 0 } else { start_idx }
-  let end = if end_idx > segments.length() { segments.length() } else { end_idx }
+  let end = if end_idx > segments.length() {
+    segments.length()
+  } else {
+    end_idx
+  }
   if start >= end {
     return segments.copy()
   }

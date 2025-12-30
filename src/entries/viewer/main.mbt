@@ -6,12 +6,16 @@
 // 型のリエクスポート
 // =============================================================================
 
+///|
 pub type Element = @model.Element
 
+///|
 pub type Style = @model.Style
 
+///|
 pub type ShapeType = @model.ShapeType
 
+///|
 pub type Point = @model.Point
 
 // =============================================================================

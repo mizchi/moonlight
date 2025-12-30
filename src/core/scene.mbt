@@ -4,12 +4,15 @@
 // 定数
 // =============================================================================
 
+///|
 /// 要素の最小サイズ（リサイズ時の下限）
 let min_element_size : Double = 10.0
 
+///|
 /// 配置オフセット（同一座標への連続配置時）
 let placement_offset : Double = 15.0
 
+///|
 /// アンカースナップ距離（Line端点のアンカースナップ判定）
 let anchor_snap_threshold : Double = 20.0
 
@@ -1060,11 +1063,13 @@ pub fn EditorState::update_pinch(
   // ズーム後も同じシーン座標がピンチ中心に来るようにスクロール調整
   let new_scroll_x = state.center.x - center_screen_x / clamped
   let new_scroll_y = state.center.y - center_screen_y / clamped
-  self.viewport.set({ zoom: clamped, scroll_x: new_scroll_x, scroll_y: new_scroll_y })
+  self.viewport.set({
+    zoom: clamped,
+    scroll_x: new_scroll_x,
+    scroll_y: new_scroll_y,
+  })
   // 状態を更新
-  self.pinch_state.set(
-    Some({ ..state, pointer1_pos: p1, pointer2_pos: p2 }),
-  )
+  self.pinch_state.set(Some({ ..state, pointer1_pos: p1, pointer2_pos: p2 }))
 }
 
 ///|
@@ -2315,9 +2320,9 @@ pub fn EditorState::get_element_capability(
   // バリデーション結果から取得
   match self.validation_result.get() {
     Some(result) =>
-      result.capabilities.get(element_id).unwrap_or(
-        @model.ElementCapability::full(),
-      )
+      result.capabilities
+      .get(element_id)
+      .unwrap_or(@model.ElementCapability::full())
     None =>
       // バリデーション未実行時はフル権限
       @model.ElementCapability::full()

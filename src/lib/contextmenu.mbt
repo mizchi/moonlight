@@ -198,8 +198,10 @@ fn render_element_type_options(
   el : @model.Element,
 ) -> Unit {
   match el.shape {
-    @model.Line(_, _) => render_line_menu_options(state, context_menu, menu, id, el)
-    @model.Text(_, _) => render_text_menu_options(state, context_menu, menu, id, el)
+    @model.Line(_, _) =>
+      render_line_menu_options(state, context_menu, menu, id, el)
+    @model.Text(_, _) =>
+      render_text_menu_options(state, context_menu, menu, id, el)
     _ => ()
   }
 }
@@ -692,7 +694,7 @@ fn update_element_font_family(
   state.elements.update(fn(els) {
     els.map(fn(el) {
       if el.id == id {
-        { ..el, style: { ..el.style, font_family: font_family } }
+        { ..el, style: { ..el.style, font_family, } }
       } else {
         el
       }

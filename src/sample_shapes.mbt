@@ -1,6 +1,9 @@
 ///|
 /// サンプル図形を追加
-pub fn add_sample_shapes(state : @core.EditorState, new_id : () -> String) -> Unit {
+pub fn add_sample_shapes(
+  state : @core.EditorState,
+  new_id : () -> String,
+) -> Unit {
   let text_style = state.get_text_style()
   let arrow_style = state.get_arrow_style()
 

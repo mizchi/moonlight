@@ -1927,7 +1927,11 @@ fn update_element_attrs(
       // Path はグループ内の子要素を更新
       // transform は (el.x - start_x, el.y - start_y) で計算
       update_path_children_with_style(
-        dom_el, d, el.x - start_x, el.y - start_y, el.style,
+        dom_el,
+        d,
+        el.x - start_x,
+        el.y - start_y,
+        el.style,
       )
     @model.Text(content, font_size) => {
       // Text はグループ内の子要素を更新
@@ -2267,7 +2271,10 @@ fn create_path_vnode_with_ref(
   children.push(create_svg_node("path", hit_attrs, [], []))
 
   // 実際のパス
-  let path_attrs : Array[(String, String)] = [("d", d), ("pointer-events", "none")]
+  let path_attrs : Array[(String, String)] = [
+    ("d", d),
+    ("pointer-events", "none"),
+  ]
   add_style_attrs(path_attrs, el.style)
   children.push(create_svg_node("path", path_attrs, [], []))
 

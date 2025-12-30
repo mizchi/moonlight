@@ -349,7 +349,9 @@ pub fn setup_interaction(
       Some(anchor_state) => {
         let anchor_type = anchor_state.source_anchor_type
         let is_line_anchor = is_line_endpoint_anchor(
-          state, anchor_type, anchor_state.source_element_id,
+          state,
+          anchor_type,
+          anchor_state.source_element_id,
         )
         if is_line_anchor {
           // Line端点のドラッグ: リアルタイムで位置を更新
@@ -413,7 +415,9 @@ pub fn setup_interaction(
         let (mx, my) = get_mouse_coords_from_event(e)
         let anchor_type = anchor_state.source_anchor_type
         let is_line_anchor = is_line_endpoint_anchor(
-          state, anchor_type, anchor_state.source_element_id,
+          state,
+          anchor_type,
+          anchor_state.source_element_id,
         )
         if is_line_anchor {
           // Line端点の移動完了: 最終位置を設定
@@ -563,11 +567,13 @@ pub fn update_selection_ui(state : @core.EditorState) -> Unit {
               // Line はハンドルを描画
               let _ = render_line_handle(svg, el.x, el.y, "line-start", el.id)
               let _ = render_line_handle(svg, x2, y2, "line-end", el.id)
+
             }
             @model.Path(_, _, _, _, _) => {
               // Path は選択枠のみ（リサイズハンドルなし）
               let (x, y, w, h) = get_element_bounds(el)
               let _ = create_selection_rect(svg, x, y, w, h)
+
             }
             _ => {
               // 他の要素は選択枠を描画

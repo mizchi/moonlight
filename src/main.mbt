@@ -437,7 +437,13 @@ fn editor_app() -> @element.DomNode {
   let on_pointermove = create_pointermove_handler(
     state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerup = create_pointerup_handler(
+    state,
+    history,
+    get_screen_coords,
+    active_pointers,
+    new_id~,
+  )
   let on_pointerleave = create_pointerleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
@@ -751,7 +757,9 @@ fn create_pointerdown_handler(
 
     // 2本指でピンチズーム開始
     if active_pointers.val.length() == 2 {
-      let pointers : Array[(Int, @model.Point)] = active_pointers.val.iter().collect()
+      let pointers : Array[(Int, @model.Point)] = active_pointers.val
+        .iter()
+        .collect()
       let (id1, pos1) = pointers[0]
       let (id2, pos2) = pointers[1]
       state.start_pinch(id1, id2, pos1, pos2)
@@ -894,10 +902,7 @@ fn handle_resize_click(
   let element_id : String = element_id_raw.cast()
   // Path 要素はリサイズ不可
   match state.find_element(element_id) {
-    Some(el) =>
-      if el.shape is @model.Path(_, _, _, _, _) {
-        return false
-      }
+    Some(el) => if el.shape is @model.Path(_, _, _, _, _) { return false }
     None => ()
   }
   let (scene_x, scene_y) = get_scene_coords(e)
@@ -1071,10 +1076,7 @@ fn commit_text_edit(
           match state.find_element(edit_state.parent_id) {
             Some(parent_el) =>
               match parent_el.style.stroke {
-                Some(color) => {
-                  ..state.get_text_style(),
-                  fill: Some(color),
-                }
+                Some(color) => { ..state.get_text_style(), fill: Some(color) }
                 None => state.get_text_style()
               }
             None => state.get_text_style()
@@ -1137,7 +1139,6 @@ fn create_pointermove_handler(
       }
       return
     }
-
     if state.is_panning.get() {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.pan_move(screen_x, screen_y)
@@ -1257,7 +1258,7 @@ fn create_pointerup_handler(
   history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
   active_pointers : Ref[Map[Int, @model.Point]],
-  new_id~ : () -> String = fn() { "" },
+  new_id? : () -> String = fn() { "" },
 ) -> (@js.Any) -> Unit {
   let _ = get_screen_coords // unused but kept for consistency
   fn(e) {
@@ -1278,7 +1279,6 @@ fn create_pointerup_handler(
       @lib.finish_free_draw(state, new_id)
       return
     }
-
     if state.is_panning.get() {
       state.end_pan()
       return
@@ -1861,7 +1861,13 @@ pub fn render_editor_modal(
   let on_pointermove = create_pointermove_handler(
     state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerup = create_pointerup_handler(
+    state,
+    history,
+    get_screen_coords,
+    active_pointers,
+    new_id~,
+  )
   let on_pointerleave = create_pointerleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
@@ -2013,7 +2019,13 @@ fn embedded_editor_app(
   let on_pointermove = create_pointermove_handler(
     state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerup = create_pointerup_handler(
+    state,
+    history,
+    get_screen_coords,
+    active_pointers,
+    new_id~,
+  )
   let on_pointerleave = create_pointerleave_handler(state)
   // 埋め込みモードではズームを無効化
   let on_wheel = fn(_e : @js.Any) { () }
@@ -2046,11 +2058,11 @@ fn get_color_luminance(hex : String) -> Double {
   guard chars.length() >= start + 6 else { return 0.5 }
   // 各チャンネルを抽出
   let r = (hex_char_to_int(chars[start]) * 16 +
-    hex_char_to_int(chars[start + 1])).to_double()
+  hex_char_to_int(chars[start + 1])).to_double()
   let g = (hex_char_to_int(chars[start + 2]) * 16 +
-    hex_char_to_int(chars[start + 3])).to_double()
+  hex_char_to_int(chars[start + 3])).to_double()
   let b = (hex_char_to_int(chars[start + 4]) * 16 +
-    hex_char_to_int(chars[start + 5])).to_double()
+  hex_char_to_int(chars[start + 5])).to_double()
   // 相対輝度の計算（sRGB）
   (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
 }
@@ -2145,7 +2157,10 @@ fn render_text_input_container(
           // 既存テキストの編集
           match state.find_element(id) {
             Some(el) => {
-              let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
+              let parent_stroke = @model.get_parent_stroke(
+                elements,
+                el.parent_id,
+              )
               resolve_color(@model.get_text_fill_color(el.style, parent_stroke))
             }
             None => default_text_color
