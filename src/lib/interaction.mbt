@@ -253,13 +253,7 @@ pub fn setup_interaction(
       return
     }
     let (mx, my) = get_mouse_coords_from_event(e)
-    // フリードローモードの場合
-    if state.tool_mode.get() == @core.FreeDraw {
-      start_free_draw(state, mx, my)
-      prevent_default_ffi(e)
-      return
-    }
-    // まずアンカーポイントがクリックされたかチェック
+    // まずアンカーポイントがクリックされたかチェック（フリードローより優先）
     let (anchor_type_str, anchor_element_id, anchor_x, anchor_y) = get_anchor_info(
       e,
     )
@@ -291,6 +285,12 @@ pub fn setup_interaction(
         }
         None => ()
       }
+    }
+    // フリードローモードの場合（アンカーポイント以外の場所をクリック）
+    if state.tool_mode.get() == @core.FreeDraw {
+      start_free_draw(state, mx, my)
+      prevent_default_ffi(e)
+      return
     }
     let target_id = get_target_id(e)
     if target_id != "" {

@@ -997,13 +997,6 @@ fn create_mousedown_handler(
       return
     }
 
-    // フリードローモードの場合
-    if state.tool_mode.get() == @core.FreeDraw {
-      let (scene_x, scene_y) = get_scene_coords(e)
-      @lib.start_free_draw(state, scene_x, scene_y)
-      return
-    }
-
     // 配置モード中はクリックで確定
     if state.is_placing() {
       state.end_placement()
@@ -1023,8 +1016,15 @@ fn create_mousedown_handler(
     let target = e._get("target")
     let dataset = target._get("dataset")
 
-    // アンカーポイントのクリックをチェック（ライン生成）
+    // アンカーポイントのクリックをチェック（ライン生成）- フリードローモードより優先
     if handle_anchor_click(state, history, new_id, get_scene_coords, e, dataset) {
+      return
+    }
+
+    // フリードローモードの場合（アンカーポイント以外の場所をクリック）
+    if state.tool_mode.get() == @core.FreeDraw {
+      let (scene_x, scene_y) = get_scene_coords(e)
+      @lib.start_free_draw(state, scene_x, scene_y)
       return
     }
 
@@ -1077,7 +1077,8 @@ fn handle_anchor_click(
     return false
   }
   let anchor_str : String = data_anchor_raw.cast()
-  let element_id_raw = dataset._get("elementId")
+  // data-anchor-element は dataset.anchorElement としてアクセス
+  let element_id_raw = dataset._get("anchorElement")
   if @js.is_nullish(element_id_raw) {
     return false
   }

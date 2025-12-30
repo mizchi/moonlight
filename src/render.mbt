@@ -1024,7 +1024,7 @@ pub fn render_element_anchors(el : @model.Element) -> Array[@js.Any] {
       ("cursor", "crosshair"),
       ("class", "anchor-point"),
       ("data-anchor", anchor_name),
-      ("data-element-id", el.id),
+      ("data-anchor-element", el.id),
     ]
     result.push(create_svg_element("circle", attrs, []))
   }
@@ -1683,7 +1683,7 @@ pub fn render_element_anchors_nodes(
           ("cursor", "crosshair"),
           ("class", "anchor-point"),
           ("data-anchor", anchor_name),
-          ("data-element-id", el.id),
+          ("data-anchor-element", el.id),
         ],
         [],
         [],
@@ -2408,17 +2408,12 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
         result
       }
       if found_el is Some(el) {
-        // 接続されたアンカーポイントを黄色でハイライト（先に描画）
+        // 接続されたアンカーポイントを黄色でハイライト（最背面）
         let connected_highlights = render_connected_anchor_highlights(
           elements, el,
         )
         for highlight in connected_highlights {
           append_child_ffi(container, highlight)
-        }
-        // アンカーポイント
-        let anchors = render_element_anchors(el)
-        for anchor in anchors {
-          append_child_ffi(container, anchor)
         }
         // リサイズハンドル（単一選択の場合のみ）
         if selected_ids.length() == 1 {
@@ -2426,6 +2421,11 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
           for handle in handles {
             append_child_ffi(container, handle)
           }
+        }
+        // アンカーポイント（最前面で描画してクリック可能に）
+        let anchors = render_element_anchors(el)
+        for anchor in anchors {
+          append_child_ffi(container, anchor)
         }
       }
     }
