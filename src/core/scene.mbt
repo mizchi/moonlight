@@ -139,6 +139,20 @@ pub struct EditorState {
   free_draw_options : @luna.Signal[FreeDrawOptions] // フリードローオプション
   // 配置位置オフセット
   last_placement_pos : @luna.Signal[@model.Point?] // 最後に配置した位置
+  // ピンチズーム用（マルチタッチ）
+  pinch_state : @luna.Signal[PinchState?] // ピンチズーム状態
+}
+
+///|
+/// ピンチズーム状態
+pub struct PinchState {
+  pointer1_id : Int // 最初のポインター ID
+  pointer2_id : Int // 2番目のポインター ID
+  pointer1_pos : @model.Point // 最初のポインター位置
+  pointer2_pos : @model.Point // 2番目のポインター位置
+  initial_distance : Double // 初期距離
+  initial_zoom : Double // 初期ズーム
+  center : @model.Point // ピンチ中心（シーン座標）
 }
 
 ///|
@@ -202,6 +216,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     }),
     // 配置位置オフセット
     last_placement_pos: @luna.signal(None),
+    pinch_state: @luna.signal(None),
   }
 }
 
@@ -486,12 +501,15 @@ pub fn EditorState::move_element(
   new_x : Double,
   new_y : Double,
 ) -> Unit {
+  // 座標を整数に丸める（データ可読性向上のため）
+  let rounded_x = @model.round_coord(new_x)
+  let rounded_y = @model.round_coord(new_y)
   // model 層の純粋関数で全ての更新を計算し、1回の set で適用
   let new_elements = @model.move_element_with_relations(
     self.elements.get(),
     id,
-    new_x,
-    new_y,
+    rounded_x,
+    rounded_y,
   )
   self.elements.set(new_elements)
 }
@@ -968,6 +986,97 @@ pub fn EditorState::zoom_at(
 }
 
 ///|
+/// ピンチズームを開始
+pub fn EditorState::start_pinch(
+  self : EditorState,
+  pointer1_id : Int,
+  pointer2_id : Int,
+  p1 : @model.Point,
+  p2 : @model.Point,
+) -> Unit {
+  let dx = p2.x - p1.x
+  let dy = p2.y - p1.y
+  let distance = (dx * dx + dy * dy).sqrt()
+  let vp = self.viewport.get()
+  // ピンチ中心のスクリーン座標
+  let center_screen_x = (p1.x + p2.x) / 2.0
+  let center_screen_y = (p1.y + p2.y) / 2.0
+  // スクリーン座標からシーン座標に変換
+  let center_scene = vp.screen_to_scene(center_screen_x, center_screen_y)
+  self.pinch_state.set(
+    Some({
+      pointer1_id,
+      pointer2_id,
+      pointer1_pos: p1,
+      pointer2_pos: p2,
+      initial_distance: distance,
+      initial_zoom: vp.zoom,
+      center: center_scene,
+    }),
+  )
+}
+
+///|
+/// ピンチズームを更新
+pub fn EditorState::update_pinch(
+  self : EditorState,
+  pointer_id : Int,
+  pos : @model.Point,
+) -> Unit {
+  guard self.pinch_state.get() is Some(state) else { return }
+  // ポインター位置を更新
+  let (p1, p2) = if pointer_id == state.pointer1_id {
+    (pos, state.pointer2_pos)
+  } else if pointer_id == state.pointer2_id {
+    (state.pointer1_pos, pos)
+  } else {
+    return
+  }
+  // 新しい距離を計算
+  let dx = p2.x - p1.x
+  let dy = p2.y - p1.y
+  let new_distance = (dx * dx + dy * dy).sqrt()
+  // 距離の比率からズーム値を計算
+  let scale = new_distance / state.initial_distance
+  let new_zoom = state.initial_zoom * scale
+  // 範囲制限
+  let clamped = if new_zoom > 4.0 {
+    4.0
+  } else if new_zoom < 0.25 {
+    0.25
+  } else {
+    new_zoom
+  }
+  // ピンチ中心のスクリーン座標
+  let center_screen_x = (p1.x + p2.x) / 2.0
+  let center_screen_y = (p1.y + p2.y) / 2.0
+  // ズーム後も同じシーン座標がピンチ中心に来るようにスクロール調整
+  let new_scroll_x = state.center.x - center_screen_x / clamped
+  let new_scroll_y = state.center.y - center_screen_y / clamped
+  self.viewport.set({ zoom: clamped, scroll_x: new_scroll_x, scroll_y: new_scroll_y })
+  // 状態を更新
+  self.pinch_state.set(
+    Some({ ..state, pointer1_pos: p1, pointer2_pos: p2 }),
+  )
+}
+
+///|
+/// ピンチズームを終了
+pub fn EditorState::end_pinch(self : EditorState, pointer_id : Int) -> Unit {
+  guard self.pinch_state.get() is Some(state) else { return }
+  // いずれかのポインターがリリースされたらピンチ終了
+  if pointer_id == state.pointer1_id || pointer_id == state.pointer2_id {
+    self.pinch_state.set(None)
+  }
+}
+
+///|
+/// ピンチ中かどうか
+pub fn EditorState::is_pinching(self : EditorState) -> Bool {
+  self.pinch_state.get() is Some(_)
+}
+
+///|
 /// ビューポートをリセット
 pub fn EditorState::reset_viewport(self : EditorState) -> Unit {
   self.fit_to_canvas()
@@ -1019,11 +1128,23 @@ pub fn EditorState::get_placement_position(self : EditorState) -> @model.Point {
     Some(last) =>
       if (base_pos.x - last.x).abs() < 1.0 && (base_pos.y - last.y).abs() < 1.0 {
         // 同じ位置なら右下にオフセット
-        @model.Point::{ x: last.x + offset, y: last.y + offset }
+        @model.Point::{
+          x: @model.round_coord(last.x + offset),
+          y: @model.round_coord(last.y + offset),
+        }
       } else {
-        base_pos
+        // 座標を整数に丸める
+        @model.Point::{
+          x: @model.round_coord(base_pos.x),
+          y: @model.round_coord(base_pos.y),
+        }
       }
-    None => base_pos
+    None =>
+      // 座標を整数に丸める
+      @model.Point::{
+        x: @model.round_coord(base_pos.x),
+        y: @model.round_coord(base_pos.y),
+      }
   }
   // 位置を記録
   self.last_placement_pos.set(Some(final_pos))
@@ -1112,13 +1233,13 @@ pub fn EditorState::resize_move(
   guard self.resize_state.get() is Some(state)
   let dx = mouse_x - state.mouse_start_x
   let dy = mouse_y - state.mouse_start_y
-  // 単一値のグリッドスナップ
+  // 単一値のグリッドスナップ（常に整数に丸める）
   let snap = fn(v : Double) -> Double {
     if self.grid_enabled.get() {
       let size = self.grid_size.get().to_double()
       (v / size).round() * size
     } else {
-      v
+      @model.round_coord(v)
     }
   }
   // ハンドル位置に応じて新しい位置と形状を計算
@@ -2037,13 +2158,13 @@ pub fn EditorState::update_placement(
     }
   }
 
-  // 単一値のグリッドスナップ
+  // 単一値のグリッドスナップ（常に整数に丸める）
   let snap = fn(v : Double) -> Double {
     if self.grid_enabled.get() {
       let size = self.grid_size.get().to_double()
       (v / size).round() * size
     } else {
-      v
+      @model.round_coord(v)
     }
   }
   let anchor_x = placement.anchor_point.x

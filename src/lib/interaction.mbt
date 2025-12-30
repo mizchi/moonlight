@@ -215,36 +215,44 @@ fn is_line_endpoint_anchor(
 }
 
 ///|
-/// mousedown ハンドラをセットアップ
-pub extern "js" fn add_mousedown_handler(
+/// pointerdown ハンドラをセットアップ（タッチ/マウス/ペン統一）
+pub extern "js" fn add_pointerdown_handler(
   svg : @js.Any,
   handler : (@js.Any) -> Unit,
 ) =
-  #| (svg, handler) => svg.addEventListener('mousedown', handler)
+  #| (svg, handler) => svg.addEventListener('pointerdown', handler)
 
 ///|
-/// mousemove ハンドラをセットアップ
-pub extern "js" fn add_mousemove_handler(
+/// pointermove ハンドラをセットアップ
+pub extern "js" fn add_pointermove_handler(
   svg : @js.Any,
   handler : (@js.Any) -> Unit,
 ) =
-  #| (svg, handler) => svg.addEventListener('mousemove', handler)
+  #| (svg, handler) => svg.addEventListener('pointermove', handler)
 
 ///|
-/// mouseup ハンドラをセットアップ
-pub extern "js" fn add_mouseup_handler(
+/// pointerup ハンドラをセットアップ
+pub extern "js" fn add_pointerup_handler(
   svg : @js.Any,
   handler : (@js.Any) -> Unit,
 ) =
-  #| (svg, handler) => svg.addEventListener('mouseup', handler)
+  #| (svg, handler) => svg.addEventListener('pointerup', handler)
 
 ///|
-/// mouseleave ハンドラをセットアップ
-pub extern "js" fn add_mouseleave_handler(
+/// pointerleave ハンドラをセットアップ
+pub extern "js" fn add_pointerleave_handler(
   svg : @js.Any,
   handler : (@js.Any) -> Unit,
 ) =
-  #| (svg, handler) => svg.addEventListener('mouseleave', handler)
+  #| (svg, handler) => svg.addEventListener('pointerleave', handler)
+
+///|
+/// pointercancel ハンドラをセットアップ（タッチキャンセル対応）
+pub extern "js" fn add_pointercancel_handler(
+  svg : @js.Any,
+  handler : (@js.Any) -> Unit,
+) =
+  #| (svg, handler) => svg.addEventListener('pointercancel', handler)
 
 ///|
 /// インタラクションをセットアップ
@@ -257,8 +265,8 @@ pub fn setup_interaction(
   if is_js_null(svg) {
     return
   }
-  // mousedown: 要素をクリックしたらドラッグ開始、アンカーをクリックしたら線ドラッグ開始
-  add_mousedown_handler(svg, fn(e) {
+  // pointerdown: 要素をクリック/タッチしたらドラッグ開始、アンカーをクリックしたら線ドラッグ開始
+  add_pointerdown_handler(svg, fn(e) {
     // 右クリックは無視（コンテキストメニュー用）
     if is_right_click(e) {
       return
@@ -325,8 +333,8 @@ pub fn setup_interaction(
       set_selected_id(state, None)
     }
   })
-  // mousemove: ドラッグ中なら要素を移動、またはプレビュー線を更新
-  add_mousemove_handler(svg, fn(e) {
+  // pointermove: ドラッグ中なら要素を移動、またはプレビュー線を更新
+  add_pointermove_handler(svg, fn(e) {
     let (mx, my) = get_mouse_coords_from_event(e)
     // フリードロー中の場合
     if is_drawing(state) {
@@ -390,8 +398,8 @@ pub fn setup_interaction(
       }
     }
   })
-  // mouseup: ドラッグ終了
-  add_mouseup_handler(svg, fn(e) {
+  // pointerup: ドラッグ終了
+  add_pointerup_handler(svg, fn(e) {
     // フリードロー終了
     if is_drawing(state) {
       // プレビューを削除
@@ -463,8 +471,8 @@ pub fn setup_interaction(
     drag_state.is_dragging.set(false)
     drag_state.dragging_id.set(None)
   })
-  // mouseleave: ドラッグ終了
-  add_mouseleave_handler(svg, fn(_e) {
+  // pointerleave: ドラッグ終了
+  add_pointerleave_handler(svg, fn(_e) {
     // フリードローをキャンセル
     if is_drawing(state) {
       remove_free_draw_preview(svg)

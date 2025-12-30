@@ -126,6 +126,11 @@ extern "js" fn is_string_ffi(val : @js.Any) -> Bool =
   #| (val) => typeof val === 'string'
 
 ///|
+/// PointerEvent から pointerId を取得
+extern "js" fn get_pointer_id(e : @js.Any) -> Int =
+  #| (e) => e.pointerId || 0
+
+///|
 fn get_string_option(obj : @js.Any, key : String) -> String? {
   let val = get_string_option_ffi(obj, key)
   if is_string_ffi(val) {
@@ -396,21 +401,24 @@ fn editor_app() -> @element.DomNode {
   let last_click_element : Ref[String] = { val: "" }
   let double_click_threshold : Double = 300.0
 
+  // アクティブポインター追跡（ピンチズーム用）
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+
   // テキスト入力を確定するコールバック
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
 
-  // マウスイベントハンドラ
-  let on_mousedown = create_mousedown_handler(
+  // ポインターイベントハンドラ（タッチ/マウス/ペン統一）
+  let on_pointerdown = create_pointerdown_handler(
     state, history, new_id, get_screen_coords, get_scene_coords, space_pressed, last_click_time,
-    last_click_element, double_click_threshold,
+    last_click_element, double_click_threshold, active_pointers,
   )
-  let on_mousemove = create_mousemove_handler(
-    state, get_screen_coords, get_scene_coords,
+  let on_pointermove = create_pointermove_handler(
+    state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
-  let on_mouseleave = create_mouseleave_handler(state)
+  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerleave = create_pointerleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
 
@@ -419,7 +427,7 @@ fn editor_app() -> @element.DomNode {
 
   // SVG キャンバスを Luna VNode として作成（for_each による差分更新）
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    state, on_pointerdown, on_pointermove, on_pointerup, on_pointerleave, on_contextmenu,
     on_wheel,
   )
 
@@ -978,8 +986,8 @@ fn setup_keyboard_listener(
 // ============================================================
 
 ///|
-/// mousedown ハンドラを作成
-fn create_mousedown_handler(
+/// pointerdown ハンドラを作成（タッチ/マウス/ペン統一）
+fn create_pointerdown_handler(
   state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
@@ -989,8 +997,23 @@ fn create_mousedown_handler(
   last_click_time : Ref[Double],
   last_click_element : Ref[String],
   double_click_threshold : Double,
+  active_pointers : Ref[Map[Int, @model.Point]],
 ) -> (@js.Any) -> Unit {
   fn(e) {
+    // ポインターを追跡（ピンチズーム用）
+    let pointer_id = get_pointer_id(e)
+    let (screen_x, screen_y) = get_screen_coords(e)
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+
+    // 2本指でピンチズーム開始
+    if active_pointers.val.length() == 2 {
+      let pointers : Array[(Int, @model.Point)] = active_pointers.val.iter().collect()
+      let (id1, pos1) = pointers[0]
+      let (id2, pos2) = pointers[1]
+      state.start_pinch(id1, id2, pos1, pos2)
+      return
+    }
+
     // コンテキストメニューが開いている場合は閉じるだけで他のアクションを実行しない
     if state.context_menu.get() is Some(_) {
       state.hide_context_menu()
@@ -1009,7 +1032,6 @@ fn create_mousedown_handler(
 
     // 中クリック（button === 1）または Space キーでパン開始（埋め込みモードでは無効）
     if state.mode is @core.Full && (button == 1 || space_pressed.val) {
-      let (screen_x, screen_y) = get_screen_coords(e)
       state.start_pan(screen_x, screen_y)
       return
     }
@@ -1331,13 +1353,25 @@ fn commit_text_edit(
 }
 
 ///|
-/// mousemove ハンドラを作成
-fn create_mousemove_handler(
+/// pointermove ハンドラを作成
+fn create_pointermove_handler(
   state : @core.EditorState,
   get_screen_coords : (@js.Any) -> (Double, Double),
   get_scene_coords : (@js.Any) -> (Double, Double),
+  active_pointers : Ref[Map[Int, @model.Point]],
 ) -> (@js.Any) -> Unit {
   fn(e) {
+    // ポインター位置を更新
+    let pointer_id = get_pointer_id(e)
+    let (screen_x, screen_y) = get_screen_coords(e)
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+
+    // ピンチズーム中の場合
+    if state.is_pinching() {
+      state.update_pinch(pointer_id, { x: screen_x, y: screen_y })
+      return
+    }
+
     // コンテキストメニューが開いている場合は移動操作を無効化
     if state.context_menu.get() is Some(_) {
       return
@@ -1473,15 +1507,22 @@ fn record_drag_end(
 }
 
 ///|
-/// mouseup ハンドラを作成
-fn create_mouseup_handler(
+/// pointerup ハンドラを作成
+fn create_pointerup_handler(
   state : @core.EditorState,
   history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
+  active_pointers : Ref[Map[Int, @model.Point]],
   new_id~ : () -> String = fn() { "" },
 ) -> (@js.Any) -> Unit {
   let _ = get_screen_coords // unused but kept for consistency
-  fn(_e) {
+  fn(e) {
+    // ポインターを削除
+    let pointer_id = get_pointer_id(e)
+    active_pointers.val.remove(pointer_id)
+
+    // ピンチズーム終了
+    state.end_pinch(pointer_id)
     // フリードロー中の場合
     if @lib.is_drawing(state) {
       // プレビューを削除
@@ -1520,8 +1561,8 @@ fn create_mouseup_handler(
 }
 
 ///|
-/// mouseleave ハンドラを作成（マウスが画面外に出た時に状態をリセット）
-fn create_mouseleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
+/// pointerleave ハンドラを作成（ポインターが画面外に出た時に状態をリセット）
+fn create_pointerleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
   fn(_e) {
     // マウスがキャンバス外に出たことを記録
     state.mouse_in_canvas.set(false)
@@ -2059,22 +2100,23 @@ pub fn render_editor_modal(
   let last_click_time : Ref[Double] = { val: 0.0 }
   let last_click_element : Ref[String] = { val: "" }
   let double_click_threshold : Double = 300.0
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
-  let on_mousedown = create_mousedown_handler(
+  let on_pointerdown = create_pointerdown_handler(
     state, history, new_id, get_screen_coords, get_scene_coords, space_pressed, last_click_time,
-    last_click_element, double_click_threshold,
+    last_click_element, double_click_threshold, active_pointers,
   )
-  let on_mousemove = create_mousemove_handler(
-    state, get_screen_coords, get_scene_coords,
+  let on_pointermove = create_pointermove_handler(
+    state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
-  let on_mouseleave = create_mouseleave_handler(state)
+  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerleave = create_pointerleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
   let modal_svg = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    state, on_pointerdown, on_pointermove, on_pointerup, on_pointerleave, on_contextmenu,
     on_wheel,
   )
 
@@ -2208,26 +2250,27 @@ fn embedded_editor_app(
   let last_click_time : Ref[Double] = { val: 0.0 }
   let last_click_element : Ref[String] = { val: "" }
   let double_click_threshold : Double = 300.0
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
 
   // 簡易ハンドラ（選択・移動・テキスト編集のみ）
-  let on_mousedown = create_mousedown_handler(
+  let on_pointerdown = create_pointerdown_handler(
     state, history, new_id, get_screen_coords, get_scene_coords, space_pressed, last_click_time,
-    last_click_element, double_click_threshold,
+    last_click_element, double_click_threshold, active_pointers,
   )
-  let on_mousemove = create_mousemove_handler(
-    state, get_screen_coords, get_scene_coords,
+  let on_pointermove = create_pointermove_handler(
+    state, get_screen_coords, get_scene_coords, active_pointers,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
-  let on_mouseleave = create_mouseleave_handler(state)
+  let on_pointerup = create_pointerup_handler(state, history, get_screen_coords, active_pointers, new_id~)
+  let on_pointerleave = create_pointerleave_handler(state)
   // 埋め込みモードではズームを無効化
   let on_wheel = fn(_e : @js.Any) { () }
   // コンテキストメニューは有効化（要素の詳細表示・挿入機能）
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
   let svg_canvas = render_svg_canvas_node(
-    state, on_mousedown, on_mousemove, on_mouseup, on_mouseleave, on_contextmenu,
+    state, on_pointerdown, on_pointermove, on_pointerup, on_pointerleave, on_contextmenu,
     on_wheel,
   )
   // 埋め込みビュー（フラットな構造）
@@ -2783,10 +2826,10 @@ fn render_embedded_toolbar(
 /// SVG キャンバスを作成（Luna VNode + for_each による差分更新）
 fn render_svg_canvas_node(
   state : @core.EditorState,
-  on_mousedown : (@js.Any) -> Unit,
-  on_mousemove : (@js.Any) -> Unit,
-  on_mouseup : (@js.Any) -> Unit,
-  on_mouseleave : (@js.Any) -> Unit,
+  on_pointerdown : (@js.Any) -> Unit,
+  on_pointermove : (@js.Any) -> Unit,
+  on_pointerup : (@js.Any) -> Unit,
+  on_pointerleave : (@js.Any) -> Unit,
   on_contextmenu : (@js.Any) -> Unit,
   on_wheel : (@js.Any) -> Unit,
 ) -> @element.DomNode {
@@ -2917,13 +2960,13 @@ fn render_svg_canvas_node(
           @core.FreeDraw => "crosshair"
           @core.Select => "default"
         }
-        "border: \{border}; user-select: none; overflow: hidden; cursor: \{cursor}; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
+        "border: \{border}; user-select: none; touch-action: none; overflow: hidden; cursor: \{cursor}; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
       }),
     ),
-    ("mousedown", @element.Handler(on_mousedown)),
-    ("mousemove", @element.Handler(on_mousemove)),
-    ("mouseup", @element.Handler(on_mouseup)),
-    ("mouseleave", @element.Handler(on_mouseleave)),
+    ("pointerdown", @element.Handler(on_pointerdown)),
+    ("pointermove", @element.Handler(on_pointermove)),
+    ("pointerup", @element.Handler(on_pointerup)),
+    ("pointerleave", @element.Handler(on_pointerleave)),
     ("contextmenu", @element.Handler(on_contextmenu)),
     ("wheel", @element.Handler(on_wheel)),
     // ResizeObserver で canvas サイズを更新し、初回はドキュメントを中央に配置（Fullモードのみ）
