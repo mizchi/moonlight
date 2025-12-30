@@ -23,6 +23,8 @@ test.describe('Moonlight WebComponent Mode', () => {
   });
 
   test('moonlight-editor should have shadow DOM', async ({ page }) => {
+    // Wait for web component to fully initialize
+    await page.waitForTimeout(500);
     const hasShadowRoot = await page.evaluate(() => {
       const editor = document.getElementById('editor1');
       return editor?.shadowRoot !== null;
