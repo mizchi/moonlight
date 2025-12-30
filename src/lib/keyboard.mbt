@@ -38,23 +38,33 @@ pub fn setup_keyboard_handler(
 }
 
 ///|
-/// キーイベントを処理
+/// キーイベントを処理（keybindings を使用）
 fn handle_key(
   state : @core.EditorState,
   e : KeyEvent,
   new_id : () -> String,
 ) -> Bool {
-  let is_cmd = e.ctrl_key || e.meta_key
-  // マウス位置を取得（デフォルトは中央）
+  // keybindings から一致するアクションを検索
+  match @model.match_keybinding(e.key, e.ctrl_key, e.shift_key, e.meta_key) {
+    Some(kb) => execute_action(state, kb.action, new_id)
+    None => false
+  }
+}
+
+///|
+/// アクションを実行
+fn execute_action(
+  state : @core.EditorState,
+  action : String,
+  new_id : () -> String,
+) -> Bool {
   let pos = get_placement_position(state)
-  match e.key {
-    // Delete/Backspace: 選択要素を削除
-    "Delete" | "Backspace" => {
+  match action {
+    "delete" => {
       delete_selected(state)
       true
     }
-    // Escape: フリードローモードなら Select に戻る、そうでなければ選択解除
-    "Escape" => {
+    "escape" => {
       if state.tool_mode.get() == @core.FreeDraw {
         state.tool_mode.set(@core.Select)
       } else {
@@ -62,105 +72,91 @@ fn handle_key(
       }
       true
     }
-    // 1: Rectangle
-    "1" => {
+    "create_rect" => {
       let el_id = new_id()
-      let new_rect = create_rect_element(
+      let el = create_rect_element(
         el_id,
         pos.0 - 40.0,
         pos.1 - 30.0,
         80.0,
         60.0,
       )
-      add_element(state, new_rect)
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // 2: Circle
-    "2" => {
+    "create_circle" => {
       let el_id = new_id()
-      let new_circle = create_circle_element(el_id, pos.0, pos.1, 40.0)
-      add_element(state, new_circle)
+      let el = create_circle_element(el_id, pos.0, pos.1, 40.0)
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // 3: Ellipse
-    "3" => {
+    "create_ellipse" => {
       let el_id = new_id()
-      let new_ellipse = create_ellipse_element(el_id, pos.0, pos.1, 60.0, 35.0)
-      add_element(state, new_ellipse)
+      let el = create_ellipse_element(el_id, pos.0, pos.1, 60.0, 35.0)
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // 4: Line
-    "4" => {
+    "create_line" => {
       let el_id = new_id()
-      let new_line = create_line_element(
+      let el = create_line_element(
         el_id,
         pos.0 - 50.0,
         pos.1,
         pos.0 + 50.0,
         pos.1,
       )
-      add_element(state, new_line)
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // 5: Arrow (矢印付き Line - フルモードと統一)
-    "5" => {
+    "create_arrow" => {
       let el_id = new_id()
-      let new_arrow = create_arrow_element(
+      let el = create_arrow_element(
         el_id,
         pos.0 - 50.0,
         pos.1,
         pos.0 + 50.0,
         pos.1,
       )
-      add_element(state, new_arrow)
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // 6: Text
-    "6" => {
+    "create_text" => {
       let el_id = new_id()
-      let new_text = create_text_element(el_id, pos.0, pos.1, "Text")
-      add_element(state, new_text)
+      let el = create_text_element(el_id, pos.0, pos.1, "Text")
+      add_element(state, el)
       set_selected_id(state, Some(el_id))
       true
     }
-    // Ctrl+A: 全選択（単一選択モードでは無効）
-    "a" if is_cmd =>
-      // 埋め込みモードでは全選択は未対応
-      false
-    // 矢印キー: 選択要素を移動
-    "ArrowUp" => {
+    "move_up" => {
       move_selected(state, 0.0, -10.0)
       true
     }
-    "ArrowDown" => {
+    "move_down" => {
       move_selected(state, 0.0, 10.0)
       true
     }
-    "ArrowLeft" => {
+    "move_left" => {
       move_selected(state, -10.0, 0.0)
       true
     }
-    "ArrowRight" => {
+    "move_right" => {
       move_selected(state, 10.0, 0.0)
       true
     }
-    // P: フリードローモード切替
-    "p" | "P" => {
+    "toggle_draw_mode" => {
       toggle_tool_mode(state)
       true
     }
-    // V: 選択モードに戻る
-    "v" | "V" => {
+    "select_mode" => {
       set_select_mode(state)
       true
     }
-    // ?: ヘルプページを開く
-    "?" => {
+    "show_help" => {
       open_help_page()
       true
     }
