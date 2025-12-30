@@ -602,3 +602,227 @@ pub fn is_closed_path(points : Array[Point], threshold : Double) -> Bool {
   let last = points[points.length() - 1]
   first.distance(last) < threshold
 }
+
+// ============================================================
+// セグメント操作
+// ============================================================
+
+///|
+/// de Casteljau アルゴリズムでベジェ曲線を t で分割
+/// 1つのセグメントを2つに分割して返す
+pub fn split_segment(
+  seg : BezierSegment,
+  t : Double,
+) -> (BezierSegment, BezierSegment) {
+  // Level 1: 線形補間
+  let p01 = seg.p0.add(seg.c1.sub(seg.p0).scale(t))
+  let p12 = seg.c1.add(seg.c2.sub(seg.c1).scale(t))
+  let p23 = seg.c2.add(seg.p3.sub(seg.c2).scale(t))
+
+  // Level 2: 線形補間
+  let p012 = p01.add(p12.sub(p01).scale(t))
+  let p123 = p12.add(p23.sub(p12).scale(t))
+
+  // Level 3: 分割点
+  let p0123 = p012.add(p123.sub(p012).scale(t))
+
+  // 左側セグメント: p0 -> p01 -> p012 -> p0123
+  let left : BezierSegment = { p0: seg.p0, c1: p01, c2: p012, p3: p0123 }
+
+  // 右側セグメント: p0123 -> p123 -> p23 -> p3
+  let right : BezierSegment = { p0: p0123, c1: p123, c2: p23, p3: seg.p3 }
+
+  (left, right)
+}
+
+///|
+/// セグメント列の指定位置にアンカーポイントを挿入
+/// seg_idx: 分割するセグメントのインデックス
+/// t: セグメント内の分割位置 (0.0 ~ 1.0)
+pub fn insert_anchor(
+  segments : Array[BezierSegment],
+  seg_idx : Int,
+  t : Double,
+) -> Array[BezierSegment] {
+  if seg_idx < 0 || seg_idx >= segments.length() {
+    return segments.copy()
+  }
+  let (left, right) = split_segment(segments[seg_idx], t)
+  let result : Array[BezierSegment] = []
+  for i = 0; i < seg_idx; i = i + 1 {
+    result.push(segments[i])
+  }
+  result.push(left)
+  result.push(right)
+  for i = seg_idx + 1; i < segments.length(); i = i + 1 {
+    result.push(segments[i])
+  }
+  result
+}
+
+///|
+/// アンカーポイントを削除し、隣接セグメントを直線で再接続
+/// anchor_idx: 削除するアンカーのインデックス（セグメント境界）
+/// 注: anchor_idx=0 は先頭、anchor_idx=segments.length() は末尾
+pub fn delete_anchor(
+  segments : Array[BezierSegment],
+  anchor_idx : Int,
+) -> Array[BezierSegment] {
+  if segments.length() <= 1 {
+    return segments.copy()
+  }
+  // anchor_idx は 1 ~ segments.length()-1 の範囲（内部アンカーのみ削除可能）
+  if anchor_idx <= 0 || anchor_idx >= segments.length() {
+    return segments.copy()
+  }
+  let left_seg = segments[anchor_idx - 1]
+  let right_seg = segments[anchor_idx]
+
+  // 2つのセグメントを1つにマージ（単純な直線接続）
+  let merged : BezierSegment = {
+    p0: left_seg.p0,
+    c1: left_seg.c1,
+    c2: right_seg.c2,
+    p3: right_seg.p3,
+  }
+
+  let result : Array[BezierSegment] = []
+  for i = 0; i < anchor_idx - 1; i = i + 1 {
+    result.push(segments[i])
+  }
+  result.push(merged)
+  for i = anchor_idx + 1; i < segments.length(); i = i + 1 {
+    result.push(segments[i])
+  }
+  result
+}
+
+// ============================================================
+// パス操作
+// ============================================================
+
+///|
+/// 2つのパスをマージ（path_a の終点と path_b の始点を接続）
+pub fn merge_paths(
+  path_a : Array[BezierSegment],
+  path_b : Array[BezierSegment],
+) -> Array[BezierSegment] {
+  if path_a.length() == 0 {
+    return path_b.copy()
+  }
+  if path_b.length() == 0 {
+    return path_a.copy()
+  }
+  let result : Array[BezierSegment] = []
+  for seg in path_a {
+    result.push(seg)
+  }
+
+  // 接続セグメントを生成（終点と始点が異なる場合）
+  let last_a = path_a[path_a.length() - 1]
+  let first_b = path_b[0]
+  if last_a.p3.distance(first_b.p0) > 1.0e-6 {
+    // 接続用の直線セグメントを追加
+    let connector = create_line_segment(last_a.p3, first_b.p0)
+    result.push(connector)
+  }
+
+  for seg in path_b {
+    result.push(seg)
+  }
+  result
+}
+
+///|
+/// パスを指定セグメントで分割（2つのパスに）
+/// split_idx: 分割位置（このインデックスのセグメントから後ろが新しいパスになる）
+pub fn split_path(
+  segments : Array[BezierSegment],
+  split_idx : Int,
+) -> (Array[BezierSegment], Array[BezierSegment]) {
+  if split_idx <= 0 {
+    return ([], segments.copy())
+  }
+  if split_idx >= segments.length() {
+    return (segments.copy(), [])
+  }
+  let left : Array[BezierSegment] = []
+  let right : Array[BezierSegment] = []
+  for i = 0; i < split_idx; i = i + 1 {
+    left.push(segments[i])
+  }
+  for i = split_idx; i < segments.length(); i = i + 1 {
+    right.push(segments[i])
+  }
+  (left, right)
+}
+
+///|
+/// アンカーポイントでパスを切り離し（セグメント境界で分割）
+/// anchor_idx: 分割するアンカーのインデックス
+pub fn disconnect_at_anchor(
+  segments : Array[BezierSegment],
+  anchor_idx : Int,
+) -> (Array[BezierSegment], Array[BezierSegment]) {
+  split_path(segments, anchor_idx)
+}
+
+// ============================================================
+// 再計算
+// ============================================================
+
+///|
+/// セグメント列を点列に戻してベジェ近似をやり直す
+pub fn refit(
+  segments : Array[BezierSegment],
+  samples_per_segment : Int,
+  options : Options,
+) -> Array[BezierSegment] {
+  if segments.length() == 0 {
+    return []
+  }
+  let points = segments_to_points(segments, samples_per_segment)
+  if points.length() < 2 {
+    return segments.copy()
+  }
+  let simplified = rdp_simplify(points, options.epsilon)
+  fit_bezier(simplified, options.max_error)
+}
+
+///|
+/// 指定範囲のセグメントのみ再計算
+pub fn refit_range(
+  segments : Array[BezierSegment],
+  start_idx : Int,
+  end_idx : Int,
+  samples_per_segment : Int,
+  options : Options,
+) -> Array[BezierSegment] {
+  let start = if start_idx < 0 { 0 } else { start_idx }
+  let end = if end_idx > segments.length() { segments.length() } else { end_idx }
+  if start >= end {
+    return segments.copy()
+  }
+
+  // 範囲のセグメントを抽出
+  let range_segments : Array[BezierSegment] = []
+  for i = start; i < end; i = i + 1 {
+    range_segments.push(segments[i])
+  }
+
+  // 再計算
+  let refitted = refit(range_segments, samples_per_segment, options)
+
+  // 結果を構築
+  let result : Array[BezierSegment] = []
+  for i = 0; i < start; i = i + 1 {
+    result.push(segments[i])
+  }
+  for seg in refitted {
+    result.push(seg)
+  }
+  for i = end; i < segments.length(); i = i + 1 {
+    result.push(segments[i])
+  }
+  result
+}

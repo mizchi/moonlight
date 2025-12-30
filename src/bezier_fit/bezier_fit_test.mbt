@@ -335,3 +335,357 @@ test "Options::default" {
   inspect(opts.epsilon, content="1")
   inspect(opts.max_error, content="4")
 }
+
+// ============================================================
+// セグメント分割 テスト (de Casteljau)
+// ============================================================
+
+///|
+test "split_segment: t=0.5 preserves endpoints" {
+  let seg : BezierSegment = {
+    p0: Point::new(0.0, 0.0),
+    c1: Point::new(0.0, 100.0),
+    c2: Point::new(100.0, 100.0),
+    p3: Point::new(100.0, 0.0),
+  }
+  let (left, right) = split_segment(seg, 0.5)
+  // 左の始点 = 元の始点
+  inspect(left.p0.x, content="0")
+  inspect(left.p0.y, content="0")
+  // 右の終点 = 元の終点
+  inspect(right.p3.x, content="100")
+  inspect(right.p3.y, content="0")
+  // 分割点は共有
+  inspect(left.p3.x == right.p0.x, content="true")
+  inspect(left.p3.y == right.p0.y, content="true")
+}
+
+///|
+test "split_segment: midpoint matches bezier_point" {
+  let seg : BezierSegment = {
+    p0: Point::new(0.0, 0.0),
+    c1: Point::new(0.0, 100.0),
+    c2: Point::new(100.0, 100.0),
+    p3: Point::new(100.0, 0.0),
+  }
+  let t = 0.3
+  let expected = bezier_point(seg, t)
+  let (left, _) = split_segment(seg, t)
+  // 分割点は bezier_point と一致
+  inspect((left.p3.x - expected.x).abs() < 0.001, content="true")
+  inspect((left.p3.y - expected.y).abs() < 0.001, content="true")
+}
+
+///|
+test "split_segment: curve continuity" {
+  let seg : BezierSegment = {
+    p0: Point::new(0.0, 0.0),
+    c1: Point::new(50.0, 100.0),
+    c2: Point::new(50.0, 100.0),
+    p3: Point::new(100.0, 0.0),
+  }
+  let (left, right) = split_segment(seg, 0.5)
+  // 分割後の曲線上の点を確認
+  let mid_left = bezier_point(left, 0.5)
+  let mid_right = bezier_point(right, 0.5)
+  // 曲線内の点がある
+  inspect(mid_left.x > 0.0 && mid_left.x < 50.0, content="true")
+  inspect(mid_right.x > 50.0 && mid_right.x < 100.0, content="true")
+}
+
+// ============================================================
+// アンカー挿入 テスト
+// ============================================================
+
+///|
+test "insert_anchor: increases segment count" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = insert_anchor(segments, 0, 0.5)
+  inspect(result.length(), content="2")
+}
+
+///|
+test "insert_anchor: preserves path endpoints" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = insert_anchor(segments, 0, 0.5)
+  // 始点
+  inspect(result[0].p0.x, content="0")
+  // 終点
+  inspect(result[result.length() - 1].p3.x, content="100")
+}
+
+///|
+test "insert_anchor: invalid index returns copy" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = insert_anchor(segments, 5, 0.5)
+  inspect(result.length(), content="1")
+}
+
+// ============================================================
+// アンカー削除 テスト
+// ============================================================
+
+///|
+test "delete_anchor: decreases segment count" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 25.0),
+      c2: Point::new(40.0, 25.0),
+      p3: Point::new(50.0, 0.0),
+    },
+    {
+      p0: Point::new(50.0, 0.0),
+      c1: Point::new(60.0, 25.0),
+      c2: Point::new(75.0, 25.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = delete_anchor(segments, 1)
+  inspect(result.length(), content="1")
+}
+
+///|
+test "delete_anchor: preserves path endpoints" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 25.0),
+      c2: Point::new(40.0, 25.0),
+      p3: Point::new(50.0, 0.0),
+    },
+    {
+      p0: Point::new(50.0, 0.0),
+      c1: Point::new(60.0, 25.0),
+      c2: Point::new(75.0, 25.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = delete_anchor(segments, 1)
+  inspect(result[0].p0.x, content="0")
+  inspect(result[0].p3.x, content="100")
+}
+
+///|
+test "delete_anchor: boundary index returns copy" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  // インデックス 0 は先頭なので削除不可
+  let result = delete_anchor(segments, 0)
+  inspect(result.length(), content="1")
+}
+
+// ============================================================
+// パスマージ テスト
+// ============================================================
+
+///|
+test "merge_paths: combines segments" {
+  let path_a : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let path_b : Array[BezierSegment] = [
+    {
+      p0: Point::new(100.0, 0.0),
+      c1: Point::new(125.0, 50.0),
+      c2: Point::new(175.0, 50.0),
+      p3: Point::new(200.0, 0.0),
+    },
+  ]
+  let result = merge_paths(path_a, path_b)
+  // 終点と始点が一致するのでコネクタなし
+  inspect(result.length(), content="2")
+}
+
+///|
+test "merge_paths: adds connector when not touching" {
+  let path_a : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let path_b : Array[BezierSegment] = [
+    {
+      p0: Point::new(150.0, 0.0), // gap of 50
+      c1: Point::new(175.0, 50.0),
+      c2: Point::new(225.0, 50.0),
+      p3: Point::new(250.0, 0.0),
+    },
+  ]
+  let result = merge_paths(path_a, path_b)
+  // コネクタが追加される
+  inspect(result.length(), content="3")
+}
+
+///|
+test "merge_paths: empty path_a" {
+  let path_a : Array[BezierSegment] = []
+  let path_b : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let result = merge_paths(path_a, path_b)
+  inspect(result.length(), content="1")
+}
+
+// ============================================================
+// パス分割 テスト
+// ============================================================
+
+///|
+test "split_path: splits at index" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+    {
+      p0: Point::new(100.0, 0.0),
+      c1: Point::new(125.0, 50.0),
+      c2: Point::new(175.0, 50.0),
+      p3: Point::new(200.0, 0.0),
+    },
+  ]
+  let (left, right) = split_path(segments, 1)
+  inspect(left.length(), content="1")
+  inspect(right.length(), content="1")
+}
+
+///|
+test "split_path: index 0 returns all in right" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let (left, right) = split_path(segments, 0)
+  inspect(left.length(), content="0")
+  inspect(right.length(), content="1")
+}
+
+///|
+test "disconnect_at_anchor: same as split_path" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+    {
+      p0: Point::new(100.0, 0.0),
+      c1: Point::new(125.0, 50.0),
+      c2: Point::new(175.0, 50.0),
+      p3: Point::new(200.0, 0.0),
+    },
+  ]
+  let (left, right) = disconnect_at_anchor(segments, 1)
+  inspect(left.length(), content="1")
+  inspect(right.length(), content="1")
+}
+
+// ============================================================
+// 再計算 テスト
+// ============================================================
+
+///|
+test "refit: produces valid segments" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+  ]
+  let options : Options = { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0 }
+  let result = refit(segments, 20, options)
+  inspect(result.length() >= 1, content="true")
+  // 始点と終点は近い位置に
+  inspect(result[0].p0.distance(Point::new(0.0, 0.0)) < 5.0, content="true")
+  inspect(
+    result[result.length() - 1].p3.distance(Point::new(100.0, 0.0)) < 5.0,
+    content="true",
+  )
+}
+
+///|
+test "refit: empty returns empty" {
+  let segments : Array[BezierSegment] = []
+  let options = Options::default()
+  let result = refit(segments, 20, options)
+  inspect(result.length(), content="0")
+}
+
+///|
+test "refit_range: only affects range" {
+  let segments : Array[BezierSegment] = [
+    {
+      p0: Point::new(0.0, 0.0),
+      c1: Point::new(25.0, 50.0),
+      c2: Point::new(75.0, 50.0),
+      p3: Point::new(100.0, 0.0),
+    },
+    {
+      p0: Point::new(100.0, 0.0),
+      c1: Point::new(125.0, 50.0),
+      c2: Point::new(175.0, 50.0),
+      p3: Point::new(200.0, 0.0),
+    },
+    {
+      p0: Point::new(200.0, 0.0),
+      c1: Point::new(225.0, 50.0),
+      c2: Point::new(275.0, 50.0),
+      p3: Point::new(300.0, 0.0),
+    },
+  ]
+  let options : Options = { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0 }
+  let result = refit_range(segments, 1, 2, 20, options)
+  // 最初と最後のセグメントの始点・終点は変わらない
+  inspect(result[0].p0.x, content="0")
+  inspect(result[result.length() - 1].p3.x, content="300")
+}
