@@ -1,5 +1,22 @@
 // Scene - Signal ベースの要素管理
 
+// =============================================================================
+// 定数
+// =============================================================================
+
+/// 要素の最小サイズ（リサイズ時の下限）
+let min_element_size : Double = 10.0
+
+/// 配置オフセット（同一座標への連続配置時）
+let placement_offset : Double = 15.0
+
+/// アンカースナップ距離（Line端点のアンカースナップ判定）
+let anchor_snap_threshold : Double = 20.0
+
+// =============================================================================
+// 型定義
+// =============================================================================
+
 ///|
 /// エディタモード
 pub(all) enum EditorMode {
@@ -545,6 +562,17 @@ pub fn EditorState::get_selected_id(self : EditorState) -> String? {
 }
 
 ///|
+/// 座標をグリッドにスナップ（グリッド無効時はそのまま返す）
+pub fn EditorState::snap_to_grid(self : EditorState, value : Double) -> Double {
+  if self.grid_enabled.get() {
+    let size = self.grid_size.get().to_double()
+    (value / size).round() * size
+  } else {
+    value
+  }
+}
+
+///|
 /// 全要素を選択（Line と子要素以外）
 pub fn EditorState::select_all(self : EditorState) -> Unit {
   let ids : Array[String] = []
@@ -996,8 +1024,8 @@ pub fn EditorState::get_placement_position(self : EditorState) -> @model.Point {
   } else {
     self.get_viewport_center()
   }
-  // 最後の配置位置と同じなら +15px ずらす
-  let offset = 15.0
+  // 最後の配置位置と同じなら offset ずらす
+  let offset = placement_offset
   let final_pos = match self.last_placement_pos.get() {
     Some(last) =>
       if (base_pos.x - last.x).abs() < 1.0 && (base_pos.y - last.y).abs() < 1.0 {
@@ -1095,17 +1123,8 @@ pub fn EditorState::resize_move(
   guard self.resize_state.get() is Some(state)
   let dx = mouse_x - state.mouse_start_x
   let dy = mouse_y - state.mouse_start_y
-  let grid_enabled = self.grid_enabled.get()
-  let grid_size = self.grid_size.get()
-  // グリッドスナップ用ヘルパー（座標をスナップ）
-  let snap_value = fn(v : Double) -> Double {
-    if grid_enabled {
-      let size = grid_size.to_double()
-      (v / size).round() * size
-    } else {
-      v
-    }
-  }
+  // snap_to_grid メソッドを使用してグリッドスナップ
+  let snap = fn(v : Double) -> Double { self.snap_to_grid(v) }
   // ハンドル位置に応じて新しい位置と形状を計算
   match state.start_shape {
     @model.Rect(w, h, rx, ry) => {
@@ -1118,32 +1137,32 @@ pub fn EditorState::resize_move(
       let (new_x1, new_y1, new_x2, new_y2) = match state.handle {
         @model.SE => {
           // SE（右下）をドラッグ：左上固定、右下をスナップ
-          let dragged_x = snap_value(x2 + dx)
-          let dragged_y = snap_value(y2 + dy)
+          let dragged_x = snap(x2 + dx)
+          let dragged_y = snap(y2 + dy)
           (x1, y1, dragged_x, dragged_y)
         }
         @model.NW => {
           // NW（左上）をドラッグ：右下固定、左上をスナップ
-          let dragged_x = snap_value(x1 + dx)
-          let dragged_y = snap_value(y1 + dy)
+          let dragged_x = snap(x1 + dx)
+          let dragged_y = snap(y1 + dy)
           (dragged_x, dragged_y, x2, y2)
         }
         @model.NE => {
           // NE（右上）をドラッグ：左下固定、右上をスナップ
-          let dragged_x = snap_value(x2 + dx)
-          let dragged_y = snap_value(y1 + dy)
+          let dragged_x = snap(x2 + dx)
+          let dragged_y = snap(y1 + dy)
           (x1, dragged_y, dragged_x, y2)
         }
         @model.SW => {
           // SW（左下）をドラッグ：右上固定、左下をスナップ
-          let dragged_x = snap_value(x1 + dx)
-          let dragged_y = snap_value(y2 + dy)
+          let dragged_x = snap(x1 + dx)
+          let dragged_y = snap(y2 + dy)
           (dragged_x, y1, x2, dragged_y)
         }
         _ => (x1, y1, x2 + dx, y2 + dy)
       }
       // 最小サイズを保証（幅・高さが負にならないように）
-      let min_size = 10.0
+      let min_size = min_element_size
       let (final_x1, final_x2) = if new_x2 - new_x1 < min_size {
         match state.handle {
           @model.NW | @model.SW => (new_x2 - min_size, new_x2)
@@ -1200,8 +1219,8 @@ pub fn EditorState::resize_move(
         _ => (cx + r + dx, cy + r + dy)
       }
       // スナップ
-      let snapped_edge_x = snap_value(edge_x)
-      let snapped_edge_y = snap_value(edge_y)
+      let snapped_edge_x = snap(edge_x)
+      let snapped_edge_y = snap(edge_y)
       // 中心からの距離で半径を計算（x, y の平均を使用）
       let dist_x = (snapped_edge_x - cx).abs()
       let dist_y = (snapped_edge_y - cy).abs()
@@ -1234,23 +1253,23 @@ pub fn EditorState::resize_move(
       // ドラッグ中のハンドルに応じて、動かす点をスナップ
       let (new_x1, new_y1, new_x2, new_y2) = match state.handle {
         @model.SE => {
-          let dragged_x = snap_value(x2 + dx)
-          let dragged_y = snap_value(y2 + dy)
+          let dragged_x = snap(x2 + dx)
+          let dragged_y = snap(y2 + dy)
           (x1, y1, dragged_x, dragged_y)
         }
         @model.NW => {
-          let dragged_x = snap_value(x1 + dx)
-          let dragged_y = snap_value(y1 + dy)
+          let dragged_x = snap(x1 + dx)
+          let dragged_y = snap(y1 + dy)
           (dragged_x, dragged_y, x2, y2)
         }
         @model.NE => {
-          let dragged_x = snap_value(x2 + dx)
-          let dragged_y = snap_value(y1 + dy)
+          let dragged_x = snap(x2 + dx)
+          let dragged_y = snap(y1 + dy)
           (x1, dragged_y, dragged_x, y2)
         }
         @model.SW => {
-          let dragged_x = snap_value(x1 + dx)
-          let dragged_y = snap_value(y2 + dy)
+          let dragged_x = snap(x1 + dx)
+          let dragged_y = snap(y2 + dy)
           (dragged_x, y1, x2, dragged_y)
         }
         _ => (x1, y1, x2 + dx, y2 + dy)
@@ -1284,8 +1303,8 @@ pub fn EditorState::resize_move(
       self.update_connected_lines(state.element_id)
     }
     @model.Line(x2, y2) => {
-      // 線の端点をドラッグ
-      let snap_threshold = 20.0
+      // 線の端点をドラッグ（アンカースナップ判定用）
+      let snap_threshold = anchor_snap_threshold
       match state.handle {
         @model.LineStart => {
           // 始点を移動
@@ -1303,7 +1322,7 @@ pub fn EditorState::resize_move(
               (snap_point.x, snap_point.y)
             None =>
               // アンカーがなければグリッドスナップ
-              (snap_value(raw_x), snap_value(raw_y))
+              (snap(raw_x), snap(raw_y))
           }
           // pending_connection を更新
           match snap_result {
@@ -1338,7 +1357,7 @@ pub fn EditorState::resize_move(
             Some((_, _, snap_point)) => (snap_point.x, snap_point.y)
             None =>
               // アンカーがなければグリッドスナップ
-              (snap_value(raw_end_x), snap_value(raw_end_y))
+              (snap(raw_end_x), snap(raw_end_y))
           }
           // pending_connection を更新
           match snap_result {
@@ -2023,20 +2042,11 @@ pub fn EditorState::update_placement(
   }
 
   // グリッドスナップを適用
-  let grid_enabled = self.grid_enabled.get()
-  let grid_size = self.grid_size.get()
-  let snap_value = fn(v : Double) -> Double {
-    if grid_enabled {
-      let size = grid_size.to_double()
-      (v / size).round() * size
-    } else {
-      v
-    }
-  }
+  let snap = fn(v : Double) -> Double { self.snap_to_grid(v) }
   let anchor_x = placement.anchor_point.x
   let anchor_y = placement.anchor_point.y
-  let mouse_x = snap_value(mouse_pos.x)
-  let mouse_y = snap_value(mouse_pos.y)
+  let mouse_x = snap(mouse_pos.x)
+  let mouse_y = snap(mouse_pos.y)
   match el.shape {
     @model.Line(_, _) =>
       // Line/Arrow: 終点をマウス位置に更新（始点はアンカー位置で固定）

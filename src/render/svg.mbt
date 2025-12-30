@@ -2,17 +2,6 @@
 // DOM に依存しない、Element → String 変換
 
 // =============================================================================
-// 数値変換ユーティリティ
-// =============================================================================
-
-///|
-/// 数値を文字列に変換（小数点以下2桁）
-pub fn num_to_str(n : Double) -> String {
-  let rounded = (n * 100.0).round() / 100.0
-  rounded.to_string()
-}
-
-// =============================================================================
 // スタイル属性ヘルパー
 // =============================================================================
 
@@ -28,10 +17,10 @@ pub fn style_to_attrs(style : @model.Style) -> Array[(String, String)] {
     attrs.push(("stroke", v))
   }
   if style.stroke_width is Some(v) {
-    attrs.push(("stroke-width", num_to_str(v)))
+    attrs.push(("stroke-width", @model.num_str(v)))
   }
   if style.opacity is Some(v) {
-    attrs.push(("opacity", num_to_str(v)))
+    attrs.push(("opacity", @model.num_str(v)))
   }
   if style.stroke_dasharray is Some(v) {
     attrs.push(("stroke-dasharray", v))
@@ -85,7 +74,7 @@ pub fn element_to_svg_string_with_parent(
   let stroke = style.stroke.unwrap_or("#000000")
   let stroke_width = style.stroke_width.unwrap_or(1.0)
   let opacity_attr = match style.opacity {
-    Some(v) => " opacity=\"\{num_to_str(v)}\""
+    Some(v) => " opacity=\"\{@model.num_str(v)}\""
     None => ""
   }
   let dasharray_attr = match style.stroke_dasharray {
@@ -95,19 +84,19 @@ pub fn element_to_svg_string_with_parent(
   match el.shape {
     @model.Rect(w, h, rx, ry) => {
       let rx_attr = match rx {
-        Some(v) => " rx=\"\{num_to_str(v)}\""
+        Some(v) => " rx=\"\{@model.num_str(v)}\""
         None => ""
       }
       let ry_attr = match ry {
-        Some(v) => " ry=\"\{num_to_str(v)}\""
+        Some(v) => " ry=\"\{@model.num_str(v)}\""
         None => ""
       }
-      "<rect x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" width=\"\{num_to_str(w)}\" height=\"\{num_to_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
+      "<rect x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" width=\"\{@model.num_str(w)}\" height=\"\{@model.num_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
     }
     @model.Circle(r) =>
-      "<circle cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" r=\"\{num_to_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
+      "<circle cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" r=\"\{@model.num_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
     @model.Ellipse(rx, ry) =>
-      "<ellipse cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" rx=\"\{num_to_str(rx)}\" ry=\"\{num_to_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
+      "<ellipse cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" rx=\"\{@model.num_str(rx)}\" ry=\"\{@model.num_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
     @model.Line(x2, y2) => {
       let marker_start = match style.marker_start {
         Some(@model.Arrow) => " marker-start=\"url(#arrow-start-context)\""
@@ -117,7 +106,7 @@ pub fn element_to_svg_string_with_parent(
         Some(@model.Arrow) => " marker-end=\"url(#arrow-end-context)\""
         _ => ""
       }
-      "<line x1=\"\{num_to_str(el.x)}\" y1=\"\{num_to_str(el.y)}\" x2=\"\{num_to_str(x2)}\" y2=\"\{num_to_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}\{marker_start}\{marker_end}/>"
+      "<line x1=\"\{@model.num_str(el.x)}\" y1=\"\{@model.num_str(el.y)}\" x2=\"\{@model.num_str(x2)}\" y2=\"\{@model.num_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}\{marker_start}\{marker_end}/>"
     }
     @model.Text(content, font_size) => {
       let fs = font_size.unwrap_or(16.0)
@@ -126,16 +115,16 @@ pub fn element_to_svg_string_with_parent(
         Some(ff) => " font-family=\"\{ff}\""
         None => ""
       }
-      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\"\{font_family_attr} text-anchor=\"middle\" dominant-baseline=\"middle\">\{@model.escape_xml(content)}</text>"
+      "<text x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{@model.num_str(fs)}\"\{font_family_attr} text-anchor=\"middle\" dominant-baseline=\"middle\">\{@model.escape_xml(content)}</text>"
     }
     @model.Polyline(points) => {
       let points_str = points
-        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .map(fn(p) { "\{@model.num_str(p.x)},\{@model.num_str(p.y)}" })
         .join(" ")
-      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
+      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
     }
     @model.Path(d, _, _, _, _) =>
-      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
+      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"\{opacity_attr}\{dasharray_attr}/>"
   }
 }
 

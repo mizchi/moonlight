@@ -30,6 +30,11 @@ pub extern "js" fn set_inner_html(el : @js.Any, html : String) =
 pub extern "js" fn clear_svg_children(svg : @js.Any) =
   #| (svg) => { while (svg.firstChild) svg.removeChild(svg.firstChild); }
 
+///|
+/// JS値が null/undefined かチェック
+pub extern "js" fn is_js_null(obj : @js.Any) -> Bool =
+  #| (obj) => obj === null || obj === undefined
+
 // =============================================================================
 // 矢印マーカー定義
 // =============================================================================
@@ -67,17 +72,6 @@ pub fn create_arrow_defs() -> @js.Any {
 }
 
 // =============================================================================
-// 数値変換ユーティリティ
-// =============================================================================
-
-///|
-/// 数値を文字列に変換（小数点以下2桁）
-pub fn num_to_str(n : Double) -> String {
-  let rounded = (n * 100.0).round() / 100.0
-  rounded.to_string()
-}
-
-// =============================================================================
 // スタイル属性ヘルパー
 // =============================================================================
 
@@ -93,10 +87,10 @@ pub fn style_to_attrs(style : @model.Style) -> Array[(String, String)] {
     attrs.push(("stroke", v))
   }
   if style.stroke_width is Some(v) {
-    attrs.push(("stroke-width", num_to_str(v)))
+    attrs.push(("stroke-width", @model.num_str(v)))
   }
   if style.opacity is Some(v) {
-    attrs.push(("opacity", num_to_str(v)))
+    attrs.push(("opacity", @model.num_str(v)))
   }
   if style.stroke_dasharray is Some(v) {
     attrs.push(("stroke-dasharray", v))
@@ -158,44 +152,44 @@ pub fn render_element_to_svg_with_parent(
   match el.shape {
     @model.Rect(w, h, rx, ry) => {
       let rect = create_svg_element_ns("rect")
-      set_svg_attr(rect, "x", num_to_str(el.x))
-      set_svg_attr(rect, "y", num_to_str(el.y))
-      set_svg_attr(rect, "width", num_to_str(w))
-      set_svg_attr(rect, "height", num_to_str(h))
+      set_svg_attr(rect, "x", @model.num_str(el.x))
+      set_svg_attr(rect, "y", @model.num_str(el.y))
+      set_svg_attr(rect, "width", @model.num_str(w))
+      set_svg_attr(rect, "height", @model.num_str(h))
       if rx is Some(v) {
-        set_svg_attr(rect, "rx", num_to_str(v))
+        set_svg_attr(rect, "rx", @model.num_str(v))
       }
       if ry is Some(v) {
-        set_svg_attr(rect, "ry", num_to_str(v))
+        set_svg_attr(rect, "ry", @model.num_str(v))
       }
       set_svg_attr(rect, "fill", fill)
       set_svg_attr(rect, "stroke", stroke)
-      set_svg_attr(rect, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(rect, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(rect, "data-id", el.id)
       set_svg_attr(rect, "cursor", "move")
       rect
     }
     @model.Circle(r) => {
       let circle = create_svg_element_ns("circle")
-      set_svg_attr(circle, "cx", num_to_str(el.x))
-      set_svg_attr(circle, "cy", num_to_str(el.y))
-      set_svg_attr(circle, "r", num_to_str(r))
+      set_svg_attr(circle, "cx", @model.num_str(el.x))
+      set_svg_attr(circle, "cy", @model.num_str(el.y))
+      set_svg_attr(circle, "r", @model.num_str(r))
       set_svg_attr(circle, "fill", fill)
       set_svg_attr(circle, "stroke", stroke)
-      set_svg_attr(circle, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(circle, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(circle, "data-id", el.id)
       set_svg_attr(circle, "cursor", "move")
       circle
     }
     @model.Ellipse(rx, ry) => {
       let ellipse = create_svg_element_ns("ellipse")
-      set_svg_attr(ellipse, "cx", num_to_str(el.x))
-      set_svg_attr(ellipse, "cy", num_to_str(el.y))
-      set_svg_attr(ellipse, "rx", num_to_str(rx))
-      set_svg_attr(ellipse, "ry", num_to_str(ry))
+      set_svg_attr(ellipse, "cx", @model.num_str(el.x))
+      set_svg_attr(ellipse, "cy", @model.num_str(el.y))
+      set_svg_attr(ellipse, "rx", @model.num_str(rx))
+      set_svg_attr(ellipse, "ry", @model.num_str(ry))
       set_svg_attr(ellipse, "fill", fill)
       set_svg_attr(ellipse, "stroke", stroke)
-      set_svg_attr(ellipse, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(ellipse, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(ellipse, "data-id", el.id)
       set_svg_attr(ellipse, "cursor", "move")
       ellipse
@@ -208,34 +202,34 @@ pub fn render_element_to_svg_with_parent(
       set_svg_attr(group, "cursor", "move")
       // 透明なヒットエリア（クリック用、24px幅）
       let hit_area = create_svg_element_ns("line")
-      set_svg_attr(hit_area, "x1", num_to_str(el.x))
-      set_svg_attr(hit_area, "y1", num_to_str(el.y))
-      set_svg_attr(hit_area, "x2", num_to_str(x2))
-      set_svg_attr(hit_area, "y2", num_to_str(y2))
+      set_svg_attr(hit_area, "x1", @model.num_str(el.x))
+      set_svg_attr(hit_area, "y1", @model.num_str(el.y))
+      set_svg_attr(hit_area, "x2", @model.num_str(x2))
+      set_svg_attr(hit_area, "y2", @model.num_str(y2))
       set_svg_attr(hit_area, "stroke", "transparent")
       set_svg_attr(hit_area, "stroke-width", "24")
       append_child(group, hit_area)
       // 選択時はハイライト線を追加
       if is_selected {
         let highlight = create_svg_element_ns("line")
-        set_svg_attr(highlight, "x1", num_to_str(el.x))
-        set_svg_attr(highlight, "y1", num_to_str(el.y))
-        set_svg_attr(highlight, "x2", num_to_str(x2))
-        set_svg_attr(highlight, "y2", num_to_str(y2))
+        set_svg_attr(highlight, "x1", @model.num_str(el.x))
+        set_svg_attr(highlight, "y1", @model.num_str(el.y))
+        set_svg_attr(highlight, "x2", @model.num_str(x2))
+        set_svg_attr(highlight, "y2", @model.num_str(y2))
         set_svg_attr(highlight, "stroke", "rgba(0, 102, 255, 0.3)")
-        set_svg_attr(highlight, "stroke-width", num_to_str(stroke_width + 6.0))
+        set_svg_attr(highlight, "stroke-width", @model.num_str(stroke_width + 6.0))
         set_svg_attr(highlight, "stroke-linecap", "round")
         set_svg_attr(highlight, "pointer-events", "none")
         append_child(group, highlight)
       }
       // 実際の線
       let line = create_svg_element_ns("line")
-      set_svg_attr(line, "x1", num_to_str(el.x))
-      set_svg_attr(line, "y1", num_to_str(el.y))
-      set_svg_attr(line, "x2", num_to_str(x2))
-      set_svg_attr(line, "y2", num_to_str(y2))
+      set_svg_attr(line, "x1", @model.num_str(el.x))
+      set_svg_attr(line, "y1", @model.num_str(el.y))
+      set_svg_attr(line, "x2", @model.num_str(x2))
+      set_svg_attr(line, "y2", @model.num_str(y2))
       set_svg_attr(line, "stroke", stroke)
-      set_svg_attr(line, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(line, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(line, "pointer-events", "none")
       // 矢印マーカー
       if style.marker_start is Some(@model.Arrow) {
@@ -249,12 +243,12 @@ pub fn render_element_to_svg_with_parent(
     }
     @model.Text(content, font_size) => {
       let text = create_svg_element_ns("text")
-      set_svg_attr(text, "x", num_to_str(el.x))
-      set_svg_attr(text, "y", num_to_str(el.y))
+      set_svg_attr(text, "x", @model.num_str(el.x))
+      set_svg_attr(text, "y", @model.num_str(el.y))
       // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
       let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
       set_svg_attr(text, "fill", text_fill)
-      set_svg_attr(text, "font-size", num_to_str(font_size.unwrap_or(16.0)))
+      set_svg_attr(text, "font-size", @model.num_str(font_size.unwrap_or(16.0)))
       set_svg_attr(text, "text-anchor", "middle")
       set_svg_attr(text, "dominant-baseline", "middle")
       set_inner_html(text, content)
@@ -265,12 +259,12 @@ pub fn render_element_to_svg_with_parent(
     @model.Polyline(points) => {
       let polyline = create_svg_element_ns("polyline")
       let points_str = points
-        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .map(fn(p) { "\{@model.num_str(p.x)},\{@model.num_str(p.y)}" })
         .join(" ")
       set_svg_attr(polyline, "points", points_str)
       set_svg_attr(polyline, "fill", fill)
       set_svg_attr(polyline, "stroke", stroke)
-      set_svg_attr(polyline, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(polyline, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(polyline, "data-id", el.id)
       set_svg_attr(polyline, "cursor", "move")
       polyline
@@ -280,7 +274,7 @@ pub fn render_element_to_svg_with_parent(
       set_svg_attr(path, "d", d)
       set_svg_attr(path, "fill", fill)
       set_svg_attr(path, "stroke", stroke)
-      set_svg_attr(path, "stroke-width", num_to_str(stroke_width))
+      set_svg_attr(path, "stroke-width", @model.num_str(stroke_width))
       set_svg_attr(path, "data-id", el.id)
       set_svg_attr(path, "cursor", "move")
       path
@@ -303,10 +297,10 @@ pub fn create_selection_rect(
 ) -> @js.Any {
   let rect = create_svg_element_ns("rect")
   set_svg_attr(rect, "class", "selection-rect")
-  set_svg_attr(rect, "x", num_to_str(x - 2.0))
-  set_svg_attr(rect, "y", num_to_str(y - 2.0))
-  set_svg_attr(rect, "width", num_to_str(w + 4.0))
-  set_svg_attr(rect, "height", num_to_str(h + 4.0))
+  set_svg_attr(rect, "x", @model.num_str(x - 2.0))
+  set_svg_attr(rect, "y", @model.num_str(y - 2.0))
+  set_svg_attr(rect, "width", @model.num_str(w + 4.0))
+  set_svg_attr(rect, "height", @model.num_str(h + 4.0))
   set_svg_attr(rect, "fill", "none")
   set_svg_attr(rect, "stroke", "#0066ff")
   set_svg_attr(rect, "stroke-width", "2")
@@ -327,8 +321,8 @@ pub fn render_anchor_point(
 ) -> @js.Any {
   let circle = create_svg_element_ns("circle")
   set_svg_attr(circle, "class", "anchor-point")
-  set_svg_attr(circle, "cx", num_to_str(x))
-  set_svg_attr(circle, "cy", num_to_str(y))
+  set_svg_attr(circle, "cx", @model.num_str(x))
+  set_svg_attr(circle, "cy", @model.num_str(y))
   set_svg_attr(circle, "r", "6")
   set_svg_attr(circle, "fill", "#0066ff")
   set_svg_attr(circle, "stroke", "#ffffff")
@@ -353,10 +347,10 @@ pub fn render_resize_handle(
   let rect = create_svg_element_ns("rect")
   let size = 8.0
   set_svg_attr(rect, "class", "resize-handle")
-  set_svg_attr(rect, "x", num_to_str(x - size / 2.0))
-  set_svg_attr(rect, "y", num_to_str(y - size / 2.0))
-  set_svg_attr(rect, "width", num_to_str(size))
-  set_svg_attr(rect, "height", num_to_str(size))
+  set_svg_attr(rect, "x", @model.num_str(x - size / 2.0))
+  set_svg_attr(rect, "y", @model.num_str(y - size / 2.0))
+  set_svg_attr(rect, "width", @model.num_str(size))
+  set_svg_attr(rect, "height", @model.num_str(size))
   set_svg_attr(rect, "fill", "#0066ff")
   set_svg_attr(rect, "stroke", "#ffffff")
   set_svg_attr(rect, "stroke-width", "1")
@@ -378,8 +372,8 @@ pub fn render_line_handle(
 ) -> @js.Any {
   let circle = create_svg_element_ns("circle")
   set_svg_attr(circle, "class", "line-handle")
-  set_svg_attr(circle, "cx", num_to_str(x))
-  set_svg_attr(circle, "cy", num_to_str(y))
+  set_svg_attr(circle, "cx", @model.num_str(x))
+  set_svg_attr(circle, "cy", @model.num_str(y))
   set_svg_attr(circle, "r", "5")
   set_svg_attr(circle, "fill", "#0066ff")
   set_svg_attr(circle, "stroke", "#ffffff")
@@ -484,33 +478,33 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
   match el.shape {
     @model.Rect(w, h, rx, ry) => {
       let rx_attr = match rx {
-        Some(v) => " rx=\"\{num_to_str(v)}\""
+        Some(v) => " rx=\"\{@model.num_str(v)}\""
         None => ""
       }
       let ry_attr = match ry {
-        Some(v) => " ry=\"\{num_to_str(v)}\""
+        Some(v) => " ry=\"\{@model.num_str(v)}\""
         None => ""
       }
-      "<rect x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" width=\"\{num_to_str(w)}\" height=\"\{num_to_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<rect x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" width=\"\{@model.num_str(w)}\" height=\"\{@model.num_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     }
     @model.Circle(r) =>
-      "<circle cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" r=\"\{num_to_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<circle cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" r=\"\{@model.num_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Ellipse(rx, ry) =>
-      "<ellipse cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" rx=\"\{num_to_str(rx)}\" ry=\"\{num_to_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<ellipse cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" rx=\"\{@model.num_str(rx)}\" ry=\"\{@model.num_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Line(x2, y2) =>
-      "<line x1=\"\{num_to_str(el.x)}\" y1=\"\{num_to_str(el.y)}\" x2=\"\{num_to_str(x2)}\" y2=\"\{num_to_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<line x1=\"\{@model.num_str(el.x)}\" y1=\"\{@model.num_str(el.y)}\" x2=\"\{@model.num_str(x2)}\" y2=\"\{@model.num_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Text(content, font_size) => {
       let fs = font_size.unwrap_or(16.0)
-      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{fill}\" font-size=\"\{num_to_str(fs)}\">\{content}</text>"
+      "<text x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" fill=\"\{fill}\" font-size=\"\{@model.num_str(fs)}\">\{content}</text>"
     }
     @model.Polyline(points) => {
       let points_str = points
-        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .map(fn(p) { "\{@model.num_str(p.x)},\{@model.num_str(p.y)}" })
         .join(" ")
-      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     }
     @model.Path(d, _, _, _, _) =>
-      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
   }
 }
 
@@ -549,35 +543,35 @@ fn element_to_svg_string_with_parent(
   match el.shape {
     @model.Rect(w, h, rx, ry) => {
       let rx_attr = match rx {
-        Some(v) => " rx=\"\{num_to_str(v)}\""
+        Some(v) => " rx=\"\{@model.num_str(v)}\""
         None => ""
       }
       let ry_attr = match ry {
-        Some(v) => " ry=\"\{num_to_str(v)}\""
+        Some(v) => " ry=\"\{@model.num_str(v)}\""
         None => ""
       }
-      "<rect x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" width=\"\{num_to_str(w)}\" height=\"\{num_to_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<rect x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" width=\"\{@model.num_str(w)}\" height=\"\{@model.num_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     }
     @model.Circle(r) =>
-      "<circle cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" r=\"\{num_to_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<circle cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" r=\"\{@model.num_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Ellipse(rx, ry) =>
-      "<ellipse cx=\"\{num_to_str(el.x)}\" cy=\"\{num_to_str(el.y)}\" rx=\"\{num_to_str(rx)}\" ry=\"\{num_to_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<ellipse cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" rx=\"\{@model.num_str(rx)}\" ry=\"\{@model.num_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Line(x2, y2) =>
-      "<line x1=\"\{num_to_str(el.x)}\" y1=\"\{num_to_str(el.y)}\" x2=\"\{num_to_str(x2)}\" y2=\"\{num_to_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<line x1=\"\{@model.num_str(el.x)}\" y1=\"\{@model.num_str(el.y)}\" x2=\"\{@model.num_str(x2)}\" y2=\"\{@model.num_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     @model.Text(content, font_size) => {
       let fs = font_size.unwrap_or(16.0)
       // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
       let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
-      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{content}</text>"
+      "<text x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{@model.num_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{content}</text>"
     }
     @model.Polyline(points) => {
       let points_str = points
-        .map(fn(p) { "\{num_to_str(p.x)},\{num_to_str(p.y)}" })
+        .map(fn(p) { "\{@model.num_str(p.x)},\{@model.num_str(p.y)}" })
         .join(" ")
-      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
     }
     @model.Path(d, _, _, _, _) =>
-      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
+      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
   }
 }
 

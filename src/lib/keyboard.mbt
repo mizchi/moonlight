@@ -174,7 +174,7 @@ fn get_placement_position(state : @core.EditorState) -> (Double, Double) {
 ///|
 /// 選択要素を削除
 fn delete_selected(state : @core.EditorState) -> Unit {
-  match get_selected_id(state) {
+  match state.get_selected_id() {
     None => ()
     Some(id) => {
       state.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
@@ -186,7 +186,7 @@ fn delete_selected(state : @core.EditorState) -> Unit {
 ///|
 /// 選択要素を移動
 fn move_selected(state : @core.EditorState, dx : Double, dy : Double) -> Unit {
-  match get_selected_id(state) {
+  match state.get_selected_id() {
     None => ()
     Some(id) =>
       state.elements.update(fn(els) {

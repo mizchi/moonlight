@@ -1367,9 +1367,10 @@ pub fn escape_xml(s : String) -> String {
 }
 
 ///|
-/// 数値を文字列に変換
+/// 数値を文字列に変換（小数点以下2桁に丸め）
 pub fn num_str(value : Double) -> String {
-  value.to_string()
+  let rounded = (value * 100.0).round() / 100.0
+  rounded.to_string()
 }
 
 // ============================================================

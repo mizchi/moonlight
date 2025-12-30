@@ -52,7 +52,7 @@ pub fn setup_context_menu(
   new_id : () -> String,
 ) -> Unit {
   let svg = state.svg_el.get()
-  if is_svg_null(svg) {
+  if is_js_null(svg) {
     return
   }
   // コンテキストメニューを作成
@@ -381,7 +381,7 @@ fn add_element_to_state(state : @core.EditorState, el : @model.Element) -> Unit 
 /// 要素を削除
 fn delete_element(state : @core.EditorState, id : String) -> Unit {
   state.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
-  match get_selected_id(state) {
+  match state.get_selected_id() {
     Some(sel_id) if sel_id == id => set_selected_id(state, None)
     _ => ()
   }

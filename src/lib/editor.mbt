@@ -76,16 +76,8 @@ pub fn create_embed_state(
 // ヘルパー関数（単一選択用）
 // ============================================================
 
-///|
-/// 選択中のIDを取得（単一選択として）
-pub fn get_selected_id(state : @core.EditorState) -> String? {
-  let ids = state.selected_ids.get()
-  if ids.length() > 0 {
-    Some(ids[0])
-  } else {
-    None
-  }
-}
+// get_selected_id は @core.EditorState のメソッドとして定義
+// state.get_selected_id() を使用
 
 ///|
 /// 選択を設定（単一選択として）
@@ -116,7 +108,7 @@ pub fn redraw_svg(state : @core.EditorState) -> Unit {
   set_svg_attr(bg, "fill", bg_color)
   append_child(svg, bg)
   // 要素を描画（選択状態に応じてハイライト）
-  let selected_id = get_selected_id(state)
+  let selected_id = state.get_selected_id()
   let elements = state.elements.get()
   for el in elements {
     let is_selected = match selected_id {

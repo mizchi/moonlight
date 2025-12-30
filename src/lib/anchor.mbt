@@ -5,13 +5,13 @@
 /// アンカーポイントを描画
 pub fn render_anchor_points(state : @core.EditorState) -> Unit {
   let svg = state.svg_el.get()
-  if is_anchor_svg_null(svg) {
+  if is_js_null(svg) {
     return
   }
   // 既存のアンカーポイントを削除
   remove_anchor_points_ffi(svg)
   // 選択された要素があればアンカーポイントを描画
-  match get_selected_id(state) {
+  match state.get_selected_id() {
     None => ()
     Some(id) =>
       for el in state.elements.get() {
@@ -94,11 +94,6 @@ fn get_element_anchors(el : @model.Element) -> Array[(Double, Double)] {
 }
 
 // === FFI 関数 ===
-
-///|
-/// SVG が null かどうかチェック
-extern "js" fn is_anchor_svg_null(svg : @js.Any) -> Bool =
-  #| (svg) => svg === null || svg === undefined
 
 ///|
 /// アンカーポイントを削除

@@ -204,6 +204,17 @@ fn is_line_element(state : @core.EditorState, id : String) -> Bool {
 }
 
 ///|
+/// Line要素の端点アンカーかどうかチェック（Line端点の移動操作に使用）
+fn is_line_endpoint_anchor(
+  state : @core.EditorState,
+  anchor_type : @core.AnchorType,
+  element_id : String,
+) -> Bool {
+  (anchor_type is @core.LineStart || anchor_type is @core.LineEnd) &&
+  is_line_element(state, element_id)
+}
+
+///|
 /// mousedown ハンドラをセットアップ
 pub extern "js" fn add_mousedown_handler(
   svg : @js.Any,
@@ -243,7 +254,7 @@ pub fn setup_interaction(
 ) -> Unit {
   let svg = state.svg_el.get()
   // SVG が null なら何もしない
-  if is_svg_null(svg) {
+  if is_js_null(svg) {
     return
   }
   // mousedown: 要素をクリックしたらドラッグ開始、アンカーをクリックしたら線ドラッグ開始
@@ -262,10 +273,9 @@ pub fn setup_interaction(
       match parse_anchor_type(anchor_type_str) {
         Some(anchor_type) => {
           // Line要素のline-start/line-endアンカーの場合は端点移動モード
-          let is_line_anchor = (
-              anchor_type is @core.LineStart || anchor_type is @core.LineEnd
-            ) &&
-            is_line_element(state, anchor_element_id)
+          let is_line_anchor = is_line_endpoint_anchor(
+            state, anchor_type, anchor_element_id,
+          )
           state.anchor_drag_state.set(
             Some({
               source_element_id: anchor_element_id,
@@ -330,10 +340,9 @@ pub fn setup_interaction(
     match state.anchor_drag_state.get() {
       Some(anchor_state) => {
         let anchor_type = anchor_state.source_anchor_type
-        let is_line_anchor = (
-            anchor_type is @core.LineStart || anchor_type is @core.LineEnd
-          ) &&
-          is_line_element(state, anchor_state.source_element_id)
+        let is_line_anchor = is_line_endpoint_anchor(
+          state, anchor_type, anchor_state.source_element_id,
+        )
         if is_line_anchor {
           // Line端点のドラッグ: リアルタイムで位置を更新
           update_line_endpoint(
@@ -395,10 +404,9 @@ pub fn setup_interaction(
       Some(anchor_state) => {
         let (mx, my) = get_mouse_coords_from_event(e)
         let anchor_type = anchor_state.source_anchor_type
-        let is_line_anchor = (
-            anchor_type is @core.LineStart || anchor_type is @core.LineEnd
-          ) &&
-          is_line_element(state, anchor_state.source_element_id)
+        let is_line_anchor = is_line_endpoint_anchor(
+          state, anchor_type, anchor_state.source_element_id,
+        )
         if is_line_anchor {
           // Line端点の移動完了: 最終位置を設定
           update_line_endpoint(
@@ -488,11 +496,6 @@ extern "js" fn is_right_click(e : @js.Any) -> Bool =
   #| (e) => e.button === 2
 
 ///|
-/// SVG が null かどうかチェック
-extern "js" fn is_svg_null(svg : @js.Any) -> Bool =
-  #| (svg) => svg === null || svg === undefined
-
-///|
 /// プレビュー線を描画
 extern "js" fn draw_preview_line_ffi(
   svg : @js.Any,
@@ -534,14 +537,14 @@ extern "js" fn remove_preview_line_ffi(svg : @js.Any) =
 pub fn update_selection_ui(state : @core.EditorState) -> Unit {
   let svg = state.svg_el.get()
   // SVG が null なら何もしない
-  if is_svg_null(svg) {
+  if is_js_null(svg) {
     return
   }
   // 既存の選択枠とハンドルを削除
   remove_selection_rect(svg)
   remove_resize_handles(svg)
   // 選択された要素があれば選択枠を描画
-  match get_selected_id(state) {
+  match state.get_selected_id() {
     None => ()
     Some(id) =>
       for el in state.elements.get() {
