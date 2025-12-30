@@ -211,6 +211,32 @@ pub(all) enum ShapeType {
 } derive(Show, Eq)
 
 ///|
+/// 図形が有効（生成可能）かどうかを判定
+/// - Circle: 半径 > 0
+/// - Rect: 幅 > 0 かつ 高さ > 0
+/// - Ellipse: rx > 0 かつ ry > 0
+/// - Line: 始点と終点が異なる（距離 > 0）
+/// - Path: 常に無効（UIから直接生成不可）
+/// - Polyline: ポイント数 >= 2
+/// - Text: 常に有効
+pub fn ShapeType::is_valid(self : ShapeType, x : Double, y : Double) -> Bool {
+  match self {
+    Circle(r) => r > 0.0
+    Rect(w, h, _, _) => w > 0.0 && h > 0.0
+    Ellipse(rx, ry) => rx > 0.0 && ry > 0.0
+    Line(x2, y2) => {
+      // 始点 (x, y) と終点 (x2, y2) が異なる
+      let dx = x2 - x
+      let dy = y2 - y
+      dx * dx + dy * dy > 0.0
+    }
+    Path(_, _, _, _, _) => false // Path は UI から直接生成不可
+    Polyline(points) => points.length() >= 2
+    Text(_, _) => true
+  }
+}
+
+///|
 /// シェープごとの設定（UI表示、編集可能なスタイル、アンカー、接続）
 pub(all) struct ShapeConfig {
   /// Stroke 色を表示・編集可能か
@@ -352,6 +378,12 @@ pub fn Element::with_parent(self : Element, parent_id : String) -> Element {
 /// スタイルを設定した要素を作成
 pub fn Element::with_style(self : Element, style : Style) -> Element {
   { ..self, style, }
+}
+
+///|
+/// 要素が有効（追加可能）かどうかを判定
+pub fn Element::is_valid(self : Element) -> Bool {
+  self.shape.is_valid(self.x, self.y)
 }
 
 ///|

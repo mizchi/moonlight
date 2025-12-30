@@ -340,11 +340,13 @@ pub fn EditorState::snap_to_grid(
 }
 
 ///|
-/// 要素を追加
+/// 要素を追加（無効な要素は追加しない）
 pub fn EditorState::add_element(
   self : EditorState,
   element : @model.Element,
 ) -> Unit {
+  // サイズ0の図形やPathは追加しない
+  guard element.is_valid() else { return }
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
@@ -686,11 +688,13 @@ pub fn EditorState::delete_selected(self : EditorState) -> Unit {
 // ============================================================
 
 ///|
-/// 要素を追加（履歴なし）
+/// 要素を追加（履歴なし、無効な要素は追加しない）
 pub fn EditorState::add_element_raw(
   self : EditorState,
   element : @model.Element,
 ) -> Unit {
+  // サイズ0の図形やPathは追加しない
+  guard element.is_valid() else { return }
   self.elements.update(fn(els) {
     let new_els = els.copy()
     new_els.push(element)
