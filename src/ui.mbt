@@ -525,7 +525,7 @@ pub fn render_style_editor(
 }
 
 ///|
-/// 色エディタ（現在の色ボタン + カラーピッカー + 透明ボタン）
+/// 色エディタ（カラーパレット統合版）
 fn render_color_editor(
   state : @core.EditorState,
   history : @model.History,
@@ -533,35 +533,24 @@ fn render_color_editor(
   is_fill : Bool,
   _close_menu : () -> Unit,
 ) -> @element.DomNode {
+  // カラーパレット（基本色 + transparent）
+  let base_colors = ["#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00"]
   div(
-    style="display: flex; align-items: center; gap: 4px;",
+    style="display: flex; align-items: center; gap: 3px;",
     [
-      // 現在の色を表示するボタン
-      @element.create_element(
-        "button",
-        [
-          (
-            "style",
-            @element.Dynamic(fn() {
-              let color = match state.find_element(element_id) {
-                Some(el) =>
-                  if is_fill {
-                    el.style.fill.unwrap_or("transparent")
-                  } else {
-                    el.style.stroke.unwrap_or("#000000")
-                  }
-                None => if is_fill { "transparent" } else { "#000000" }
-              }
-              let bg = if color == "transparent" {
-                "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px"
-              } else {
-                color
-              }
-              "width: 28px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: \{bg};"
-            }),
-          ),
-        ],
-        [],
+      // 透明ボタン（is_fill の場合のみ）
+      if is_fill {
+        render_color_button(
+          state, history, element_id, is_fill, "transparent",
+        )
+      } else {
+        @element.fragment([])
+      },
+      // カラーパレット
+      @element.fragment(
+        base_colors.map(fn(color) {
+          render_color_button(state, history, element_id, is_fill, color)
+        }),
       ),
       // ネイティブカラーピッカー
       input(
@@ -600,39 +589,75 @@ fn render_color_editor(
           }
         }),
       ),
-      // Fill の場合は透明ボタンを追加
-      if is_fill {
-        @element.create_element(
-          "button",
-          [
-            (
-              "style",
-              @element.Static(
-                "width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 12px; background: white;",
-              ),
-            ),
-            ("title", @element.Static("Transparent")),
-            (
-              "click",
-              @element.Handler(fn(_) {
-                if state.find_element(element_id) is Some(el) {
-                  let old_style = el.style
-                  let new_style = { ..old_style, fill: None }
-                  @core.execute_command(
-                    history,
-                    state,
-                    @model.UpdateStyle(element_id, old_style, new_style),
-                  )
-                }
-              }),
-            ),
-          ],
-          [@element.text("∅")],
-        )
-      } else {
-        @element.fragment([])
-      },
     ],
+  )
+}
+
+///|
+/// カラーボタン（選択状態付き）
+fn render_color_button(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  is_fill : Bool,
+  color : String,
+) -> @element.DomNode {
+  @element.create_element(
+    "button",
+    [
+      (
+        "style",
+        @element.Dynamic(fn() {
+          let current_color = match state.find_element(element_id) {
+            Some(el) =>
+              if is_fill {
+                el.style.fill.unwrap_or("transparent")
+              } else {
+                el.style.stroke.unwrap_or("#000000")
+              }
+            None => if is_fill { "transparent" } else { "#000000" }
+          }
+          let is_selected = current_color == color ||
+            (color == "transparent" && current_color == "transparent")
+          let border = if is_selected {
+            "2px solid #0066ff"
+          } else {
+            "1px solid #ccc"
+          }
+          let bg = if color == "transparent" {
+            "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px"
+          } else {
+            color
+          }
+          "width: 22px; height: 22px; padding: 0; border: \{border}; border-radius: 3px; cursor: pointer; background: \{bg};"
+        }),
+      ),
+      ("title", @element.Static(color)),
+      (
+        "click",
+        @element.Handler(fn(_) {
+          if state.find_element(element_id) is Some(el) {
+            let old_style = el.style
+            let new_value : String? = if color == "transparent" {
+              None
+            } else {
+              Some(color)
+            }
+            let new_style = if is_fill {
+              { ..old_style, fill: new_value }
+            } else {
+              { ..old_style, stroke: new_value }
+            }
+            @core.execute_command(
+              history,
+              state,
+              @model.UpdateStyle(element_id, old_style, new_style),
+            )
+          }
+        }),
+      ),
+    ],
+    [],
   )
 }
 

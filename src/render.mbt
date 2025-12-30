@@ -112,6 +112,7 @@ pub fn render_element(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_element("rect", attrs, [])
     }
     @model.Circle(r) => {
@@ -123,6 +124,7 @@ pub fn render_element(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_element("circle", attrs, [])
     }
     @model.Ellipse(rx, ry) => {
@@ -135,6 +137,7 @@ pub fn render_element(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_element("ellipse", attrs, [])
     }
     @model.Line(x2, y2) => {
@@ -1265,6 +1268,7 @@ pub fn render_element_node(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node("rect", attrs, [], [])
     }
     @model.Circle(r) => {
@@ -1276,6 +1280,7 @@ pub fn render_element_node(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node("circle", attrs, [], [])
     }
     @model.Ellipse(rx, ry) => {
@@ -1288,6 +1293,7 @@ pub fn render_element_node(
         attrs.push(("transform", t))
       }
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node("ellipse", attrs, [], [])
     }
     @model.Line(x2, y2) => {
@@ -2144,6 +2150,7 @@ fn create_element_vnode_with_ref(
       }
       add_style_attrs(attrs, el.style)
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("rect", attrs, el_ref)
     }
     @model.Circle(r) => {
@@ -2152,6 +2159,7 @@ fn create_element_vnode_with_ref(
       attrs.push(("r", @model.num_str(r)))
       add_style_attrs(attrs, el.style)
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("circle", attrs, el_ref)
     }
     @model.Ellipse(rx, ry) => {
@@ -2161,6 +2169,7 @@ fn create_element_vnode_with_ref(
       attrs.push(("ry", @model.num_str(ry)))
       add_style_attrs(attrs, el.style)
       attrs.push(("cursor", "move"))
+      attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("ellipse", attrs, el_ref)
     }
     @model.Line(x2, y2) =>
