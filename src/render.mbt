@@ -231,35 +231,8 @@ pub fn render_element(
         [("data-id", el.id), ("data-element-type", "text"), ("cursor", "move")],
         [],
       )
-      // ヒットエリアのサイズを計算（単一行の場合は split を省略）
-      let (hit_width, hit_height) = if content.contains("\n") {
-        let lines : Array[String] = content
-          .split("\n")
-          .map(fn(sv) { sv.to_string() })
-          .collect()
-        let line_count = lines.length()
-        let line_height = size * 1.2
-        let total_height = line_count.to_double() * line_height
-        let max_line_len = lines.fold(init=0, fn(acc, line) {
-          let len = line.iter().count()
-          if len > acc {
-            len
-          } else {
-            acc
-          }
-        })
-        let estimated_width = max_line_len.to_double() * size * 0.55
-        let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
-        let h = if total_height < 24.0 { 24.0 } else { total_height }
-        (w, h)
-      } else {
-        // 単一行: 文字数から幅を推定
-        let char_count = content.iter().count()
-        let estimated_width = char_count.to_double() * size * 0.55
-        let min_w = size * 2.0
-        let w = if estimated_width < min_w { min_w } else { estimated_width }
-        (w, size * 1.2)
-      }
+      // ヒットエリアのサイズを計算（純粋関数を使用）
+      let (hit_width, hit_height) = @model.calc_text_hit_area(content, size)
       // 透明なヒットエリア（pointer-events: all で親要素より優先してクリックを受け取る）
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
