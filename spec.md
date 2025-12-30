@@ -26,7 +26,7 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 | `Line` | x2, y2 | 線分 | ✅ |
 | `Text` | content, fontSize? | テキスト | ✅ |
 | `Polyline` | points | 折れ線 | skip |
-| `Path` | d | SVG パス | skip |
+| `Path` | d, start_x, start_y, end_x, end_y | SVG パス（フリードロー） | ✅ |
 
 ## スタイル属性
 
@@ -54,6 +54,41 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 | 図形を左クリック＆ドラッグ | 図形を移動 |
 | マウスアップ | ドラッグ終了 |
 
+### 図形挿入
+
+| 動作 | 説明 |
+|------|------|
+| 挿入位置 | マウス位置（キャンバス内）またはビューポート中央 |
+| 連続挿入 | 同一座標に連続挿入時、+15px 右下にオフセット |
+
+### アンカーポイント
+
+選択中の図形にアンカーポイントを表示。将来的に矢印/コネクタ作成に使用。
+
+| 図形 | アンカー位置 |
+|------|-------------|
+| Rect | 上・下・左・右・中央 |
+| Circle/Ellipse | 上・下・左・右・中央 |
+| Line/Path | 始点・終点・中央 |
+| Text | 中央 |
+
+### フリードロー（FreeDraw）
+
+| 操作 | 動作 |
+|------|------|
+| FreeDraw モード + ドラッグ | フリーハンドで Path を描画 |
+| マウスアップ | 描画終了、Path 要素として追加 |
+| Escape | FreeDraw モード終了 |
+
+### テキスト編集
+
+| 操作 | 動作 |
+|------|------|
+| 図形をダブルクリック | テキスト編集モード開始（親要素の stroke 色を継承） |
+| 空白をダブルクリック | 新規テキスト作成 |
+| Escape / Enter | テキスト編集確定 |
+| 親要素上で確定 | 親要素の stroke 色をテキストの fill に適用 |
+
 ### コンテキストメニュー
 
 | 操作 | 動作 |
@@ -69,28 +104,51 @@ MoonBit + Luna で実装する軽量 SVG エディタの仕様。
 
 | ボタン | 動作 |
 |--------|------|
-| Add Rectangle | 紫の矩形を追加 |
-| Add Circle | 赤い円を追加 |
-| Add Ellipse | ティール色の楕円を追加 |
-| Add Line | 紫の線分を追加 |
-| Add Text | "Hello" テキストを追加 |
+| Add Rectangle | 矩形を追加 |
+| Add Circle | 円を追加 |
+| Add Ellipse | 楕円を追加 |
+| Add Line | 線分を追加 |
+| Add Text | テキストを追加 |
+| FreeDraw | フリードローモード切り替え |
 | Undo | 操作を取り消し |
 | Redo | 操作をやり直し |
 | Export SVG | SVG ファイルをダウンロード |
 | -/+/Reset | ズーム操作 |
 | Grid Snap | グリッドスナップの切り替え |
 
+## スタイル編集 UI
+
+### カラーピッカー
+
+| 要素 | 説明 |
+|------|------|
+| Stroke | 線の色（カラーパレット + ネイティブピッカー） |
+| Fill | 塗りつぶし色（transparent + カラーパレット + ネイティブピッカー） |
+| パレット | 黒、白、赤、緑、青、黄の 6 色 |
+| transparent | Fill のみ、塗りつぶしなし |
+
+### 透明図形のヒット判定
+
+- 透明（fill: transparent）でも `pointer-events: all` でクリック可能
+- コンテキストメニューも透明図形から呼び出し可能
+
 ## キーボードショートカット
 
 | キー | 動作 |
 |------|------|
 | Delete / Backspace | 選択中の図形を削除 |
-| Escape | 選択解除 |
+| Escape | 選択解除、FreeDraw モード終了 |
 | Ctrl+D / Cmd+D | 図形を複製 |
 | Ctrl+Z / Cmd+Z | Undo |
 | Ctrl+Y / Cmd+Y | Redo |
 | マウスホイール | ズーム |
 | Space + ドラッグ | パン（キャンバス移動） |
+| 1 | 矩形を挿入（固定サイズ 100x60） |
+| 2 | 円を挿入（固定サイズ r=40） |
+| 3 | 楕円を挿入（固定サイズ 60x40） |
+| 4 | 線分を挿入（固定サイズ 100px） |
+| 5 | テキストを挿入 |
+| 6 | FreeDraw モード切り替え |
 
 ## 状態管理
 
@@ -107,7 +165,13 @@ EditorState
 ├── grid_enabled: Signal[Bool]         # グリッドスナップ有効
 ├── grid_size: Signal[Int]             # グリッドサイズ (20px)
 ├── is_panning: Signal[Bool]           # パン中かどうか
-└── pan_start: Signal[(Double,Double)?] # パン開始位置
+├── pan_start: Signal[(Double,Double)?] # パン開始位置
+├── tool_mode: Signal[ToolMode]        # ツールモード (Select/FreeDraw)
+├── free_draw_state: Signal[FreeDrawState?] # フリードロー状態
+├── text_edit_state: Signal[TextEditState?] # テキスト編集状態
+├── mouse_scene_pos: Signal[Point]     # シーン座標のマウス位置
+├── mouse_in_canvas: Signal[Bool]      # マウスがキャンバス内か
+└── last_placement_pos: Signal[Point?] # 最後の配置位置
 ```
 
 ## データモデル
@@ -264,7 +328,7 @@ undo_stack.push(command)
 - [x] 楕円
 - [x] 線分
 - [ ] skip: 折れ線 => インタラクションが複雑
-- [ ] skip: パス => path d は複雑だしUIとして設計が難しい
+- [x] パス (FreeDraw)
 - [x] テキスト
 
 ### Phase 4: 高度な機能
@@ -275,3 +339,11 @@ undo_stack.push(command)
 - [x] ズーム/パン (ホイール、ボタン)
 - [x] グリッドスナップ
 - [x] SVG エクスポート
+- [x] フリードローモード
+- [x] テキスト編集（ダブルクリック）
+- [x] カラーピッカー UI
+- [x] アンカーポイント表示
+- [x] 透明図形のヒット判定
+- [x] キーボードショートカットで図形挿入 (1-6)
+- [x] 連続配置オフセット (+15px)
+- [ ] 矢印/コネクタ（アンカーからドラッグで作成）
