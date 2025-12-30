@@ -53,9 +53,13 @@ fn handle_key(
       delete_selected(state)
       true
     }
-    // Escape: 選択解除
+    // Escape: フリードローモードなら Select に戻る、そうでなければ選択解除
     "Escape" => {
-      set_selected_id(state, None)
+      if state.tool_mode.get() == @core.FreeDraw {
+        state.tool_mode.set(@core.Select)
+      } else {
+        set_selected_id(state, None)
+      }
       true
     }
     // 1: Rectangle

@@ -933,6 +933,9 @@ fn setup_keyboard_listener(
         state.cancel_placement()
       } else if state.context_menu.get() is Some(_) {
         state.hide_context_menu()
+      } else if state.tool_mode.get() == @core.FreeDraw {
+        // フリードローモードなら Select に戻る
+        state.tool_mode.set(@core.Select)
       } else {
         return
       }
@@ -1681,7 +1684,12 @@ fn setup_keyboard_shortcuts(
           }
         }
       }
-      "Escape" => state.select(None)
+      "Escape" =>
+        if state.tool_mode.get() == @core.FreeDraw {
+          state.tool_mode.set(@core.Select)
+        } else {
+          state.select(None)
+        }
       // 1: Rectangle をマウス位置に挿入（アンカー近くなら配置モード）
       "1" => {
         let el_id = new_id()
