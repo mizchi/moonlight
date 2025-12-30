@@ -260,7 +260,7 @@ pub fn render_element(
         let w = if estimated_width < min_w { min_w } else { estimated_width }
         (w, size * 1.2)
       }
-      // 透明なヒットエリア
+      // 透明なヒットエリア（pointer-events: all で親要素より優先してクリックを受け取る）
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
         ("x", @model.num_str(text_x - hit_width / 2.0)),
@@ -268,6 +268,7 @@ pub fn render_element(
         ("width", @model.num_str(hit_width)),
         ("height", @model.num_str(hit_height)),
         ("fill", "transparent"),
+        ("pointer-events", "all"),
       ]
       let hit_area = create_svg_element("rect", hit_attrs, [])
       append_child_ffi(group, hit_area)
@@ -1405,7 +1406,7 @@ pub fn render_element_node(
         let w = if estimated_width < 40.0 { 40.0 } else { estimated_width }
         (w, size * 1.2)
       }
-      // ヒットエリア
+      // ヒットエリア（pointer-events: all で親要素より優先してクリックを受け取る）
       let hit_attrs : Array[(String, String)] = [
         ("data-id", el.id),
         ("x", @model.num_str(text_x - hit_width / 2.0)),
@@ -1413,6 +1414,7 @@ pub fn render_element_node(
         ("width", @model.num_str(hit_width)),
         ("height", @model.num_str(hit_height)),
         ("fill", "transparent"),
+        ("pointer-events", "all"),
       ]
       let hit_area = create_svg_node("rect", hit_attrs, [], [])
       // テキスト要素（FFI で複数行テキストを設定するため、ref callback を使用）
@@ -2313,7 +2315,7 @@ fn create_text_vnode_with_ref(
   // 子要素を作成
   let children : Array[@element.DomNode] = []
 
-  // ヒットエリア
+  // ヒットエリア（pointer-events: all で親要素より優先してクリックを受け取る）
   let hit_attrs : Array[(String, String)] = [
     ("data-id", el.id),
     ("x", @model.num_str(text_x - hit_width / 2.0)),
@@ -2321,6 +2323,7 @@ fn create_text_vnode_with_ref(
     ("width", @model.num_str(hit_width)),
     ("height", @model.num_str(hit_height)),
     ("fill", "transparent"),
+    ("pointer-events", "all"),
   ]
   children.push(create_svg_node("rect", hit_attrs, [], []))
 

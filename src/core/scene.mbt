@@ -562,17 +562,6 @@ pub fn EditorState::get_selected_id(self : EditorState) -> String? {
 }
 
 ///|
-/// 座標をグリッドにスナップ（グリッド無効時はそのまま返す）
-pub fn EditorState::snap_to_grid(self : EditorState, value : Double) -> Double {
-  if self.grid_enabled.get() {
-    let size = self.grid_size.get().to_double()
-    (value / size).round() * size
-  } else {
-    value
-  }
-}
-
-///|
 /// 全要素を選択（Line と子要素以外）
 pub fn EditorState::select_all(self : EditorState) -> Unit {
   let ids : Array[String] = []
@@ -1123,8 +1112,15 @@ pub fn EditorState::resize_move(
   guard self.resize_state.get() is Some(state)
   let dx = mouse_x - state.mouse_start_x
   let dy = mouse_y - state.mouse_start_y
-  // snap_to_grid メソッドを使用してグリッドスナップ
-  let snap = fn(v : Double) -> Double { self.snap_to_grid(v) }
+  // 単一値のグリッドスナップ
+  let snap = fn(v : Double) -> Double {
+    if self.grid_enabled.get() {
+      let size = self.grid_size.get().to_double()
+      (v / size).round() * size
+    } else {
+      v
+    }
+  }
   // ハンドル位置に応じて新しい位置と形状を計算
   match state.start_shape {
     @model.Rect(w, h, rx, ry) => {
@@ -2041,8 +2037,15 @@ pub fn EditorState::update_placement(
     }
   }
 
-  // グリッドスナップを適用
-  let snap = fn(v : Double) -> Double { self.snap_to_grid(v) }
+  // 単一値のグリッドスナップ
+  let snap = fn(v : Double) -> Double {
+    if self.grid_enabled.get() {
+      let size = self.grid_size.get().to_double()
+      (v / size).round() * size
+    } else {
+      v
+    }
+  }
   let anchor_x = placement.anchor_point.x
   let anchor_y = placement.anchor_point.y
   let mouse_x = snap(mouse_pos.x)
