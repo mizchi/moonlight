@@ -1591,73 +1591,6 @@ fn create_contextmenu_handler(
 }
 
 ///|
-/// アンカー近くで要素を作成し、配置モードを開始するヘルパー
-fn try_start_placement(
-  state : @core.EditorState,
-  history : @model.History,
-  element : @model.Element,
-  is_line : Bool,
-  anchor_threshold : Double,
-  is_arrow? : Bool = false,
-) -> Bool {
-  let pos = state.mouse_scene_pos.get()
-  // アンカー検索
-  let anchor_result = state.find_nearest_connection_point(
-    pos,
-    [],
-    anchor_threshold,
-  )
-  match anchor_result {
-    Some((anchor_el, anchor, anchor_point)) => {
-      // アンカーポイントを基準に要素を配置（形状に応じて初期サイズを設定）
-      let placed_element = match element.shape {
-        @model.Line(_, _) =>
-          // Line/Arrow: 始点をアンカー位置に設定
-          { ..element, x: anchor_point.x, y: anchor_point.y }
-        @model.Circle(_) =>
-          // Circle: アンカーを中心、最小半径で開始
-          {
-            ..element,
-            x: anchor_point.x,
-            y: anchor_point.y,
-            shape: @model.Circle(5.0),
-          }
-        @model.Ellipse(_, _) =>
-          // Ellipse: アンカーを中心、最小サイズで開始
-          {
-            ..element,
-            x: anchor_point.x,
-            y: anchor_point.y,
-            shape: @model.Ellipse(5.0, 5.0),
-          }
-        @model.Rect(_, _, rx, ry) =>
-          // Rect: アンカーを起点、最小サイズで開始
-          {
-            ..element,
-            x: anchor_point.x,
-            y: anchor_point.y,
-            shape: @model.Rect(10.0, 10.0, rx, ry),
-          }
-        _ =>
-          // その他: そのまま配置
-          { ..element, x: anchor_point.x, y: anchor_point.y }
-      }
-      @core.execute_command(history, state, @model.AddElement(placed_element))
-      state.start_placement(
-        element.id,
-        anchor_el.id,
-        anchor,
-        anchor_point,
-        is_line,
-        is_arrow~,
-      )
-      true
-    }
-    None => false
-  }
-}
-
-///|
 /// キーボードショートカットを設定
 fn setup_keyboard_shortcuts(
   state : @core.EditorState,
@@ -1695,22 +1628,21 @@ fn setup_keyboard_shortcuts(
         } else {
           state.select(None)
         }
-      // 1: Rectangle をマウス位置に挿入（アンカー近くなら配置モード）
+      // 1: Rectangle をマウス位置に挿入（固定サイズ）
       "1" => {
         let el_id = new_id()
+        let width = 80.0
+        let height = 60.0
         let new_rect = @model.Element::new(
           el_id,
-          pos.x - 40.0,
-          pos.y - 30.0,
-          @model.Rect(80.0, 60.0, None, None),
+          pos.x - width / 2.0,
+          pos.y - height / 2.0,
+          @model.Rect(width, height, None, None),
         ).with_style(state.get_default_style())
-        if not(try_start_placement(state, history, new_rect, false, 20.0)) {
-          // アンカー近くでなければ即時配置
-          @core.execute_command(history, state, @model.AddElement(new_rect))
-          state.select(Some(el_id))
-        }
+        @core.execute_command(history, state, @model.AddElement(new_rect))
+        state.select(Some(el_id))
       }
-      // 2: Circle をマウス位置に挿入（アンカー近くなら配置モード）
+      // 2: Circle をマウス位置に挿入（固定サイズ）
       "2" => {
         let el_id = new_id()
         let new_circle = @model.Element::new(
@@ -1719,12 +1651,10 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Circle(40.0),
         ).with_style(state.get_default_style())
-        if not(try_start_placement(state, history, new_circle, false, 20.0)) {
-          @core.execute_command(history, state, @model.AddElement(new_circle))
-          state.select(Some(el_id))
-        }
+        @core.execute_command(history, state, @model.AddElement(new_circle))
+        state.select(Some(el_id))
       }
-      // 3: Ellipse をマウス位置に挿入（アンカー近くなら配置モード）
+      // 3: Ellipse をマウス位置に挿入（固定サイズ）
       "3" => {
         let el_id = new_id()
         let new_ellipse = @model.Element::new(
@@ -1733,59 +1663,38 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Ellipse(60.0, 35.0),
         ).with_style(state.get_default_style())
-        if not(try_start_placement(state, history, new_ellipse, false, 20.0)) {
-          @core.execute_command(history, state, @model.AddElement(new_ellipse))
-          state.select(Some(el_id))
-        }
+        @core.execute_command(history, state, @model.AddElement(new_ellipse))
+        state.select(Some(el_id))
       }
-      // 4: Line をマウス位置に挿入（アンカー近くなら配置モード）
+      // 4: Line をマウス位置に挿入（固定サイズ）
       "4" => {
         let el_id = new_id()
+        let dx = 100.0
+        let dy = 50.0
         let new_line = @model.Element::new(
           el_id,
-          pos.x - 50.0,
-          pos.y,
-          @model.Line(pos.x + 50.0, pos.y),
+          pos.x - dx / 2.0,
+          pos.y - dy / 2.0,
+          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
         ).with_style(state.get_line_style())
-        if not(try_start_placement(state, history, new_line, true, 20.0)) {
-          @core.execute_command(history, state, @model.AddElement(new_line))
-          state.select(Some(el_id))
-        }
+        @core.execute_command(history, state, @model.AddElement(new_line))
+        state.select(Some(el_id))
       }
-      // 5: Arrow をマウス位置に挿入（アンカー近くなら配置モード）
+      // 5: Arrow をマウス位置に挿入（固定サイズ）
       "5" => {
         let el_id = new_id()
-        // 配置モード用に矢印なしスタイルで作成
+        let dx = 100.0
+        let dy = 50.0
         let new_arrow = @model.Element::new(
           el_id,
-          pos.x - 50.0,
-          pos.y,
-          @model.Line(pos.x + 50.0, pos.y),
-        ).with_style(state.get_arrow_style_initial())
-        if not(
-            try_start_placement(
-              state,
-              history,
-              new_arrow,
-              true,
-              20.0,
-              is_arrow=true,
-            ),
-          ) {
-          // 配置モードでなければ矢印ありスタイルで直接追加
-          let arrow_with_marker = {
-            ..new_arrow,
-            style: state.get_arrow_style(),
-          }
-          @core.execute_command(
-            history,
-            state,
-            @model.AddElement(arrow_with_marker),
-          )
-          state.select(Some(el_id))
-        }
+          pos.x - dx / 2.0,
+          pos.y - dy / 2.0,
+          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
+        ).with_style(state.get_arrow_style())
+        @core.execute_command(history, state, @model.AddElement(new_arrow))
+        state.select(Some(el_id))
       }
-      // 6: Text をマウス位置に挿入（アンカー近くなら配置モード）
+      // 6: Text をマウス位置に挿入（固定サイズ）
       "6" => {
         let el_id = new_id()
         let new_text = @model.Element::new(
@@ -1794,10 +1703,8 @@ fn setup_keyboard_shortcuts(
           pos.y,
           @model.Text("Text", Some(16.0)),
         ).with_style(state.get_text_style())
-        if not(try_start_placement(state, history, new_text, false, 20.0)) {
-          @core.execute_command(history, state, @model.AddElement(new_text))
-          state.select(Some(el_id))
-        }
+        @core.execute_command(history, state, @model.AddElement(new_text))
+        state.select(Some(el_id))
       }
       "a" =>
         if is_cmd {
