@@ -1216,6 +1216,10 @@ fn handle_element_click(
 /// ダブルクリック時のテキスト編集開始
 fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
   guard state.find_element(element_id) is Some(el)
+  // Path 要素はテキスト編集不可（位置計算が困難なため）
+  if el.shape is @model.Path(_, _, _, _, _) {
+    return
+  }
   // テキスト要素の場合は直接編集
   if el.shape is @model.Text(content, font_size) {
     // parent_id がない場合は自分自身を親として扱う
