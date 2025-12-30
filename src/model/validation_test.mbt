@@ -254,15 +254,15 @@ test "capability: full for valid element" {
 }
 
 ///|
-test "capability: move only for error element" {
-  // 空のID（エラー）
+test "capability: move and delete only for error element" {
+  // 空のID（エラー）- 問題のある要素は削除可能にする
   let elements = [test_make_rect("", 0.0, 0.0, 100.0, 100.0)]
   let result = validate_elements(elements)
   let cap = get_element_capability(result, "")
   inspect(cap.can_move, content="true")
   inspect(cap.can_resize, content="false")
   inspect(cap.can_edit, content="false")
-  inspect(cap.can_delete, content="false")
+  inspect(cap.can_delete, content="true") // エラー要素でも削除は可能
 }
 
 ///|

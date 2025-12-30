@@ -33,11 +33,11 @@
 
 - [ ] Round やCSSによるパラメータを折りたたみで対応する
 
-## Model 層の新機能（組み込み検討）
+## Model 層の機能
 
-### Validation モジュール (`src/model/validation.mbt`)
+### Validation モジュール (`src/model/validation.mbt`) ✓ 統合済み
 
-要素の操作可能性を検証し、UI層での操作制御に使用できる。
+要素の操作可能性を検証し、UI層での操作制御に使用。
 
 #### 機能一覧
 
@@ -54,9 +54,11 @@
 #### 検証項目
 
 - **ID**: 空ID (Error), 重複ID (Error)
+- **座標**: NaN/Infinity座標 (Error)
 - **親子関係**: 存在しない親 (Warning), 循環参照 (Error)
 - **接続**: 孤立した接続 (Warning), 自己接続 (Warning)
 - **形状**: 負の寸法 (Error), 同一点Line (Warning), 空テキスト (Info)
+- **プレーンSVG**: Moonlight形式でない要素 (移動と削除のみ可)
 
 #### 操作権限 (ElementCapability)
 
@@ -64,15 +66,16 @@
 can_move      : Bool  // エラーでも true（常に移動可能）
 can_resize    : Bool
 can_edit      : Bool
-can_delete    : Bool
+can_delete    : Bool  // エラー要素でも true（問題要素を除去可能）
 can_connect   : Bool  // Line のみ
 can_add_child : Bool
 ```
 
-#### UI への組み込み案
+#### UI への統合状況
 
-- [ ] SVG Import 後に validate して問題を通知
-- [ ] 要素選択時に capability に応じてツールバーを制御
+- [x] SVG Import 後に validate してプレーンSVG要素を登録
+- [x] 要素選択時に capability に応じてリサイズハンドル表示制御
+- [x] コンテキストメニューで capability に応じたスタイル編集制御
 - [ ] 削除時に接続/子要素の警告ダイアログ表示
 - [ ] 問題のある要素をハイライト表示
 

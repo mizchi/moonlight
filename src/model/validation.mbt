@@ -163,6 +163,35 @@ fn is_finite(value : Double) -> Bool {
   true
 }
 
+///|
+/// ValidationIssue を追加するヘルパー
+fn add_issue(
+  issues : Array[ValidationIssue],
+  level : ValidationLevel,
+  element_id : String,
+  code : String,
+  message : String,
+) -> Unit {
+  issues.push({ level, element_id: Some(element_id), code, message })
+}
+
+///|
+/// 要素が存在するかチェック
+fn element_exists(elements : Array[Element], id : String) -> Bool {
+  elements.iter().any(fn(e) { e.id == id })
+}
+
+///|
+/// IDで要素を検索
+fn find_element(elements : Array[Element], id : String) -> Element? {
+  for el in elements {
+    if el.id == id {
+      return Some(el)
+    }
+  }
+  None
+}
+
 // ============================================================
 // 検証関数
 // ============================================================
@@ -210,57 +239,55 @@ fn validate_element(
 
   // ID検証
   if el.id == "" {
-    issues.push({
-      level: Error,
-      element_id: Some(el.id),
-      code: issue_invalid_id,
-      message: "Element has empty ID",
-    })
+    add_issue(issues, Error, el.id, issue_invalid_id, "Element has empty ID")
   }
 
   // 座標の有効性検証（NaN, Infinity チェック）
   if not(is_finite(el.x)) || not(is_finite(el.y)) {
-    issues.push({
-      level: Error,
-      element_id: Some(el.id),
-      code: issue_invalid_coordinates,
-      message: "Element has invalid coordinates (NaN or Infinity)",
-    })
+    add_issue(
+      issues,
+      Error,
+      el.id,
+      issue_invalid_coordinates,
+      "Element has invalid coordinates (NaN or Infinity)",
+    )
   }
 
   // 重複ID検証
   match id_counts.get(el.id) {
     Some(count) if count > 1 =>
-      issues.push({
-        level: Error,
-        element_id: Some(el.id),
-        code: issue_duplicate_id,
-        message: "Duplicate element ID: \{el.id}",
-      })
+      add_issue(
+        issues,
+        Error,
+        el.id,
+        issue_duplicate_id,
+        "Duplicate element ID: \{el.id}",
+      )
     _ => ()
   }
 
   // 親要素検証
   match el.parent_id {
     Some(pid) => {
-      let parent_exists = all_elements.iter().any(fn(e) { e.id == pid })
-      if not(parent_exists) {
-        issues.push({
-          level: Warning,
-          element_id: Some(el.id),
-          code: issue_invalid_parent,
-          message: "Parent element '\{pid}' does not exist",
-        })
+      if not(element_exists(all_elements, pid)) {
+        add_issue(
+          issues,
+          Warning,
+          el.id,
+          issue_invalid_parent,
+          "Parent element '\{pid}' does not exist",
+        )
       }
 
       // 循環参照チェック
       if has_circular_parent(el.id, all_elements) {
-        issues.push({
-          level: Error,
-          element_id: Some(el.id),
-          code: issue_circular_parent,
-          message: "Circular parent reference detected",
-        })
+        add_issue(
+          issues,
+          Error,
+          el.id,
+          issue_circular_parent,
+          "Circular parent reference detected",
+        )
       }
     }
     None => ()
@@ -278,12 +305,13 @@ fn validate_element(
         _ => false
       }
       if self_connected {
-        issues.push({
-          level: Warning,
-          element_id: Some(el.id),
-          code: issue_self_connection,
-          message: "Line connects element to itself",
-        })
+        add_issue(
+          issues,
+          Warning,
+          el.id,
+          issue_self_connection,
+          "Line connects element to itself",
+        )
       }
     }
     None => ()
@@ -303,19 +331,16 @@ fn validate_connection(
   issues : Array[ValidationIssue],
 ) -> Unit {
   match conn {
-    Some(c) => {
-      let target_exists = all_elements
-        .iter()
-        .any(fn(e) { e.id == c.element_id })
-      if not(target_exists) {
-        issues.push({
-          level: Warning,
-          element_id: Some(line_id),
-          code: issue_orphan_connection,
-          message: "Connected element '\{c.element_id}' does not exist",
-        })
+    Some(c) =>
+      if not(element_exists(all_elements, c.element_id)) {
+        add_issue(
+          issues,
+          Warning,
+          line_id,
+          issue_orphan_connection,
+          "Connected element '\{c.element_id}' does not exist",
+        )
       }
-    }
     None => ()
   }
 }
@@ -326,48 +351,53 @@ fn validate_shape(el : Element, issues : Array[ValidationIssue]) -> Unit {
   match el.shape {
     Rect(w, h, _, _) =>
       if w < 0.0 || h < 0.0 {
-        issues.push({
-          level: Error,
-          element_id: Some(el.id),
-          code: issue_negative_dimension,
-          message: "Rectangle has negative dimensions",
-        })
+        add_issue(
+          issues,
+          Error,
+          el.id,
+          issue_negative_dimension,
+          "Rectangle has negative dimensions",
+        )
       }
     Circle(r) =>
       if r < 0.0 {
-        issues.push({
-          level: Error,
-          element_id: Some(el.id),
-          code: issue_negative_dimension,
-          message: "Circle has negative radius",
-        })
+        add_issue(
+          issues,
+          Error,
+          el.id,
+          issue_negative_dimension,
+          "Circle has negative radius",
+        )
       }
     Ellipse(rx, ry) =>
       if rx < 0.0 || ry < 0.0 {
-        issues.push({
-          level: Error,
-          element_id: Some(el.id),
-          code: issue_negative_dimension,
-          message: "Ellipse has negative radius",
-        })
+        add_issue(
+          issues,
+          Error,
+          el.id,
+          issue_negative_dimension,
+          "Ellipse has negative radius",
+        )
       }
     Line(x2, y2) =>
       if el.x == x2 && el.y == y2 {
-        issues.push({
-          level: Warning,
-          element_id: Some(el.id),
-          code: issue_line_same_points,
-          message: "Line start and end points are the same",
-        })
+        add_issue(
+          issues,
+          Warning,
+          el.id,
+          issue_line_same_points,
+          "Line start and end points are the same",
+        )
       }
     Text(content, _) =>
       if content == "" {
-        issues.push({
-          level: Info,
-          element_id: Some(el.id),
-          code: issue_text_empty,
-          message: "Text element has empty content",
-        })
+        add_issue(
+          issues,
+          Info,
+          el.id,
+          issue_text_empty,
+          "Text element has empty content",
+        )
       }
     _ => ()
   }
@@ -386,16 +416,13 @@ fn has_circular_parent(element_id : String, elements : Array[Element]) -> Bool {
     }
     visited.push(current_id)
 
-    // 現在の要素を探す
-    let mut found_parent : String? = None
-    for el in elements {
-      if el.id == current_id {
-        found_parent = el.parent_id
-        break
-      }
-    }
-    match found_parent {
-      Some(pid) => current_id = pid
+    // 現在の要素を探して親IDを取得
+    match find_element(elements, current_id) {
+      Some(el) =>
+        match el.parent_id {
+          Some(pid) => current_id = pid
+          None => return false
+        }
       None => return false
     }
   }
@@ -448,14 +475,6 @@ fn determine_capability(
       }
     _ => ElementCapability::full()
   }
-}
-
-///|
-/// プレーンSVG要素向けの権限を決定
-pub fn determine_capability_for_plain_svg(el : Element) -> ElementCapability {
-  // プレーンSVGは移動と削除のみ
-  ignore(el)
-  ElementCapability::move_and_delete()
 }
 
 // ============================================================
@@ -541,19 +560,16 @@ pub fn can_add_element(
   existing_elements : Array[Element],
 ) -> (Bool, Array[ValidationIssue]) {
   // ID重複チェック
-  let id_exists = existing_elements.iter().any(fn(e) { e.id == new_element.id })
-  if id_exists {
-    return (
-      false,
-      [
-        {
-          level: Error,
-          element_id: Some(new_element.id),
-          code: issue_duplicate_id,
-          message: "Element with ID '\{new_element.id}' already exists",
-        },
-      ],
+  if element_exists(existing_elements, new_element.id) {
+    let issues : Array[ValidationIssue] = []
+    add_issue(
+      issues,
+      Error,
+      new_element.id,
+      issue_duplicate_id,
+      "Element with ID '\{new_element.id}' already exists",
     )
+    return (false, issues)
   }
 
   // 新しい要素を追加した配列で検証
@@ -582,38 +598,38 @@ pub fn can_delete_element(
       }
     })
   if has_children {
-    issues.push({
-      level: Warning,
-      element_id: Some(element_id),
-      code: "HAS_CHILDREN",
-      message: "Element has child elements that will become orphaned",
-    })
+    add_issue(
+      issues,
+      Warning,
+      element_id,
+      "HAS_CHILDREN",
+      "Element has child elements that will become orphaned",
+    )
   }
 
   // この要素に接続している Line があるかチェック
-  let connected_lines : Array[String] = []
-  for el in all_elements {
-    match el.connections {
-      Some(conns) => {
-        let is_connected = match (conns.start, conns.end) {
-          (Some(s), _) if s.element_id == element_id => true
-          (_, Some(e)) if e.element_id == element_id => true
-          _ => false
-        }
-        if is_connected {
-          connected_lines.push(el.id)
-        }
+  let connection_count = all_elements
+    .iter()
+    .filter(fn(el) {
+      match el.connections {
+        Some(conns) =>
+          match (conns.start, conns.end) {
+            (Some(s), _) if s.element_id == element_id => true
+            (_, Some(e)) if e.element_id == element_id => true
+            _ => false
+          }
+        None => false
       }
-      None => ()
-    }
-  }
-  if connected_lines.length() > 0 {
-    issues.push({
-      level: Warning,
-      element_id: Some(element_id),
-      code: "HAS_CONNECTIONS",
-      message: "Element is connected by \{connected_lines.length()} line(s)",
     })
+    .count()
+  if connection_count > 0 {
+    add_issue(
+      issues,
+      Warning,
+      element_id,
+      "HAS_CONNECTIONS",
+      "Element is connected by \{connection_count} line(s)",
+    )
   }
 
   // 警告のみなら削除可能
