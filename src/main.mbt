@@ -1300,13 +1300,29 @@ fn commit_text_edit(
       }
     None =>
       if text_content != "" {
+        // 親要素がある場合、親のstrokeカラーを継承
+        let text_style = if edit_state.parent_id != "" {
+          match state.find_element(edit_state.parent_id) {
+            Some(parent_el) =>
+              match parent_el.style.stroke {
+                Some(color) => {
+                  ..state.get_text_style(),
+                  fill: Some(color),
+                }
+                None => state.get_text_style()
+              }
+            None => state.get_text_style()
+          }
+        } else {
+          state.get_text_style()
+        }
         let text_el = @model.Element::new(
             new_id(),
             edit_state.x,
             edit_state.y,
             @model.Text(text_content, Some(16.0)),
           )
-          .with_style(state.get_text_style())
+          .with_style(text_style)
           .with_parent(edit_state.parent_id)
         @core.execute_command(history, state, @model.AddElement(text_el))
       }
