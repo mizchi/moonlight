@@ -17,10 +17,13 @@ pub(all) struct KeyBinding {
 /// キーバインドカテゴリ
 pub let category_tool : String = "Tool"
 
+///|
 pub let category_edit : String = "Edit"
 
+///|
 pub let category_navigation : String = "Navigation"
 
+///|
 pub let category_mode : String = "Mode"
 
 ///|
@@ -220,7 +223,7 @@ pub fn match_keybinding(
   key : String,
   ctrl : Bool,
   shift : Bool,
-  meta : Bool
+  meta : Bool,
 ) -> KeyBinding? {
   let is_cmd = ctrl || meta
   for kb in get_keybindings() {

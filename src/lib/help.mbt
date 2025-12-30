@@ -2,10 +2,7 @@
 
 ///|
 /// ヘルプボタンをセットアップ
-pub fn setup_help_button(
-  state : @core.EditorState,
-  show_button : Bool
-) -> Unit {
+pub fn setup_help_button(state : @core.EditorState, show_button : Bool) -> Unit {
   if not(show_button) {
     return
   }
