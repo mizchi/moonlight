@@ -2408,10 +2408,16 @@ fn render_text_input_container(
       let vp = state.viewport.get()
       let theme = state.theme_mode.get()
       let elements = state.elements.get()
+      let theme_colors = state.get_theme()
       // テキスト色を取得（既存テキストの色または親要素のstroke）
-      let default_text_color = match theme {
-        @model.Dark => "#ffffff"
-        @model.Light => "#000000"
+      let default_text_color = theme_colors.stroke
+      // CSS変数を実際の色に変換
+      let resolve_color = fn(color : String) -> String {
+        if color.has_prefix("var(") {
+          theme_colors.stroke
+        } else {
+          color
+        }
       }
       let text_color = match edit_state.editing_id {
         Some(id) =>
@@ -2419,14 +2425,15 @@ fn render_text_input_container(
           match state.find_element(id) {
             Some(el) => {
               let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
-              @model.get_text_fill_color(el.style, parent_stroke)
+              resolve_color(@model.get_text_fill_color(el.style, parent_stroke))
             }
             None => default_text_color
           }
         None =>
           // 新規テキスト作成（親要素のstrokeを使用）
           match state.find_element(edit_state.parent_id) {
-            Some(parent) => parent.style.stroke.unwrap_or(default_text_color)
+            Some(parent) =>
+              resolve_color(parent.style.stroke.unwrap_or(default_text_color))
             None => default_text_color
           }
       }
