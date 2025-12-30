@@ -5,19 +5,6 @@
 let sidebar_width : Int = 220
 
 ///|
-/// カラープリセット（背景用）- 8色に圧縮
-let fill_presets : Array[String] = [
-  "transparent", "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00",
-  "#ff00ff",
-]
-
-///|
-/// カラープリセット（線用）- 8色に圧縮
-let stroke_presets : Array[String] = [
-  "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff",
-]
-
-///|
 /// メニューボタンのスタイル
 let menu_button_style : String = "width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 4px 8px;"
 
@@ -458,6 +445,469 @@ fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
 }
 
 ///|
+/// 共通スタイルエディタコンポーネント（コンテキストメニュー・詳細パネル両方で使用）
+/// close_menu: メニューを閉じるコールバック（コンテキストメニュー用、詳細パネルでは空の関数を渡す）
+pub fn render_style_editor(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  close_menu : () -> Unit,
+) -> @element.DomNode {
+  let theme = state.get_theme()
+  let section_style = "margin-bottom: 8px;"
+  let label_style = "font-size: 11px; color: \{theme.ui_text_muted}; min-width: 40px;"
+  @element.fragment([
+    // Stroke セクション
+    div(style=section_style, [
+      div(
+        style="display: flex; align-items: center; gap: 8px;",
+        [
+          @element.span(style=label_style, [text("Stroke")]),
+          render_color_editor(state, history, element_id, false, close_menu),
+        ],
+      ),
+    ]),
+    // Fill セクション
+    div(style=section_style, [
+      div(
+        style="display: flex; align-items: center; gap: 8px;",
+        [
+          @element.span(style=label_style, [text("Fill")]),
+          render_color_editor(state, history, element_id, true, close_menu),
+        ],
+      ),
+    ]),
+    // Text 専用オプション（フォント選択）
+    show(
+      fn() {
+        match state.find_element(element_id) {
+          Some(el) => el.shape is @model.Text(_, _)
+          None => false
+        }
+      },
+      fn() { render_text_style_editor(state, history, element_id, close_menu) },
+    ),
+    // Line 専用オプション（破線、矢印）
+    show(
+      fn() {
+        match state.find_element(element_id) {
+          Some(el) => el.shape is @model.Line(_, _)
+          None => false
+        }
+      },
+      fn() { render_line_style_editor(state, history, element_id, close_menu) },
+    ),
+  ])
+}
+
+///|
+/// 色エディタ（現在の色ボタン + カラーピッカー + 透明ボタン）
+fn render_color_editor(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  is_fill : Bool,
+  _close_menu : () -> Unit,
+) -> @element.DomNode {
+  div(
+    style="display: flex; align-items: center; gap: 4px;",
+    [
+      // 現在の色を表示するボタン
+      @element.create_element(
+        "button",
+        [
+          (
+            "style",
+            @element.Dynamic(fn() {
+              let color = match state.find_element(element_id) {
+                Some(el) =>
+                  if is_fill {
+                    el.style.fill.unwrap_or("transparent")
+                  } else {
+                    el.style.stroke.unwrap_or("#000000")
+                  }
+                None => if is_fill { "transparent" } else { "#000000" }
+              }
+              let bg = if color == "transparent" {
+                "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px"
+              } else {
+                color
+              }
+              "width: 28px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: \{bg};"
+            }),
+          ),
+        ],
+        [],
+      ),
+      // ネイティブカラーピッカー
+      input(
+        type_="color",
+        style="width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;",
+        dyn_value=fn() {
+          match state.find_element(element_id) {
+            Some(el) => {
+              let color = if is_fill {
+                el.style.fill.unwrap_or("transparent")
+              } else {
+                el.style.stroke.unwrap_or("#000000")
+              }
+              to_hex_color(
+                color,
+                if is_fill { "#ffffff" } else { "#000000" },
+              )
+            }
+            None => if is_fill { "#ffffff" } else { "#000000" }
+          }
+        },
+        on=events().input(fn(e) {
+          if state.find_element(element_id) is Some(el) {
+            let value = get_event_target_value(e.as_any())
+            let old_style = el.style
+            let new_style = if is_fill {
+              { ..old_style, fill: Some(value) }
+            } else {
+              { ..old_style, stroke: Some(value) }
+            }
+            @core.execute_command(
+              history,
+              state,
+              @model.UpdateStyle(element_id, old_style, new_style),
+            )
+          }
+        }),
+      ),
+      // Fill の場合は透明ボタンを追加
+      if is_fill {
+        @element.create_element(
+          "button",
+          [
+            (
+              "style",
+              @element.Static(
+                "width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 12px; background: white;",
+              ),
+            ),
+            ("title", @element.Static("Transparent")),
+            (
+              "click",
+              @element.Handler(fn(_) {
+                if state.find_element(element_id) is Some(el) {
+                  let old_style = el.style
+                  let new_style = { ..old_style, fill: None }
+                  @core.execute_command(
+                    history,
+                    state,
+                    @model.UpdateStyle(element_id, old_style, new_style),
+                  )
+                }
+              }),
+            ),
+          ],
+          [@element.text("∅")],
+        )
+      } else {
+        @element.fragment([])
+      },
+    ],
+  )
+}
+
+///|
+/// Text 用スタイルエディタ（フォント選択）
+fn render_text_style_editor(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  _close_menu : () -> Unit,
+) -> @element.DomNode {
+  let theme = state.get_theme()
+  div(
+    style="margin-top: 6px; padding-top: 6px; border-top: 1px solid \{theme.ui_border}; display: flex; align-items: center; gap: 6px;",
+    [
+      @element.span(style="font-size: 11px; color: \{theme.ui_text_muted};", [
+        text("Font"),
+      ]),
+      div(
+        style="display: flex; gap: 2px;",
+        [render_font_buttons_shared(state, history, element_id)],
+      ),
+    ],
+  )
+}
+
+///|
+/// 共通フォントボタン群
+fn render_font_buttons_shared(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+) -> @element.DomNode {
+  let buttons : Array[@element.DomNode] = []
+  for preset in font_family_presets {
+    let (label, font_value) = preset
+    buttons.push(
+      button(
+        style=toggle_button_style,
+        dyn_style=fn() {
+          let is_selected = match state.find_element(element_id) {
+            Some(el) => el.style.font_family == font_value
+            None => false
+          }
+          if is_selected {
+            toggle_button_style + " background: #e3f2fd; border-color: #2196f3;"
+          } else {
+            toggle_button_style + " background: white;"
+          }
+        },
+        on=events().click(fn(_) {
+          if state.find_element(element_id) is Some(el) {
+            let old_style = el.style
+            let new_style = { ..old_style, font_family: font_value }
+            @core.execute_command(
+              history,
+              state,
+              @model.UpdateStyle(element_id, old_style, new_style),
+            )
+          }
+        }),
+        [text(label)],
+      ),
+    )
+  }
+  @element.fragment(buttons)
+}
+
+///|
+/// Line 用スタイルエディタ（破線、矢印）
+fn render_line_style_editor(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  _close_menu : () -> Unit,
+) -> @element.DomNode {
+  let theme = state.get_theme()
+  div(
+    style="margin-top: 6px; padding-top: 6px; border-top: 1px solid \{theme.ui_border}; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
+    [
+      // 破線パターン選択
+      div(
+        style="display: flex; gap: 2px;",
+        [render_dasharray_buttons_shared(state, history, element_id)],
+      ),
+      // セパレータ
+      @element.span(style="color: #ccc;", [text("|")]),
+      // Arrow トグルボタン
+      div(style="display: flex; gap: 4px; align-items: center;", [
+        // Start Arrow
+        button(
+          style=toggle_button_style,
+          dyn_style=fn() {
+            let is_selected = match state.find_element(element_id) {
+              Some(el) => el.style.marker_start is Some(@model.Arrow)
+              None => false
+            }
+            if is_selected {
+              toggle_button_style + " background: #e3f2fd; border-color: #2196f3;"
+            } else {
+              toggle_button_style + " background: white;"
+            }
+          },
+          on=events().click(fn(_) {
+            if state.find_element(element_id) is Some(el) {
+              let old_style = el.style
+              let new_marker = if old_style.marker_start is Some(@model.Arrow) {
+                None
+              } else {
+                Some(@model.Arrow)
+              }
+              let new_style = { ..old_style, marker_start: new_marker }
+              @core.execute_command(
+                history,
+                state,
+                @model.UpdateStyle(element_id, old_style, new_style),
+              )
+            }
+          }),
+          [text("<")],
+        ),
+        // End Arrow
+        button(
+          style=toggle_button_style,
+          dyn_style=fn() {
+            let is_selected = match state.find_element(element_id) {
+              Some(el) => el.style.marker_end is Some(@model.Arrow)
+              None => false
+            }
+            if is_selected {
+              toggle_button_style + " background: #e3f2fd; border-color: #2196f3;"
+            } else {
+              toggle_button_style + " background: white;"
+            }
+          },
+          on=events().click(fn(_) {
+            if state.find_element(element_id) is Some(el) {
+              let old_style = el.style
+              let new_marker = if old_style.marker_end is Some(@model.Arrow) {
+                None
+              } else {
+                Some(@model.Arrow)
+              }
+              let new_style = { ..old_style, marker_end: new_marker }
+              @core.execute_command(
+                history,
+                state,
+                @model.UpdateStyle(element_id, old_style, new_style),
+              )
+            }
+          }),
+          [text(">")],
+        ),
+      ]),
+    ],
+  )
+}
+
+///|
+/// 共通破線パターンボタン群
+fn render_dasharray_buttons_shared(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+) -> @element.DomNode {
+  let children : Array[@element.DomNode] = []
+  for preset in dasharray_presets {
+    let (label, pattern) = preset
+    let btn = button(
+      style=toggle_button_style,
+      dyn_style=fn() {
+        match state.find_element(element_id) {
+          Some(el) => {
+            let current = el.style.stroke_dasharray
+            let is_active = match (current, pattern) {
+              (None, None) => true
+              (Some(a), Some(b)) => a == b
+              _ => false
+            }
+            if is_active {
+              toggle_button_style + " background: #e0e0ff; border-color: #6666ff;"
+            } else {
+              toggle_button_style + " background: #fff;"
+            }
+          }
+          None => toggle_button_style + " background: #fff;"
+        }
+      },
+      on=events().click(fn(_) {
+        if state.find_element(element_id) is Some(el) {
+          let old_style = el.style
+          let new_style = { ..old_style, stroke_dasharray: pattern }
+          @core.execute_command(
+            history,
+            state,
+            @model.UpdateStyle(element_id, old_style, new_style),
+          )
+        }
+      }),
+      [text(label)],
+    )
+    children.push(btn)
+  }
+  @element.fragment(children)
+}
+
+///|
+/// Layer 操作コンポーネント
+pub fn render_layer_operations(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  close_menu : () -> Unit,
+) -> @element.DomNode {
+  let theme = state.get_theme()
+  let btn_style = menu_button_style + " color: \{theme.ui_text};"
+  let section_style = "padding: 4px 0;"
+  @element.fragment([
+    div(style=section_style, [
+      button(
+        style=btn_style,
+        on=events().click(fn(_) {
+          if state.bring_to_front(element_id) is Some((from_idx, to_idx)) {
+            let cmd = @model.ReorderElement(element_id, from_idx, to_idx)
+            history.undo_stack.push(cmd)
+            history.redo_stack.clear()
+          }
+          close_menu()
+        }),
+        [text("Bring to Front")],
+      ),
+    ]),
+    div(style=section_style, [
+      button(
+        style=btn_style,
+        on=events().click(fn(_) {
+          if state.bring_forward(element_id) is Some((from_idx, to_idx)) {
+            let cmd = @model.ReorderElement(element_id, from_idx, to_idx)
+            history.undo_stack.push(cmd)
+            history.redo_stack.clear()
+          }
+          close_menu()
+        }),
+        [text("Bring Forward")],
+      ),
+    ]),
+    div(style=section_style, [
+      button(
+        style=btn_style,
+        on=events().click(fn(_) {
+          if state.send_backward(element_id) is Some((from_idx, to_idx)) {
+            let cmd = @model.ReorderElement(element_id, from_idx, to_idx)
+            history.undo_stack.push(cmd)
+            history.redo_stack.clear()
+          }
+          close_menu()
+        }),
+        [text("Send Backward")],
+      ),
+    ]),
+    div(style=section_style, [
+      button(
+        style=btn_style,
+        on=events().click(fn(_) {
+          if state.send_to_back(element_id) is Some((from_idx, to_idx)) {
+            let cmd = @model.ReorderElement(element_id, from_idx, to_idx)
+            history.undo_stack.push(cmd)
+            history.redo_stack.clear()
+          }
+          close_menu()
+        }),
+        [text("Send to Back")],
+      ),
+    ]),
+  ])
+}
+
+///|
+/// 削除ボタンコンポーネント
+pub fn render_delete_button(
+  state : @core.EditorState,
+  history : @model.History,
+  element_id : String,
+  close_menu : () -> Unit,
+) -> @element.DomNode {
+  let btn_style = menu_button_style + " color: #e53e3e;"
+  button(
+    style=btn_style,
+    on=events().click(fn(_) {
+      if state.find_element(element_id) is Some(el) {
+        @core.execute_command(history, state, @model.RemoveElement(el))
+      }
+      close_menu()
+    }),
+    [text("Delete")],
+  )
+}
+
+///|
 /// 要素ツリーをレンダリング
 fn render_element_tree(state : @core.EditorState) -> @element.DomNode {
   let tree_style = "max-height: 300px; overflow-y: auto; padding: 4px;"
@@ -522,164 +972,6 @@ let label_style : String = "font-size: 11px; color: #888; min-width: 12px;"
 ///|
 /// 行のスタイル
 let row_style : String = "display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
-
-///|
-/// カラーピッカー付きドロップダウン
-fn render_color_dropdown(
-  state : @core.EditorState,
-  history : @model.History,
-  is_fill : Bool,
-) -> @element.DomNode {
-  let dropdown_open = @luna.signal(false)
-  let colors = if is_fill { fill_presets } else { stroke_presets }
-  div(
-    style="position: relative; display: flex; align-items: center; gap: 4px;",
-    [
-      // 現在の色を表示するボタン（クリックでドロップダウン）
-      @element.create_element(
-        "button",
-        [
-          (
-            "style",
-            @element.Dynamic(fn() {
-              let color = match state.get_selected_id() {
-                Some(id) =>
-                  match state.find_element(id) {
-                    Some(el) =>
-                      if is_fill {
-                        el.style.fill.unwrap_or("transparent")
-                      } else {
-                        el.style.stroke.unwrap_or("#000000")
-                      }
-                    None => if is_fill { "transparent" } else { "#000000" }
-                  }
-                None => if is_fill { "transparent" } else { "#000000" }
-              }
-              let bg = if color == "transparent" {
-                "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px"
-              } else {
-                color
-              }
-              "width: 28px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: \{bg};"
-            }),
-          ),
-          (
-            "click",
-            @element.Handler(fn(_) { dropdown_open.update(fn(v) { not(v) }) }),
-          ),
-        ],
-        [],
-      ),
-      // カラーピッカー（ネイティブ）
-      input(
-        type_="color",
-        style="width: 20px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;",
-        dyn_value=fn() {
-          match state.get_selected_id() {
-            Some(id) =>
-              match state.find_element(id) {
-                Some(el) => {
-                  let color = if is_fill {
-                    el.style.fill.unwrap_or("transparent")
-                  } else {
-                    el.style.stroke.unwrap_or("#000000")
-                  }
-                  to_hex_color(
-                    color,
-                    if is_fill {
-                      "#ffffff"
-                    } else {
-                      "#000000"
-                    },
-                  )
-                }
-                None => if is_fill { "#ffffff" } else { "#000000" }
-              }
-            None => if is_fill { "#ffffff" } else { "#000000" }
-          }
-        },
-        on=events().input(fn(e) {
-          if state.get_selected_id() is Some(id) {
-            if state.find_element(id) is Some(el) {
-              let value = get_event_target_value(e.as_any())
-              let old_style = el.style
-              let new_style = if is_fill {
-                { ..old_style, fill: Some(value) }
-              } else {
-                { ..old_style, stroke: Some(value) }
-              }
-              @core.execute_command(
-                history,
-                state,
-                @model.UpdateStyle(id, old_style, new_style),
-              )
-            }
-          }
-        }),
-      ),
-      // ドロップダウンパネル（Popover）
-      show(fn() { dropdown_open.get() }, fn() {
-        div(
-          style="position: absolute; top: 100%; left: 0; margin-top: 4px; padding: 6px; background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;",
-          [
-            render_dropdown_swatches(
-              state, history, colors, is_fill, dropdown_open,
-            ),
-          ],
-        )
-      }),
-    ],
-  )
-}
-
-///|
-/// ドロップダウン内のカラースウォッチ
-fn render_dropdown_swatches(
-  state : @core.EditorState,
-  history : @model.History,
-  colors : Array[String],
-  is_fill : Bool,
-  dropdown_open : @luna.Signal[Bool],
-) -> @element.DomNode {
-  let children : Array[@element.DomNode] = []
-  for color in colors {
-    let bg_style = if color == "transparent" {
-      "background: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 6px 6px; background-position: 0 0, 0 3px, 3px -3px, -3px 0px;"
-    } else {
-      "background: \{color};"
-    }
-    let swatch = button(
-      style="width: 24px; height: 24px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; padding: 0; " +
-        bg_style,
-      on=events().click(fn(_) {
-        if state.get_selected_id() is Some(id) {
-          if state.find_element(id) is Some(el) {
-            let value = if color == "transparent" {
-              "transparent"
-            } else {
-              color
-            }
-            let old_style = el.style
-            let new_style = if is_fill {
-              { ..old_style, fill: Some(value) }
-            } else {
-              { ..old_style, stroke: Some(value) }
-            }
-            @core.execute_command(
-              history,
-              state,
-              @model.UpdateStyle(id, old_style, new_style),
-            )
-            dropdown_open.set(false)
-          }
-        }
-      }),
-      [],
-    )
-    children.push(swatch)
-  }
-  @element.fragment(children)
-}
 
 ///|
 /// 要素の詳細を表示・編集（コンパクト版）
@@ -836,84 +1128,63 @@ fn render_element_details(
         ]),
       ],
     ),
-    // Stroke セクション
-    div(style="margin-bottom: 8px;", [
-      div(
-        style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;",
-        [
-          @element.span(
-            style="font-size: 11px; color: #666; min-width: 40px;",
-            [text("Stroke")],
-          ),
-          render_color_dropdown(state, history, false),
-          // stroke-width
+    // Style section - 共通コンポーネント使用（Stroke, Fill, Text font, Line style）
+    show(fn() { state.get_selected_id() is Some(_) }, fn() {
+      let id = state.get_selected_id().unwrap()
+      let noop = fn() {  }
+      @element.fragment([
+        render_style_editor(state, history, id, noop),
+        // stroke-width（詳細パネル専用）
+        div(style="display: flex; align-items: center; gap: 8px; margin-top: 8px;", [
+          @element.span(style="font-size: 11px; color: #666; min-width: 40px;", [
+            text("Width"),
+          ]),
           input(
             type_="number",
-            style="width: 40px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 10px;",
+            style="width: 50px; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; font-size: 10px;",
             attrs=[
               ("min", @element.AttrString("0")),
               ("step", @element.AttrString("0.5")),
             ],
             dyn_value=fn() {
-              match state.get_selected_id() {
-                Some(id) =>
-                  match state.find_element(id) {
-                    Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
-                    None => "1"
-                  }
+              match state.find_element(id) {
+                Some(el) => el.style.stroke_width.unwrap_or(1.0).to_string()
                 None => "1"
               }
             },
             on=events().change(fn(e) {
-              if state.get_selected_id() is Some(id) {
-                if state.find_element(id) is Some(el) {
-                  let value = get_event_target_value(e.as_any())
-                  if parse_double(value) is Some(w) {
-                    let old_style = el.style
-                    let new_style = { ..old_style, stroke_width: Some(w) }
-                    @core.execute_command(
-                      history,
-                      state,
-                      @model.UpdateStyle(id, old_style, new_style),
-                    )
-                  }
+              if state.find_element(id) is Some(el) {
+                let value = get_event_target_value(e.as_any())
+                if parse_double(value) is Some(w) {
+                  let old_style = el.style
+                  let new_style = { ..old_style, stroke_width: Some(w) }
+                  @core.execute_command(
+                    history,
+                    state,
+                    @model.UpdateStyle(id, old_style, new_style),
+                  )
                 }
               }
             }),
           ),
           @element.span(style="font-size: 10px; color: #999;", [text("px")]),
-        ],
-      ),
-    ]),
-    // Fill セクション
-    div(style="margin-bottom: 8px;", [
-      div(style="display: flex; align-items: center; gap: 8px;", [
-        @element.span(style="font-size: 11px; color: #666; min-width: 40px;", [
-          text("Fill"),
         ]),
-        render_color_dropdown(state, history, true),
-      ]),
-    ]),
-    // Line 専用オプション
-    show(
-      fn() {
-        match state.get_selected_id() {
-          Some(id) =>
-            match state.find_element(id) {
-              Some(el) => el.shape is @model.Line(_, _)
-              None => false
-            }
-          None => false
-        }
-      },
-      fn() { render_line_options(state, history) },
-    ),
+      ])
+    }),
   ])
 }
 
 ///|
 /// トグルボタンのスタイル
 let toggle_button_style : String = "padding: 2px 6px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px;"
+
+///|
+/// フォントファミリーのプリセット
+let font_family_presets : Array[(String, String?)] = [
+  ("Sans", None), // システムデフォルト
+  ("Serif", Some("serif")),
+  ("Mono", Some("monospace")),
+]
 
 ///|
 /// 破線パターンのプリセット（短いラベル）
@@ -923,163 +1194,6 @@ let dasharray_presets : Array[(String, String?)] = [
   ("··", Some("2,4")),
   ("-·", Some("8,4,2,4")),
 ]
-
-///|
-/// Line 専用オプション（破線、矢印）- コンパクト版
-fn render_line_options(
-  state : @core.EditorState,
-  history : @model.History,
-) -> @element.DomNode {
-  // Style と Arrows を一行に
-  div(
-    style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;",
-    [
-      // 破線パターン選択
-      div(style="display: flex; gap: 2px;", [
-        render_dasharray_buttons(state, history),
-      ]),
-      // セパレータ
-      @element.span(style="color: #ccc;", [text("|")]),
-      // Arrow チェックボックス
-      div(style="display: flex; gap: 6px; align-items: center;", [
-        // Start Arrow
-        @element.label(
-          style="display: flex; align-items: center; gap: 2px; font-size: 11px; cursor: pointer;",
-          [
-            input(
-              type_="checkbox",
-              style="cursor: pointer; margin: 0;",
-              dyn_checked=fn() {
-                match state.get_selected_id() {
-                  Some(id) =>
-                    match state.find_element(id) {
-                      Some(el) => el.style.marker_start is Some(@model.Arrow)
-                      None => false
-                    }
-                  None => false
-                }
-              },
-              on=events().change(fn(_) {
-                if state.get_selected_id() is Some(id) {
-                  if state.find_element(id) is Some(el) {
-                    let old_style = el.style
-                    let new_marker = if old_style.marker_start
-                      is Some(@model.Arrow) {
-                      None
-                    } else {
-                      Some(@model.Arrow)
-                    }
-                    let new_style = { ..old_style, marker_start: new_marker }
-                    @core.execute_command(
-                      history,
-                      state,
-                      @model.UpdateStyle(id, old_style, new_style),
-                    )
-                  }
-                }
-              }),
-            ),
-            text("<"),
-          ],
-        ),
-        // End Arrow
-        @element.label(
-          style="display: flex; align-items: center; gap: 2px; font-size: 11px; cursor: pointer;",
-          [
-            input(
-              type_="checkbox",
-              style="cursor: pointer; margin: 0;",
-              dyn_checked=fn() {
-                match state.get_selected_id() {
-                  Some(id) =>
-                    match state.find_element(id) {
-                      Some(el) => el.style.marker_end is Some(@model.Arrow)
-                      None => false
-                    }
-                  None => false
-                }
-              },
-              on=events().change(fn(_) {
-                if state.get_selected_id() is Some(id) {
-                  if state.find_element(id) is Some(el) {
-                    let old_style = el.style
-                    let new_marker = if old_style.marker_end
-                      is Some(@model.Arrow) {
-                      None
-                    } else {
-                      Some(@model.Arrow)
-                    }
-                    let new_style = { ..old_style, marker_end: new_marker }
-                    @core.execute_command(
-                      history,
-                      state,
-                      @model.UpdateStyle(id, old_style, new_style),
-                    )
-                  }
-                }
-              }),
-            ),
-            text(">"),
-          ],
-        ),
-      ]),
-    ],
-  )
-}
-
-///|
-/// 破線パターンボタン群
-fn render_dasharray_buttons(
-  state : @core.EditorState,
-  history : @model.History,
-) -> @element.DomNode {
-  let children : Array[@element.DomNode] = []
-  for preset in dasharray_presets {
-    let (label, pattern) = preset
-    let btn = button(
-      style=toggle_button_style,
-      dyn_style=fn() {
-        match state.get_selected_id() {
-          Some(id) =>
-            match state.find_element(id) {
-              Some(el) => {
-                let current = el.style.stroke_dasharray
-                let is_active = match (current, pattern) {
-                  (None, None) => true
-                  (Some(a), Some(b)) => a == b
-                  _ => false
-                }
-                if is_active {
-                  toggle_button_style +
-                  " background: #e0e0ff; border-color: #6666ff;"
-                } else {
-                  toggle_button_style + " background: #fff;"
-                }
-              }
-              None => toggle_button_style + " background: #fff;"
-            }
-          None => toggle_button_style + " background: #fff;"
-        }
-      },
-      on=events().click(fn(_) {
-        if state.get_selected_id() is Some(id) {
-          if state.find_element(id) is Some(el) {
-            let old_style = el.style
-            let new_style = { ..old_style, stroke_dasharray: pattern }
-            @core.execute_command(
-              history,
-              state,
-              @model.UpdateStyle(id, old_style, new_style),
-            )
-          }
-        }
-      }),
-      [text(label)],
-    )
-    children.push(btn)
-  }
-  @element.fragment(children)
-}
 
 ///|
 /// テキスト入力オーバーレイをレンダリング
@@ -1149,156 +1263,22 @@ pub fn render_context_menu(
   let style = "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 4px; box-shadow: 2px 2px 10px \{shadow}; min-width: 140px; z-index: 1000; color: \{theme.ui_text};"
   let section_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border};"
   let header_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border}; color: \{theme.ui_text_muted}; font-size: 11px;"
-  let label_style = "width: 32px; color: \{theme.ui_text_muted};"
-  let swatch_border = if is_dark { "#666" } else { "#999" }
+  let close_menu = fn() { state.hide_context_menu() }
   div(style~, [
     // 要素上でクリックした場合のみメニューを表示
     if menu.target_id is Some(id) {
       @element.fragment([
-        // Color section header
-        div(style=header_style, [text("Colors")]),
-        // Stroke color
+        // Style section - 共通コンポーネント使用
         div(style=section_style, [
-          div(
-            style="display: flex; align-items: center; gap: 6px; font-size: 12px;",
-            [
-              @element.span(style=label_style, [text("Stroke")]),
-              @element.fragment(
-                stroke_presets.map(fn(color) {
-                  button(
-                    style="width: 18px; height: 18px; border: 1px solid \{swatch_border}; border-radius: 2px; cursor: pointer; padding: 0; background: \{color};",
-                    on=events().click(fn(_) {
-                      if state.find_element(id) is Some(el) {
-                        let new_style = { ..el.style, stroke: Some(color) }
-                        @core.execute_command(
-                          history,
-                          state,
-                          @model.UpdateStyle(id, el.style, new_style),
-                        )
-                      }
-                      state.hide_context_menu()
-                    }),
-                    [],
-                  )
-                }),
-              ),
-            ],
-          ),
-        ]),
-        // Fill color
-        div(style=section_style, [
-          div(
-            style="display: flex; align-items: center; gap: 6px; font-size: 12px;",
-            [
-              @element.span(style=label_style, [text("Fill")]),
-              @element.fragment(
-                fill_presets.map(fn(color) {
-                  let is_transparent = color == "transparent"
-                  let checker = if is_dark { "#555" } else { "#ccc" }
-                  let bg = if is_transparent {
-                    "linear-gradient(45deg, \{checker} 25%, transparent 25%, transparent 75%, \{checker} 75%), linear-gradient(45deg, \{checker} 25%, transparent 25%, transparent 75%, \{checker} 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px"
-                  } else {
-                    color
-                  }
-                  button(
-                    style="width: 18px; height: 18px; border: 1px solid \{swatch_border}; border-radius: 2px; cursor: pointer; padding: 0; background: \{bg};",
-                    on=events().click(fn(_) {
-                      if state.find_element(id) is Some(el) {
-                        let fill_value : String? = if is_transparent {
-                          None
-                        } else {
-                          Some(color)
-                        }
-                        let new_style = { ..el.style, fill: fill_value }
-                        @core.execute_command(
-                          history,
-                          state,
-                          @model.UpdateStyle(id, el.style, new_style),
-                        )
-                      }
-                      state.hide_context_menu()
-                    }),
-                    [],
-                  )
-                }),
-              ),
-            ],
-          ),
+          render_style_editor(state, history, id, close_menu),
         ]),
         // Layer section header
         div(style=header_style, [text("Layer")]),
-        // Bring to Very Front
-        div(style=section_style, [
-          button(
-            style=menu_button_style + " color: \{theme.ui_text};",
-            on=events().click(fn(_) {
-              if state.bring_to_front(id) is Some((from_idx, to_idx)) {
-                let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                history.undo_stack.push(cmd)
-                history.redo_stack.clear()
-              }
-              state.hide_context_menu()
-            }),
-            [text("Bring to Front")],
-          ),
-        ]),
-        // Bring Forward
-        div(style=section_style, [
-          button(
-            style=menu_button_style + " color: \{theme.ui_text};",
-            on=events().click(fn(_) {
-              if state.bring_forward(id) is Some((from_idx, to_idx)) {
-                let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                history.undo_stack.push(cmd)
-                history.redo_stack.clear()
-              }
-              state.hide_context_menu()
-            }),
-            [text("Bring Forward")],
-          ),
-        ]),
-        // Send Backward
-        div(style=section_style, [
-          button(
-            style=menu_button_style + " color: \{theme.ui_text};",
-            on=events().click(fn(_) {
-              if state.send_backward(id) is Some((from_idx, to_idx)) {
-                let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                history.undo_stack.push(cmd)
-                history.redo_stack.clear()
-              }
-              state.hide_context_menu()
-            }),
-            [text("Send Backward")],
-          ),
-        ]),
-        // Send to Very Back
-        div(style=section_style, [
-          button(
-            style=menu_button_style + " color: \{theme.ui_text};",
-            on=events().click(fn(_) {
-              if state.send_to_back(id) is Some((from_idx, to_idx)) {
-                let cmd = @model.ReorderElement(id, from_idx, to_idx)
-                history.undo_stack.push(cmd)
-                history.redo_stack.clear()
-              }
-              state.hide_context_menu()
-            }),
-            [text("Send to Back")],
-          ),
-        ]),
-        // Delete
+        // Layer operations - 共通コンポーネント使用
+        render_layer_operations(state, history, id, close_menu),
+        // Delete - 共通コンポーネント使用
         div(style="padding: 4px 12px;", [
-          button(
-            style=menu_button_style + " color: #e53e3e;",
-            on=events().click(fn(_) {
-              if state.find_element(id) is Some(el) {
-                @core.execute_command(history, state, @model.RemoveElement(el))
-              }
-              state.hide_context_menu()
-            }),
-            [text("Delete")],
-          ),
+          render_delete_button(state, history, id, close_menu),
         ]),
       ])
     } else {

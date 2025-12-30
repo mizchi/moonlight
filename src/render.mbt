@@ -272,6 +272,10 @@ pub fn render_element(
       attrs.push(("x", @model.num_str(text_x)))
       attrs.push(("y", @model.num_str(text_y)))
       attrs.push(("font-size", @model.num_str(size)))
+      // font-family があれば追加
+      if el.style.font_family is Some(ff) {
+        attrs.push(("font-family", ff))
+      }
       attrs.push(("text-anchor", "middle"))
       attrs.push(("dominant-baseline", "middle"))
       attrs.push(("pointer-events", "none"))
@@ -1406,6 +1410,10 @@ pub fn render_element_node(
       attrs.push(("x", @model.num_str(text_x)))
       attrs.push(("y", @model.num_str(text_y)))
       attrs.push(("font-size", @model.num_str(size)))
+      // font-family があれば追加
+      if el.style.font_family is Some(ff) {
+        attrs.push(("font-family", ff))
+      }
       attrs.push(("text-anchor", "middle"))
       attrs.push(("dominant-baseline", "middle"))
       attrs.push(("pointer-events", "none"))
@@ -2313,6 +2321,10 @@ fn create_text_vnode_with_ref(
     ("dominant-baseline", "middle"),
     ("pointer-events", "none"),
   ]
+  // font-family があれば追加
+  if el.style.font_family is Some(ff) {
+    text_attrs.push(("font-family", ff))
+  }
   add_style_attrs(text_attrs, el.style)
 
   // テキスト内容を設定するために __ref callback を使用

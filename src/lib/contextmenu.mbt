@@ -101,45 +101,70 @@ fn render_context_menu_content(
 }
 
 ///|
-/// 要素用メニューをレンダリング
+/// 要素用メニューをレンダリング（FFI ベース、詳細パネルと同じUI）
 fn render_element_menu(
   state : @core.EditorState,
   context_menu : ContextMenuState,
   menu : @js.Any,
   id : String,
 ) -> Unit {
-  // 色変更セクション
-  let colors_header = create_menu_header("Colors")
-  append_child(menu, colors_header)
-  // Stroke 色
-  let stroke_row = create_menu_row("Stroke:")
-  let stroke_colors = ["#000000", "#666666", "#e53e3e", "#38a169", "#3182ce"]
-  for color in stroke_colors {
-    let btn = create_color_button(color)
-    add_click_handler(btn, fn(_) {
-      update_element_stroke(state, id, color)
-      context_menu.hide()
-      hide_context_menu_element(menu)
-      redraw_svg(state)
-    })
-    append_child(stroke_row, btn)
-  }
+  // 要素を取得
+  let el_opt = state.find_element(id)
+  // Stroke セクション（現在の色 + カラーピッカー）
+  let stroke_row = create_color_picker_row("Stroke", false, el_opt)
+  set_color_picker_handler(stroke_row, fn(color) {
+    update_element_stroke(state, id, color)
+    redraw_svg(state)
+  })
   append_child(menu, stroke_row)
-  // Fill 色
-  let fill_row = create_menu_row("Fill:")
-  let fill_colors = ["transparent", "#ffffff", "#4CAF50", "#2196F3", "#FFC107"]
-  for color in fill_colors {
-    let btn = create_color_button(color)
-    add_click_handler(btn, fn(_) {
-      let fill_value = if color == "transparent" { None } else { Some(color) }
-      update_element_fill(state, id, fill_value)
-      context_menu.hide()
-      hide_context_menu_element(menu)
-      redraw_svg(state)
-    })
-    append_child(fill_row, btn)
-  }
+  // Fill セクション（現在の色 + カラーピッカー + 透明ボタン）
+  let fill_row = create_color_picker_row("Fill", true, el_opt)
+  set_color_picker_handler(fill_row, fn(color) {
+    let fill_value = if color == "transparent" { None } else { Some(color) }
+    update_element_fill(state, id, fill_value)
+    redraw_svg(state)
+  })
   append_child(menu, fill_row)
+  // 要素タイプ別オプション（Text: フォント、Line: 破線・矢印）
+  match el_opt {
+    Some(el) => render_element_type_options(state, context_menu, menu, id, el)
+    None => ()
+  }
+  // Layer セクション
+  let layer_header = create_menu_header("Layer")
+  append_child(menu, layer_header)
+  let front_btn = create_menu_button("Bring to Front", "#333333")
+  add_click_handler(front_btn, fn(_) {
+    bring_to_front(state, id)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(menu, front_btn)
+  let forward_btn = create_menu_button("Bring Forward", "#333333")
+  add_click_handler(forward_btn, fn(_) {
+    bring_forward(state, id)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(menu, forward_btn)
+  let backward_btn = create_menu_button("Send Backward", "#333333")
+  add_click_handler(backward_btn, fn(_) {
+    send_backward(state, id)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(menu, backward_btn)
+  let back_btn = create_menu_button("Send to Back", "#333333")
+  add_click_handler(back_btn, fn(_) {
+    send_to_back(state, id)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(menu, back_btn)
   // 削除ボタン
   let delete_btn = create_menu_button("Delete", "#e53e3e")
   add_click_handler(delete_btn, fn(_) {
@@ -150,6 +175,112 @@ fn render_element_menu(
     update_selection_ui(state)
   })
   append_child(menu, delete_btn)
+}
+
+///|
+/// 要素タイプ別オプションをレンダリング
+fn render_element_type_options(
+  state : @core.EditorState,
+  context_menu : ContextMenuState,
+  menu : @js.Any,
+  id : String,
+  el : @model.Element,
+) -> Unit {
+  match el.shape {
+    @model.Line(_, _) => render_line_menu_options(state, context_menu, menu, id, el)
+    @model.Text(_, _) => render_text_menu_options(state, context_menu, menu, id, el)
+    _ => ()
+  }
+}
+
+///|
+/// Line 用メニューオプション（破線、矢印）
+fn render_line_menu_options(
+  state : @core.EditorState,
+  context_menu : ContextMenuState,
+  menu : @js.Any,
+  id : String,
+  el : @model.Element,
+) -> Unit {
+  // 破線ヘッダー
+  let line_header = create_menu_header("Line Style")
+  append_child(menu, line_header)
+  // 破線パターン
+  let dash_row = create_menu_row("Style:")
+  let dash_presets : Array[(String, String?)] = [
+    ("―", None),
+    ("--", Some("8,4")),
+    ("··", Some("2,4")),
+    ("-·", Some("8,4,2,4")),
+  ]
+  for preset in dash_presets {
+    let (label, dash_value) = preset
+    let is_selected = el.style.stroke_dasharray == dash_value
+    let btn = create_toggle_button(label, is_selected)
+    add_click_handler(btn, fn(_) {
+      update_element_dasharray(state, id, dash_value)
+      context_menu.hide()
+      hide_context_menu_element(menu)
+      redraw_svg(state)
+    })
+    append_child(dash_row, btn)
+  }
+  append_child(menu, dash_row)
+  // 矢印
+  let arrow_row = create_menu_row("Arrow:")
+  let start_selected = el.style.marker_start is Some(@model.Arrow)
+  let start_btn = create_toggle_button("<", start_selected)
+  add_click_handler(start_btn, fn(_) {
+    let new_marker = if start_selected { None } else { Some(@model.Arrow) }
+    update_element_marker_start(state, id, new_marker)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(arrow_row, start_btn)
+  let end_selected = el.style.marker_end is Some(@model.Arrow)
+  let end_btn = create_toggle_button(">", end_selected)
+  add_click_handler(end_btn, fn(_) {
+    let new_marker = if end_selected { None } else { Some(@model.Arrow) }
+    update_element_marker_end(state, id, new_marker)
+    context_menu.hide()
+    hide_context_menu_element(menu)
+    redraw_svg(state)
+  })
+  append_child(arrow_row, end_btn)
+  append_child(menu, arrow_row)
+}
+
+///|
+/// Text 用メニューオプション（フォント選択）
+fn render_text_menu_options(
+  state : @core.EditorState,
+  context_menu : ContextMenuState,
+  menu : @js.Any,
+  id : String,
+  el : @model.Element,
+) -> Unit {
+  let font_header = create_menu_header("Font")
+  append_child(menu, font_header)
+  let font_row = create_menu_row("Family:")
+  let font_presets : Array[(String, String?)] = [
+    ("Sans", None),
+    ("Serif", Some("serif")),
+    ("Mono", Some("monospace")),
+  ]
+  for preset in font_presets {
+    let (label, font_value) = preset
+    let is_selected = el.style.font_family == font_value
+    let btn = create_toggle_button(label, is_selected)
+    add_click_handler(btn, fn(_) {
+      update_element_font_family(state, id, font_value)
+      context_menu.hide()
+      hide_context_menu_element(menu)
+      redraw_svg(state)
+    })
+    append_child(font_row, btn)
+  }
+  append_child(menu, font_row)
 }
 
 ///|
@@ -470,3 +601,268 @@ fn screen_to_svg_coords(
   compute_screen_to_svg_coords_ffi(svg, x, y)
   (get_svg_x_ffi(), get_svg_y_ffi())
 }
+
+///|
+/// トグルボタンを作成
+extern "js" fn create_toggle_button(text : String, selected : Bool) -> @js.Any =
+  #| (text, selected) => {
+  #|   const btn = document.createElement('button');
+  #|   btn.textContent = text;
+  #|   const baseStyle = 'padding: 2px 6px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px;';
+  #|   if (selected) {
+  #|     btn.style.cssText = baseStyle + ' background: #e3f2fd; border-color: #2196f3;';
+  #|   } else {
+  #|     btn.style.cssText = baseStyle + ' background: white;';
+  #|   }
+  #|   return btn;
+  #| }
+
+///|
+/// 要素の stroke-dasharray を更新
+fn update_element_dasharray(
+  state : @core.EditorState,
+  id : String,
+  dasharray : String?,
+) -> Unit {
+  state.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, style: { ..el.style, stroke_dasharray: dasharray } }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 要素の marker_start を更新
+fn update_element_marker_start(
+  state : @core.EditorState,
+  id : String,
+  marker : @model.ArrowType?,
+) -> Unit {
+  state.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, style: { ..el.style, marker_start: marker } }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 要素の marker_end を更新
+fn update_element_marker_end(
+  state : @core.EditorState,
+  id : String,
+  marker : @model.ArrowType?,
+) -> Unit {
+  state.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, style: { ..el.style, marker_end: marker } }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 要素の font_family を更新
+fn update_element_font_family(
+  state : @core.EditorState,
+  id : String,
+  font_family : String?,
+) -> Unit {
+  state.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == id {
+        { ..el, style: { ..el.style, font_family: font_family } }
+      } else {
+        el
+      }
+    })
+  })
+}
+
+///|
+/// 要素を最前面に移動
+fn bring_to_front(state : @core.EditorState, id : String) -> Unit {
+  state.elements.update(fn(els) {
+    let target : @model.Element? = els.iter().find_first(fn(el) { el.id == id })
+    match target {
+      Some(el) => {
+        let others = els.filter(fn(e) { e.id != id })
+        others.push(el)
+        others
+      }
+      None => els
+    }
+  })
+}
+
+///|
+/// 配列内の要素のインデックスを検索
+fn find_element_index(els : Array[@model.Element], id : String) -> Int? {
+  for i, el in els {
+    if el.id == id {
+      return Some(i)
+    }
+  }
+  None
+}
+
+///|
+/// 要素を一つ前面に移動
+fn bring_forward(state : @core.EditorState, id : String) -> Unit {
+  state.elements.update(fn(els) {
+    match find_element_index(els, id) {
+      Some(i) if i < els.length() - 1 => {
+        let result = els.copy()
+        let tmp = result[i]
+        result[i] = result[i + 1]
+        result[i + 1] = tmp
+        result
+      }
+      _ => els
+    }
+  })
+}
+
+///|
+/// 要素を一つ背面に移動
+fn send_backward(state : @core.EditorState, id : String) -> Unit {
+  state.elements.update(fn(els) {
+    match find_element_index(els, id) {
+      Some(i) if i > 0 => {
+        let result = els.copy()
+        let tmp = result[i]
+        result[i] = result[i - 1]
+        result[i - 1] = tmp
+        result
+      }
+      _ => els
+    }
+  })
+}
+
+///|
+/// 要素を最背面に移動
+fn send_to_back(state : @core.EditorState, id : String) -> Unit {
+  state.elements.update(fn(els) {
+    let target : @model.Element? = els.iter().find_first(fn(el) { el.id == id })
+    match target {
+      Some(el) => {
+        let others = els.filter(fn(e) { e.id != id })
+        let result : Array[@model.Element] = [el]
+        for e in others {
+          result.push(e)
+        }
+        result
+      }
+      None => els
+    }
+  })
+}
+
+///|
+/// カラーピッカー行を作成（現在の色ボタン + ネイティブカラーピッカー）
+fn create_color_picker_row(
+  label : String,
+  is_fill : Bool,
+  el_opt : @model.Element?,
+) -> @js.Any {
+  let current_color = match el_opt {
+    Some(el) =>
+      if is_fill {
+        el.style.fill.unwrap_or("transparent")
+      } else {
+        el.style.stroke.unwrap_or("#000000")
+      }
+    None => if is_fill { "transparent" } else { "#000000" }
+  }
+  create_color_picker_row_ffi(label, current_color, is_fill)
+}
+
+///|
+/// カラーピッカー行を作成（FFI）
+extern "js" fn create_color_picker_row_ffi(
+  label : String,
+  current_color : String,
+  is_fill : Bool,
+) -> @js.Any =
+  #| (label, currentColor, isFill) => {
+  #|   const row = document.createElement('div');
+  #|   row.style.cssText = 'padding: 6px 12px; display: flex; align-items: center; gap: 8px;';
+  #|
+  #|   // ラベル
+  #|   const labelSpan = document.createElement('span');
+  #|   labelSpan.textContent = label;
+  #|   labelSpan.style.cssText = 'font-size: 11px; color: #666; min-width: 40px;';
+  #|   row.appendChild(labelSpan);
+  #|
+  #|   // 現在の色ボタン
+  #|   const colorBtn = document.createElement('button');
+  #|   colorBtn.className = 'current-color-btn';
+  #|   colorBtn.style.cssText = 'width: 28px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;';
+  #|   if (currentColor === 'transparent') {
+  #|     colorBtn.style.background = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+  #|     colorBtn.style.backgroundSize = '6px 6px';
+  #|     colorBtn.style.backgroundPosition = '0 0, 0 3px, 3px -3px, -3px 0px';
+  #|   } else {
+  #|     colorBtn.style.background = currentColor;
+  #|   }
+  #|   row.appendChild(colorBtn);
+  #|
+  #|   // ネイティブカラーピッカー
+  #|   const colorInput = document.createElement('input');
+  #|   colorInput.type = 'color';
+  #|   colorInput.className = 'color-picker-input';
+  #|   colorInput.style.cssText = 'width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;';
+  #|   // transparent の場合はデフォルト色を設定
+  #|   colorInput.value = (currentColor === 'transparent' || !currentColor.startsWith('#'))
+  #|     ? (isFill ? '#ffffff' : '#000000')
+  #|     : currentColor;
+  #|   row.appendChild(colorInput);
+  #|
+  #|   // Fill の場合は透明ボタンを追加
+  #|   if (isFill) {
+  #|     const transparentBtn = document.createElement('button');
+  #|     transparentBtn.className = 'transparent-btn';
+  #|     transparentBtn.textContent = '∅';
+  #|     transparentBtn.title = 'Transparent';
+  #|     transparentBtn.style.cssText = 'width: 22px; height: 22px; padding: 0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 12px; background: white;';
+  #|     row.appendChild(transparentBtn);
+  #|   }
+  #|
+  #|   return row;
+  #| }
+
+///|
+/// カラーピッカーのハンドラを設定
+extern "js" fn set_color_picker_handler(
+  row : @js.Any,
+  handler : (String) -> Unit,
+) =
+  #| (row, handler) => {
+  #|   const colorInput = row.querySelector('.color-picker-input');
+  #|   const transparentBtn = row.querySelector('.transparent-btn');
+  #|
+  #|   if (colorInput) {
+  #|     colorInput.addEventListener('input', (e) => {
+  #|       e.stopPropagation();
+  #|       handler(e.target.value);
+  #|     });
+  #|   }
+  #|
+  #|   if (transparentBtn) {
+  #|     transparentBtn.addEventListener('click', (e) => {
+  #|       e.stopPropagation();
+  #|       handler('transparent');
+  #|     });
+  #|   }
+  #| }

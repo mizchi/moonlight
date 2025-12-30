@@ -122,7 +122,11 @@ pub fn element_to_svg_string_with_parent(
     @model.Text(content, font_size) => {
       let fs = font_size.unwrap_or(16.0)
       let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
-      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{@model.escape_xml(content)}</text>"
+      let font_family_attr = match el.style.font_family {
+        Some(ff) => " font-family=\"\{ff}\""
+        None => ""
+      }
+      "<text x=\"\{num_to_str(el.x)}\" y=\"\{num_to_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{num_to_str(fs)}\"\{font_family_attr} text-anchor=\"middle\" dominant-baseline=\"middle\">\{@model.escape_xml(content)}</text>"
     }
     @model.Polyline(points) => {
       let points_str = points
