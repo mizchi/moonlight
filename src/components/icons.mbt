@@ -92,3 +92,11 @@ pub let icon_edit_expand : String = "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
 ///|
 /// 閉じる（X）アイコン
 pub let icon_close : String = "M18 6L6 18M6 6l12 12"
+
+///|
+/// ペンアイコン（フリードロー）
+pub let icon_pen : String = "M12 19l7-7 3 3-7 7H12v-3zM18 12l-1.5-1.5M2 12l5.5-5.5L15 3l3 3-6.5 7.5L6 19"
+
+///|
+/// 選択カーソルアイコン
+pub let icon_cursor : String = "M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"

@@ -275,7 +275,7 @@ pub fn render_element_to_svg_with_parent(
       set_svg_attr(polyline, "cursor", "move")
       polyline
     }
-    @model.Path(d) => {
+    @model.Path(d, _, _, _, _) => {
       let path = create_svg_element_ns("path")
       set_svg_attr(path, "d", d)
       set_svg_attr(path, "fill", fill)
@@ -509,7 +509,7 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
         .join(" ")
       "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
     }
-    @model.Path(d) =>
+    @model.Path(d, _, _, _, _) =>
       "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
   }
 }
@@ -576,7 +576,7 @@ fn element_to_svg_string_with_parent(
         .join(" ")
       "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
     }
-    @model.Path(d) =>
+    @model.Path(d, _, _, _, _) =>
       "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{num_to_str(stroke_width)}\"/>"
   }
 }
@@ -615,6 +615,45 @@ pub extern "js" fn draw_preview_line(
 pub extern "js" fn remove_preview_line(svg : @js.Any) =
   #| (svg) => {
   #|   const existing = svg.querySelector('.preview-line');
+  #|   if (existing) existing.remove();
+  #| }
+
+///|
+/// フリードロープレビューを描画
+pub fn draw_free_draw_preview(svg : @js.Any, points : Array[@model.Point]) -> Unit {
+  if points.length() < 2 {
+    remove_free_draw_preview(svg)
+    return
+  }
+  let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
+  draw_free_draw_preview_ffi(svg, points_str)
+}
+
+///|
+extern "js" fn draw_free_draw_preview_ffi(svg : @js.Any, points_str : String) =
+  #| (svg, pointsStr) => {
+  #|   let existing = svg.querySelector('.free-draw-preview');
+  #|   if (!existing) {
+  #|     existing = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  #|     existing.setAttribute('class', 'free-draw-preview');
+  #|     existing.setAttribute('fill', 'none');
+  #|     existing.setAttribute('stroke', '#888');
+  #|     existing.setAttribute('stroke-width', '1');
+  #|     existing.setAttribute('stroke-linecap', 'round');
+  #|     existing.setAttribute('stroke-linejoin', 'round');
+  #|     existing.setAttribute('stroke-dasharray', '4 2');
+  #|     existing.setAttribute('opacity', '0.6');
+  #|     existing.setAttribute('pointer-events', 'none');
+  #|     svg.appendChild(existing);
+  #|   }
+  #|   existing.setAttribute('points', pointsStr);
+  #| }
+
+///|
+/// フリードロープレビューを削除
+pub extern "js" fn remove_free_draw_preview(svg : @js.Any) =
+  #| (svg) => {
+  #|   const existing = svg.querySelector('.free-draw-preview');
   #|   if (existing) existing.remove();
   #| }
 

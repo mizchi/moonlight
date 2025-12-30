@@ -185,7 +185,7 @@ fn render_multi_selection_panel(state : @core.EditorState) -> @element.DomNode {
                 @model.Ellipse(_, _) => "⬭"
                 @model.Line(_, _) => "╱"
                 @model.Polyline(_) => "⟋"
-                @model.Path(_) => "✎"
+                @model.Path(_, _, _, _, _) => "✎"
                 @model.Text(_, _) => "T"
               }
             None => "?"
@@ -472,7 +472,7 @@ fn render_element_tree(state : @core.EditorState) -> @element.DomNode {
       @model.Ellipse(_, _) => "⬭"
       @model.Line(_, _) => "╱"
       @model.Polyline(_) => "⟋"
-      @model.Path(_) => "✎"
+      @model.Path(_, _, _, _, _) => "✎"
       @model.Text(_, _) => "T"
     }
     let el_id = el.id

@@ -203,7 +203,7 @@ pub fn render_element(
       attrs.push(("cursor", "move"))
       create_svg_element("polyline", attrs, [])
     }
-    @model.Path(d) => {
+    @model.Path(d, _, _, _, _) => {
       attrs.push(("d", d))
       add_style_attrs(attrs, style)
       if el.transform is Some(t) {
@@ -443,7 +443,7 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
       "<polyline points=\"\{points_str}\"\{style_str}/>"
     }
-    @model.Path(d) => "<path d=\"\{d}\"\{style_str}/>"
+    @model.Path(d, _, _, _, _) => "<path d=\"\{d}\"\{style_str}/>"
     @model.Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
       let fs_attr = " font-size=\"\{size}\""
@@ -569,7 +569,7 @@ pub fn element_to_moonlight_svg(el : @model.Element) -> String {
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
       "<polyline points=\"\{points_str}\"\{attrs_str}/>"
     }
-    @model.Path(d) => "<path d=\"\{d}\"\{attrs_str}/>"
+    @model.Path(d, _, _, _, _) => "<path d=\"\{d}\"\{attrs_str}/>"
     @model.Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
       let fs_attr = " font-size=\"\{size}\""
@@ -732,7 +732,7 @@ fn element_to_moonlight_svg_with_parent(
       let points_str = points.map(fn(p) { "\{p.x},\{p.y}" }).join(" ")
       "<polyline points=\"\{points_str}\"\{attrs_str}/>"
     }
-    @model.Path(d) => "<path d=\"\{d}\"\{attrs_str}/>"
+    @model.Path(d, _, _, _, _) => "<path d=\"\{d}\"\{attrs_str}/>"
     @model.Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
       let fs_attr = " font-size=\"\{size}\""
@@ -821,6 +821,10 @@ let handle_size : Double = 8.0
 pub fn render_resize_handles(el : @model.Element) -> Array[@js.Any] {
   let half = handle_size / 2.0
   let handles : Array[@js.Any] = []
+  // Path はリサイズハンドルを表示しない
+  if el.shape is @model.Path(_, _, _, _, _) {
+    return handles
+  }
   // Line の場合は始点と終点にハンドルを表示
   match el.shape {
     @model.Line(x2, y2) => {
@@ -1343,7 +1347,7 @@ pub fn render_element_node(
       attrs.push(("cursor", "move"))
       create_svg_node("polyline", attrs, [], [])
     }
-    @model.Path(d) => {
+    @model.Path(d, _, _, _, _) => {
       attrs.push(("d", d))
       add_style_attrs(attrs, style)
       if el.transform is Some(t) {
@@ -1900,6 +1904,12 @@ fn update_element_attrs(
     @model.Line(x2, y2) =>
       // Line はグループ内の子要素を更新
       update_line_children_with_style(dom_el, el.x, el.y, x2, y2, el.style)
+    @model.Path(d, start_x, start_y, _, _) =>
+      // Path はグループ内の子要素を更新
+      // transform は (el.x - start_x, el.y - start_y) で計算
+      update_path_children_with_style(
+        dom_el, d, el.x - start_x, el.y - start_y, el.style,
+      )
     @model.Text(content, font_size) => {
       // Text はグループ内の子要素を更新
       let size = font_size.unwrap_or(16.0)
@@ -1958,6 +1968,54 @@ fn update_line_children_with_style(
   let stroke_width = style.stroke_width.unwrap_or(1.0)
   update_line_children_ffi(group, x1, y1, x2, y2, stroke, stroke_width)
 }
+
+///|
+/// Path グループの子要素を更新（スタイル含む）
+fn update_path_children_with_style(
+  group : @js.Any,
+  d : String,
+  x : Double,
+  y : Double,
+  style : @model.Style,
+) -> Unit {
+  let stroke = style.stroke.unwrap_or("#000000")
+  let stroke_width = style.stroke_width.unwrap_or(1.0)
+  let fill = style.fill.unwrap_or("none")
+  update_path_children_ffi(group, d, x, y, stroke, stroke_width, fill)
+}
+
+///|
+/// Path グループの子要素を更新（FFI）
+extern "js" fn update_path_children_ffi(
+  group : @js.Any,
+  d : String,
+  x : Double,
+  y : Double,
+  stroke : String,
+  stroke_width : Double,
+  fill : String,
+) =
+  #| (group, d, x, y, stroke, strokeWidth, fill) => {
+  #|   // グループに transform を適用
+  #|   if (x !== 0 || y !== 0) {
+  #|     group.setAttribute('transform', `translate(${x}, ${y})`);
+  #|   } else {
+  #|     group.removeAttribute('transform');
+  #|   }
+  #|   const children = group.children;
+  #|   for (let i = 0; i < children.length; i++) {
+  #|     const child = children[i];
+  #|     if (child.tagName === 'path') {
+  #|       child.setAttribute('d', d);
+  #|       // 実際のパス（pointer-events: none）のみスタイル更新
+  #|       if (child.getAttribute('pointer-events') === 'none') {
+  #|         child.setAttribute('stroke', stroke);
+  #|         child.setAttribute('stroke-width', strokeWidth);
+  #|         child.setAttribute('fill', fill);
+  #|       }
+  #|     }
+  #|   }
+  #| }
 
 ///|
 /// Line グループの子要素を更新（FFI）
@@ -2097,6 +2155,9 @@ fn create_element_vnode_with_ref(
     @model.Line(x2, y2) =>
       // Line はグループで __ref を取得
       create_line_vnode_with_ref(el, x2, y2, el_ref)
+    @model.Path(d, _, _, _, _) =>
+      // Path はグループで __ref を取得
+      create_path_vnode_with_ref(el, d, el_ref)
     @model.Text(content, font_size) =>
       // Text はグループで __ref を取得
       create_text_vnode_with_ref(el, content, font_size, el_ref)
@@ -2146,6 +2207,43 @@ fn create_line_vnode_with_ref(
   let group_attrs : Array[(String, @element.AttrValue)] = [
     ("data-id", @element.Static(el.id)),
     ("data-element-type", @element.Static("line")),
+    ("cursor", @element.Static("move")),
+    ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
+  ]
+  @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
+}
+
+///|
+/// Path 用の __ref 付き VNode を作成
+fn create_path_vnode_with_ref(
+  el : @model.Element,
+  d : String,
+  el_ref : Ref[@js.Any?],
+) -> @element.DomNode {
+  // 子要素を作成
+  let children : Array[@element.DomNode] = []
+
+  // 透明なヒットエリア（パスに沿った太い線）
+  let hit_attrs : Array[(String, String)] = [
+    ("data-id", el.id),
+    ("d", d),
+    ("fill", "none"),
+    ("stroke", "transparent"),
+    ("stroke-width", "16"),
+    ("stroke-linecap", "round"),
+    ("stroke-linejoin", "round"),
+  ]
+  children.push(create_svg_node("path", hit_attrs, [], []))
+
+  // 実際のパス
+  let path_attrs : Array[(String, String)] = [("d", d), ("pointer-events", "none")]
+  add_style_attrs(path_attrs, el.style)
+  children.push(create_svg_node("path", path_attrs, [], []))
+
+  // グループを作成（__ref 付き）
+  let group_attrs : Array[(String, @element.AttrValue)] = [
+    ("data-id", @element.Static(el.id)),
+    ("data-element-type", @element.Static("path")),
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]

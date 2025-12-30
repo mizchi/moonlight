@@ -145,6 +145,16 @@ fn handle_key(
       move_selected(state, 10.0, 0.0)
       true
     }
+    // P: フリードローモード切替
+    "p" | "P" => {
+      toggle_tool_mode(state)
+      true
+    }
+    // V: 選択モードに戻る
+    "v" | "V" => {
+      set_select_mode(state)
+      true
+    }
     _ => false
   }
 }

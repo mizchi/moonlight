@@ -183,8 +183,8 @@ pub(all) enum ShapeType {
   Line(Double, Double)
   /// 折れ線
   Polyline(Array[Point])
-  /// パス (SVG path d 属性)
-  Path(String)
+  /// パス (SVG path d 属性, 始点X, 始点Y, 終点X, 終点Y)
+  Path(String, Double, Double, Double, Double)
   /// テキスト: 内容, フォントサイズ
   Text(String, Double?)
 } derive(Show, Eq)
@@ -308,9 +308,23 @@ pub fn Element::bounding_box(self : Element) -> BoundingBox {
         }
         { x: min_x, y: min_y, width: max_x - min_x, height: max_y - min_y }
       }
-    Path(_) =>
-      // Path のバウンディングボックスは簡易的に要素位置のみ
-      { x: self.x, y: self.y, width: 0.0, height: 0.0 }
+    Path(_, start_x, start_y, end_x, end_y) => {
+      // Path のバウンディングボックス
+      // el.x, el.y は始点の実際の位置（移動後の位置）
+      // transform = (el.x - start_x, el.y - start_y) で描画される
+      // 実際の始点: el.x, el.y
+      // 実際の終点: el.x + (end_x - start_x), el.y + (end_y - start_y)
+      let actual_end_x = self.x + (end_x - start_x)
+      let actual_end_y = self.y + (end_y - start_y)
+      let min_x = if self.x < actual_end_x { self.x } else { actual_end_x }
+      let max_x = if self.x > actual_end_x { self.x } else { actual_end_x }
+      let min_y = if self.y < actual_end_y { self.y } else { actual_end_y }
+      let max_y = if self.y > actual_end_y { self.y } else { actual_end_y }
+      // 最小サイズを確保（点や短い線でも選択可能に）
+      let width = if max_x - min_x < 10.0 { 10.0 } else { max_x - min_x }
+      let height = if max_y - min_y < 10.0 { 10.0 } else { max_y - min_y }
+      { x: min_x, y: min_y, width, height }
+    }
     Text(content, font_size) => {
       let size = font_size.unwrap_or(16.0)
       // テキストのバウンディングボックスは概算（中央基準）
@@ -339,10 +353,17 @@ pub fn Element::hit_test(self : Element, p : Point) -> Bool {
 ///|
 /// 指定アンカーの座標を取得
 pub fn Element::get_anchor_point(self : Element, anchor : Anchor) -> Point {
-  // Line の場合は始点・終点を直接返す
+  // Line/Path の場合は始点・終点を直接返す
   match (self.shape, anchor) {
     (Line(_, _), LineStart) => { x: self.x, y: self.y }
     (Line(x2, y2), LineEnd) => { x: x2, y: y2 }
+    // Path: el.x, el.y が現在の始点位置（ドラッグ後）
+    // 終点は相対位置で計算
+    (Path(_, _, _, _, _), LineStart) => { x: self.x, y: self.y }
+    (Path(_, start_x, start_y, end_x, end_y), LineEnd) => {
+      x: self.x + (end_x - start_x),
+      y: self.y + (end_y - start_y),
+    }
     _ => {
       let bbox = self.bounding_box()
       let cx = bbox.x + bbox.width / 2.0
@@ -371,6 +392,7 @@ pub fn Element::get_all_anchors(self : Element) -> Array[(Anchor, Point)] {
   let anchors : Array[Anchor] = match self.shape {
     Circle(_) | Ellipse(_, _) => [Center, Top, Bottom, Left, Right]
     Line(_, _) => [LineStart, LineEnd] // Line は始点と終点のみ
+    Path(_, _, _, _, _) => [LineStart, LineEnd, Center] // Path も始点と終点
     _ =>
       [
         Center,
@@ -896,7 +918,7 @@ pub fn shape_name(shape : ShapeType) -> String {
     Ellipse(_, _) => "ellipse"
     Line(_, _) => "line"
     Polyline(_) => "polyline"
-    Path(_) => "path"
+    Path(_, _, _, _, _) => "path"
     Text(_, _) => "text"
   }
 }
@@ -910,7 +932,7 @@ pub fn format_shape(shape : ShapeType) -> String {
     Ellipse(rx, ry) => "Ellipse(\{rx.to_int()}×\{ry.to_int()})"
     Line(x2, y2) => "Line(→\{x2.to_int()},\{y2.to_int()})"
     Polyline(points) => "Polyline(\{points.length()} pts)"
-    Path(_) => "Path"
+    Path(_, _, _, _, _) => "Path"
     Text(content, _) => "Text(\"\{content}\")"
   }
 }

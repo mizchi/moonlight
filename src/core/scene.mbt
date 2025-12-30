@@ -8,6 +8,27 @@ pub(all) enum EditorMode {
 }
 
 ///|
+/// ツールモード
+pub(all) enum ToolMode {
+  Select // 選択モード（デフォルト）
+  FreeDraw // フリードローモード
+} derive(Show, Eq)
+
+///|
+/// フリードロー状態（描画中の点群）
+pub(all) struct FreeDrawState {
+  points : Array[@model.Point]
+}
+
+///|
+/// フリードローオプション
+pub(all) struct FreeDrawOptions {
+  resample_dist : Double // リサンプリング間隔（デフォルト 4.0）
+  epsilon : Double // RDP 簡略化パラメータ（デフォルト 2.0）
+  max_error : Double // ベジェフィッティング最大誤差（デフォルト 8.0）
+}
+
+///|
 /// 線のスナップ先プレビュー（ドラッグ中の視覚的フィードバック用）
 pub(all) struct PendingConnection {
   target_id : String // 接続先の要素 ID
@@ -95,6 +116,10 @@ pub struct EditorState {
   anchor_drag_state : @luna.Signal[AnchorDragState?] // アンカードラッグ状態
   svg_el : @luna.Signal[@js.Any] // SVG 要素への参照
   container_el : @luna.Signal[@js.Any] // コンテナ要素への参照
+  // フリードロー関連
+  tool_mode : @luna.Signal[ToolMode] // ツールモード（Select / FreeDraw）
+  free_draw_state : @luna.Signal[FreeDrawState?] // フリードロー中の状態
+  free_draw_options : @luna.Signal[FreeDrawOptions] // フリードローオプション
 }
 
 ///|
@@ -148,6 +173,14 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     anchor_drag_state: @luna.signal(None),
     svg_el: @luna.signal(js_null()),
     container_el: @luna.signal(js_null()),
+    // フリードロー関連
+    tool_mode: @luna.signal(Select),
+    free_draw_state: @luna.signal(None),
+    free_draw_options: @luna.signal({
+      resample_dist: 4.0,
+      epsilon: 2.0,
+      max_error: 8.0,
+    }),
   }
 }
 
@@ -559,13 +592,16 @@ pub fn EditorState::start_drag(
     }
     _ => (None, None, [])
   }
+  // Path も通常の要素と同様に el.x, el.y（transform オフセット）を基準にする
+  let offset_x = mouse_x - el.x
+  let offset_y = mouse_y - el.y
   self.drag_state.set(
     Some({
       element_id,
       start_x: el.x,
       start_y: el.y,
-      offset_x: mouse_x - el.x,
-      offset_y: mouse_y - el.y,
+      offset_x,
+      offset_y,
       start_shape,
       start_connections,
       connected_start_positions: connected_positions,

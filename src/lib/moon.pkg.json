@@ -10,6 +10,10 @@
     {
       "path": "mizchi/js/core",
       "alias": "js"
+    },
+    {
+      "path": "mizchi/moonlight/bezier_fit",
+      "alias": "bezier"
     }
   ]
 }

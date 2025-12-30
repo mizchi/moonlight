@@ -23,6 +23,11 @@ pub extern "js" fn hide_popover(popover_id : String) =
   #| }
 
 ///|
+/// デバッグログ
+pub extern "js" fn debug_log(msg : String) =
+  #| (msg) => console.log('[DEBUG]', msg)
+
+///|
 /// window に keydown イベントリスナーを追加
 pub extern "js" fn add_keyboard_listener(handler : (@js.Any) -> Unit) =
   #| (handler) => window.addEventListener('keydown', handler)

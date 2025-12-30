@@ -409,7 +409,7 @@ fn editor_app() -> @element.DomNode {
   let on_mousemove = create_mousemove_handler(
     state, get_screen_coords, get_scene_coords,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
   let on_mouseleave = create_mouseleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
@@ -988,6 +988,13 @@ fn create_mousedown_handler(
       return
     }
 
+    // フリードローモードの場合
+    if state.tool_mode.get() == @core.FreeDraw {
+      let (scene_x, scene_y) = get_scene_coords(e)
+      @lib.start_free_draw(state, scene_x, scene_y)
+      return
+    }
+
     // 配置モード中はクリックで確定
     if state.is_placing() {
       state.end_placement()
@@ -1109,6 +1116,14 @@ fn handle_resize_click(
     return false
   }
   let element_id : String = element_id_raw.cast()
+  // Path 要素はリサイズ不可
+  match state.find_element(element_id) {
+    Some(el) =>
+      if el.shape is @model.Path(_, _, _, _, _) {
+        return false
+      }
+    None => ()
+  }
   let (scene_x, scene_y) = get_scene_coords(e)
   let handle = @model.parse_handle_position(handle_str)
   state.start_resize(element_id, handle, scene_x, scene_y)
@@ -1302,6 +1317,19 @@ fn create_mousemove_handler(
     let (scene_x, scene_y) = get_scene_coords(e)
     state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
     state.mouse_in_canvas.set(true)
+
+    // フリードロー中の場合
+    if @lib.is_drawing(state) {
+      @lib.continue_free_draw(state, scene_x, scene_y)
+      // プレビュー描画
+      let svg = state.svg_el.get()
+      if not(@js.is_nullish(svg)) {
+        let points = @lib.get_preview_points(state)
+        @lib.draw_free_draw_preview(svg, points)
+      }
+      return
+    }
+
     if state.is_panning.get() {
       let (screen_x, screen_y) = get_screen_coords(e)
       state.pan_move(screen_x, screen_y)
@@ -1420,9 +1448,22 @@ fn create_mouseup_handler(
   state : @core.EditorState,
   history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
+  new_id~ : () -> String = fn() { "" },
 ) -> (@js.Any) -> Unit {
   let _ = get_screen_coords // unused but kept for consistency
   fn(_e) {
+    // フリードロー中の場合
+    if @lib.is_drawing(state) {
+      // プレビューを削除
+      let svg = state.svg_el.get()
+      if not(@js.is_nullish(svg)) {
+        @lib.remove_free_draw_preview(svg)
+      }
+      // Path 要素を作成
+      @lib.finish_free_draw(state, new_id)
+      return
+    }
+
     if state.is_panning.get() {
       state.end_pan()
       return
@@ -1454,6 +1495,14 @@ fn create_mouseleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
   fn(_e) {
     // マウスがキャンバス外に出たことを記録
     state.mouse_in_canvas.set(false)
+    // フリードロー中の場合はキャンセル
+    if @lib.is_drawing(state) {
+      let svg = state.svg_el.get()
+      if not(@js.is_nullish(svg)) {
+        @lib.remove_free_draw_preview(svg)
+      }
+      state.free_draw_state.set(None)
+    }
     // すべてのドラッグ・選択状態をリセット
     if state.is_panning.get() {
       state.end_pan()
@@ -1838,6 +1887,9 @@ fn setup_keyboard_shortcuts(
             }
             state.select_multiple(new_ids)
           }
+        } else {
+          // v: 選択モードに切り替え
+          @lib.set_select_mode(state)
         }
       "d" =>
         if is_cmd {
@@ -1909,7 +1961,12 @@ fn setup_keyboard_shortcuts(
             },
             fn() { () },
           )
+        } else if not(is_cmd) {
+          // V: 選択モードに切り替え
+          @lib.set_select_mode(state)
         }
+      // P: フリードローモード切替
+      "p" | "P" => @lib.toggle_tool_mode(state)
       _ => ()
     }
   }
@@ -2070,7 +2127,7 @@ pub fn render_editor_modal(
   let on_mousemove = create_mousemove_handler(
     state, get_screen_coords, get_scene_coords,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
   let on_mouseleave = create_mouseleave_handler(state)
   let on_wheel = create_wheel_handler(state, get_screen_coords)
   let on_contextmenu = create_contextmenu_handler(state, get_scene_coords)
@@ -2221,7 +2278,7 @@ fn embedded_editor_app(
   let on_mousemove = create_mousemove_handler(
     state, get_screen_coords, get_scene_coords,
   )
-  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords)
+  let on_mouseup = create_mouseup_handler(state, history, get_screen_coords, new_id~)
   let on_mouseleave = create_mouseleave_handler(state)
   // 埋め込みモードではズームを無効化
   let on_wheel = fn(_e : @js.Any) { () }
@@ -2481,6 +2538,27 @@ fn render_embedded_toolbar(
         @core.execute_command(history, state, @model.AddElement(new_text))
         state.select(Some(el_id))
       },
+      theme~,
+    ),
+    // セパレータ
+    @components.toolbar_separator(theme),
+    // ツールモード切替
+    @components.toolbar_button(
+      @components.svg_icon(
+        if state.tool_mode.get() == @core.FreeDraw {
+          @components.icon_pen
+        } else {
+          @components.icon_cursor
+        },
+        16,
+      ),
+      Some("P"),
+      if state.tool_mode.get() == @core.FreeDraw {
+        "Free Draw (active)"
+      } else {
+        "Free Draw"
+      },
+      fn() { @lib.toggle_tool_mode(state) },
       theme~,
     ),
     // セパレータ
@@ -2806,7 +2884,12 @@ fn render_svg_canvas_node(
         } else {
           "1px solid #ccc"
         }
-        "border: \{border}; user-select: none; overflow: hidden; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
+        // ツールモードに応じてカーソルを変更
+        let cursor = match state.tool_mode.get() {
+          @core.FreeDraw => "crosshair"
+          @core.Select => "default"
+        }
+        "border: \{border}; user-select: none; overflow: hidden; cursor: \{cursor}; --ml-stroke: \{theme.stroke}; --ml-fill: \{theme.fill}; --ml-text: \{theme.text};"
       }),
     ),
     ("mousedown", @element.Handler(on_mousedown)),
@@ -2819,6 +2902,8 @@ fn render_svg_canvas_node(
     (
       "__ref",
       @element.Handler(fn(svg_el) {
+        // SVG 要素への参照を保存（フリードロープレビュー用）
+        state.svg_el.set(svg_el)
         let is_first_resize : Ref[Bool] = { val: true }
         observe_resize_ffi(svg_el, fn(width : Double, height : Double) {
           let w = width.to_int()

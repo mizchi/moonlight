@@ -154,10 +154,30 @@ pub fn create_svg_container(
   // 状態に参照を保存
   state.svg_el.set(svg)
   state.container_el.set(container)
+  // ツールモード変更時のカーソル変更エフェクト
+  setup_cursor_effect(state, svg)
   // 初期描画
   redraw_svg(state)
   svg
 }
+
+///|
+/// ツールモードに応じたカーソル変更エフェクトをセットアップ
+fn setup_cursor_effect(state : @core.EditorState, svg : @js.Any) -> Unit {
+  let _ = @luna.effect(fn() {
+    let mode = state.tool_mode.get()
+    let cursor = match mode {
+      @core.FreeDraw => "crosshair"
+      @core.Select => "default"
+    }
+    set_style_property(svg, "cursor", cursor)
+  })
+}
+
+///|
+/// 要素の CSS スタイルプロパティを設定
+extern "js" fn set_style_property(el : @js.Any, prop : String, value : String) =
+  #| (el, prop, value) => el.style[prop] = value
 
 ///|
 /// 簡易 SVG パーサー（基本的な図形のみ）

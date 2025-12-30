@@ -72,6 +72,16 @@ fn get_element_anchors_with_type(
         (x2, y2, @core.LineEnd), // End
         ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center),
       ] // Center
+    @model.Path(_, start_x, start_y, end_x, end_y) => {
+      // Path は el.x, el.y が始点の実際の位置
+      // 実際の終点は el.x + (end_x - start_x), el.y + (end_y - start_y)
+      let actual_end_x = el.x + (end_x - start_x)
+      let actual_end_y = el.y + (end_y - start_y)
+      [
+        (el.x, el.y, @core.LineStart), // Start
+        (actual_end_x, actual_end_y, @core.LineEnd), // End
+      ]
+    }
     @model.Text(_, _) => [(el.x, el.y, @core.Center)] // Just the position
     _ => []
   }

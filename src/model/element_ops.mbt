@@ -29,10 +29,11 @@ pub fn move_element_with_relations(
   guard target_el is Some(el) else { return elements }
   let dx = new_x - el.x
   let dy = new_y - el.y
-  // Line の場合は特別な処理
+  // Line の場合は特別な処理、それ以外は共通処理
   match el.shape {
     Line(_, _) =>
       move_line_with_topology(elements, id, new_x, new_y, dx, dy, el)
+    // Path も他の図形と同様に接続ラインを更新
     _ => move_shape_with_relations(elements, id, new_x, new_y, dx, dy, el)
   }
 }

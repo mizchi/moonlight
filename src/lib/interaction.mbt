@@ -253,6 +253,12 @@ pub fn setup_interaction(
       return
     }
     let (mx, my) = get_mouse_coords_from_event(e)
+    // フリードローモードの場合
+    if state.tool_mode.get() == @core.FreeDraw {
+      start_free_draw(state, mx, my)
+      prevent_default_ffi(e)
+      return
+    }
     // まずアンカーポイントがクリックされたかチェック
     let (anchor_type_str, anchor_element_id, anchor_x, anchor_y) = get_anchor_info(
       e,
@@ -312,6 +318,14 @@ pub fn setup_interaction(
   // mousemove: ドラッグ中なら要素を移動、またはプレビュー線を更新
   add_mousemove_handler(svg, fn(e) {
     let (mx, my) = get_mouse_coords_from_event(e)
+    // フリードロー中の場合
+    if is_drawing(state) {
+      continue_free_draw(state, mx, my)
+      // プレビュー描画
+      let preview_points = get_preview_points(state)
+      draw_free_draw_preview(svg, preview_points)
+      return
+    }
     // アンカードラッグ中
     match state.anchor_drag_state.get() {
       Some(anchor_state) => {
@@ -361,11 +375,21 @@ pub fn setup_interaction(
         let new_x = drag_state.element_start_x.val + dx
         let new_y = drag_state.element_start_y.val + dy
         update_element_position(state, id, new_x, new_y)
+        // ドラッグ中は選択UIとアンカーポイントも同期して更新
+        update_selection_ui(state)
+        render_anchor_points(state)
       }
     }
   })
   // mouseup: ドラッグ終了
   add_mouseup_handler(svg, fn(e) {
+    // フリードロー終了
+    if is_drawing(state) {
+      // プレビューを削除
+      remove_free_draw_preview(svg)
+      finish_free_draw(state, fn() { "path-" + get_timestamp_id_ffi() })
+      return
+    }
     // アンカードラッグ終了
     match state.anchor_drag_state.get() {
       Some(anchor_state) => {
@@ -432,6 +456,11 @@ pub fn setup_interaction(
   })
   // mouseleave: ドラッグ終了
   add_mouseleave_handler(svg, fn(_e) {
+    // フリードローをキャンセル
+    if is_drawing(state) {
+      remove_free_draw_preview(svg)
+      state.free_draw_state.set(None)
+    }
     // アンカードラッグをキャンセル
     if state.anchor_drag_state.get() is Some(_) {
       remove_preview_line_ffi(svg)
@@ -522,7 +551,11 @@ pub fn update_selection_ui(state : @core.EditorState) -> Unit {
               // Line はハンドルを描画
               let _ = render_line_handle(svg, el.x, el.y, "line-start", el.id)
               let _ = render_line_handle(svg, x2, y2, "line-end", el.id)
-
+            }
+            @model.Path(_, _, _, _, _) => {
+              // Path は選択枠のみ（リサイズハンドルなし）
+              let (x, y, w, h) = get_element_bounds(el)
+              let _ = create_selection_rect(svg, x, y, w, h)
             }
             _ => {
               // 他の要素は選択枠を描画
