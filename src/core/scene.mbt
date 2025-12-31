@@ -590,6 +590,18 @@ pub fn EditorState::get_selected_id(self : EditorState) -> String? {
 }
 
 ///|
+/// 指定IDの要素を更新（汎用ヘルパー）
+pub fn EditorState::update_element_by_id(
+  self : EditorState,
+  id : String,
+  updater : (@model.Element) -> @model.Element,
+) -> Unit {
+  self.elements.update(fn(els) {
+    els.map(fn(el) { if el.id == id { updater(el) } else { el } })
+  })
+}
+
+///|
 /// 全要素を選択（Line と子要素以外）
 pub fn EditorState::select_all(self : EditorState) -> Unit {
   let ids : Array[String] = []

@@ -407,14 +407,8 @@ fn update_element_stroke(
   id : String,
   color : String,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, stroke: Some(color) } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, stroke: Some(color) } }
   })
 }
 
@@ -425,14 +419,8 @@ fn update_element_fill(
   id : String,
   color : String?,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, fill: color } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, fill: color } }
   })
 }
 
@@ -536,22 +524,6 @@ extern "js" fn create_menu_row(label : String) -> @js.Any =
   #| }
 
 ///|
-/// 色ボタンを作成
-extern "js" fn create_color_button(color : String) -> @js.Any =
-  #| (color) => {
-  #|   const btn = document.createElement('button');
-  #|   btn.style.cssText = 'width: 18px; height: 18px; border: 1px solid #999; border-radius: 2px; cursor: pointer; padding: 0;';
-  #|   if (color === 'transparent') {
-  #|     btn.style.background = 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%)';
-  #|     btn.style.backgroundSize = '8px 8px';
-  #|     btn.style.backgroundPosition = '0 0, 4px 4px';
-  #|   } else {
-  #|     btn.style.background = color;
-  #|   }
-  #|   return btn;
-  #| }
-
-///|
 /// メニューボタンを作成
 extern "js" fn create_menu_button(text : String, color : String) -> @js.Any =
   #| (text, color) => {
@@ -637,14 +609,8 @@ fn update_element_dasharray(
   id : String,
   dasharray : String?,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, stroke_dasharray: dasharray } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, stroke_dasharray: dasharray } }
   })
 }
 
@@ -655,14 +621,8 @@ fn update_element_marker_start(
   id : String,
   marker : @model.ArrowType?,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, marker_start: marker } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, marker_start: marker } }
   })
 }
 
@@ -673,14 +633,8 @@ fn update_element_marker_end(
   id : String,
   marker : @model.ArrowType?,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, marker_end: marker } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, marker_end: marker } }
   })
 }
 
@@ -691,14 +645,8 @@ fn update_element_font_family(
   id : String,
   font_family : String?,
 ) -> Unit {
-  state.elements.update(fn(els) {
-    els.map(fn(el) {
-      if el.id == id {
-        { ..el, style: { ..el.style, font_family, } }
-      } else {
-        el
-      }
-    })
+  state.update_element_by_id(id, fn(el) {
+    { ..el, style: { ..el.style, font_family, } }
   })
 }
 

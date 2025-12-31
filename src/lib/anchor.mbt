@@ -87,12 +87,6 @@ fn get_element_anchors_with_type(
   }
 }
 
-///|
-/// 要素のアンカーポイントを取得（後方互換）
-fn get_element_anchors(el : @model.Element) -> Array[(Double, Double)] {
-  get_element_anchors_with_type(el).map(fn(a) { (a.0, a.1) })
-}
-
 // === FFI 関数 ===
 
 ///|

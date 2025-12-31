@@ -16,23 +16,10 @@ extern "js" fn register_create_preview(
   #| }
 
 ///|
-/// ID カウンター
-let id_counter : Ref[Int] = { val: 0 }
-
-///|
-/// 新しい ID を生成
-fn new_id() -> String {
-  id_counter.val = id_counter.val + 1
-  "el-\{id_counter.val}"
-}
-
-///|
 /// SVG コンテンツを保持する Signal
 struct PreviewState {
   svg_content : @luna.Signal[String]
   modal_open : @luna.Signal[Bool]
-  width : Int
-  height : Int
 }
 
 ///|
@@ -50,8 +37,6 @@ fn create_preview_internal(
   let state : PreviewState = {
     svg_content: @luna.signal(svg_str),
     modal_open: @luna.signal(false),
-    width,
-    height,
   }
   // プレビュー部分（クリック可能）
   let preview_node = div(
