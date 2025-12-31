@@ -1812,6 +1812,12 @@ fn render_element_with_effect(
   // DOM 要素への参照
   let el_ref : Ref[@js.Any?] = { val: None }
 
+  // 初期レンダリング時の親要素ストローク色を取得
+  let initial_parent_stroke = @model.get_parent_stroke(
+    state.elements.get(),
+    initial_el.parent_id,
+  )
+
   // Effect で Signal 変更時に直接 DOM を更新
   // 位置・サイズの変更を全て反映
   let _ = @luna.effect(fn() {
@@ -1857,7 +1863,7 @@ fn render_element_with_effect(
   })
 
   // 初期 VNode を作成（__ref で DOM 参照を取得）
-  create_element_vnode_with_ref(initial_el, el_ref)
+  create_element_vnode_with_ref(initial_el, el_ref, initial_parent_stroke)
 }
 
 ///|
@@ -2118,9 +2124,11 @@ extern "js" fn update_text_children_with_style(
 
 ///|
 /// __ref 付きの VNode を作成
+/// parent_stroke: 親要素のストローク色（テキスト要素の色継承用）
 fn create_element_vnode_with_ref(
   el : @model.Element,
   el_ref : Ref[@js.Any?],
+  parent_stroke : String?,
 ) -> @element.DomNode {
   let attrs : Array[(String, String)] = []
   attrs.push(("data-id", el.id))
@@ -2167,8 +2175,8 @@ fn create_element_vnode_with_ref(
       // Path はグループで __ref を取得
       create_path_vnode_with_ref(el, d, el_ref)
     @model.Text(content, font_size) =>
-      // Text はグループで __ref を取得
-      create_text_vnode_with_ref(el, content, font_size, el_ref)
+      // Text はグループで __ref を取得（親のstroke色を渡す）
+      create_text_vnode_with_ref(el, content, font_size, el_ref, parent_stroke)
     _ =>
       // 他の形状は既存の静的レンダリング
       render_element_node(el, false, parent=None)
@@ -2263,11 +2271,13 @@ fn create_path_vnode_with_ref(
 
 ///|
 /// Text 用の __ref 付き VNode を作成
+/// parent_stroke: 親要素のストローク色（テキスト色継承用）
 fn create_text_vnode_with_ref(
   el : @model.Element,
   content : String,
   font_size : Double?,
   el_ref : Ref[@js.Any?],
+  parent_stroke : String?,
 ) -> @element.DomNode {
   let size = font_size.unwrap_or(16.0)
   let text_x = el.x
@@ -2317,6 +2327,8 @@ fn create_text_vnode_with_ref(
   children.push(create_svg_node("rect", hit_attrs, [], []))
 
   // テキスト要素
+  // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
+  let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
   let text_attrs : Array[(String, String)] = [
     ("x", @model.num_str(text_x)),
     ("y", @model.num_str(text_y)),
@@ -2324,12 +2336,19 @@ fn create_text_vnode_with_ref(
     ("text-anchor", "middle"),
     ("dominant-baseline", "middle"),
     ("pointer-events", "none"),
+    ("fill", text_fill),
   ]
   // font-family があれば追加
   if el.style.font_family is Some(ff) {
     text_attrs.push(("font-family", ff))
   }
-  add_style_attrs(text_attrs, el.style)
+  // stroke があれば追加（テキストのアウトライン用）
+  if el.style.stroke is Some(stroke) {
+    text_attrs.push(("stroke", stroke))
+    if el.style.stroke_width is Some(sw) {
+      text_attrs.push(("stroke-width", @model.num_str(sw)))
+    }
+  }
 
   // テキスト内容を設定するために __ref callback を使用
   let text_luna_attrs : Array[(String, @element.AttrValue)] = []
