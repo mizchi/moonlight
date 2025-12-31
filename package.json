@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -25,5 +24,6 @@
     "vite": "8.0.0-beta.5",
     "vite-plugin-moonbit": "^0.1.2",
     "wrangler": "^4.54.0"
-  }
+  },
+  "type": "module"
 }
