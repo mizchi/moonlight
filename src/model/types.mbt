@@ -1398,6 +1398,25 @@ pub fn round_coord(value : Double) -> Double {
   value.round()
 }
 
+///|
+/// 要素の座標を整数に丸める
+pub fn round_element_coords(el : Element) -> Element {
+  let x = round_coord(el.x)
+  let y = round_coord(el.y)
+  let shape = match el.shape {
+    Rect(w, h, rx, ry) => Rect(round_coord(w), round_coord(h), rx, ry)
+    Circle(r) => Circle(round_coord(r))
+    Ellipse(rx, ry) => Ellipse(round_coord(rx), round_coord(ry))
+    Line(x2, y2) => Line(round_coord(x2), round_coord(y2))
+    Polyline(points) =>
+      Polyline(points.map(fn(p) { { x: round_coord(p.x), y: round_coord(p.y) } }))
+    Path(d, sx, sy, ex, ey) =>
+      Path(d, round_coord(sx), round_coord(sy), round_coord(ex), round_coord(ey))
+    Text(content, font_size) => Text(content, font_size)
+  }
+  { ..el, x, y, shape }
+}
+
 // ============================================================
 // Line 接続トポロジー
 // ============================================================

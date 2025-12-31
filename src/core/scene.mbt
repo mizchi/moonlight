@@ -698,6 +698,18 @@ pub fn EditorState::drag_move(
 ///|
 /// ドラッグ終了
 pub fn EditorState::end_drag(self : EditorState) -> Unit {
+  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）
+  if self.drag_state.get() is Some(state) {
+    self.elements.update(fn(els) {
+      els.map(fn(el) {
+        if el.id == state.element_id {
+          @model.round_element_coords(el)
+        } else {
+          el
+        }
+      })
+    })
+  }
   self.drag_state.set(None)
 }
 
@@ -1257,13 +1269,13 @@ pub fn EditorState::resize_move(
   guard self.resize_state.get() is Some(state)
   let dx = mouse_x - state.mouse_start_x
   let dy = mouse_y - state.mouse_start_y
-  // 単一値のグリッドスナップ（常に整数に丸める）
+  // 単一値のグリッドスナップ（グリッド有効時のみ丸める）
   let snap = fn(v : Double) -> Double {
     if self.grid_enabled.get() {
       let size = self.grid_size.get().to_double()
       (v / size).round() * size
     } else {
-      @model.round_coord(v)
+      v // グリッド無効時はそのまま
     }
   }
   // ハンドル位置に応じて新しい位置と形状を計算
@@ -1603,6 +1615,18 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
         }
       }
     }
+  }
+  // リサイズ完了後、座標を整数に丸める（SVG の可読性向上）
+  if self.resize_state.get() is Some(resize) {
+    self.elements.update(fn(els) {
+      els.map(fn(el) {
+        if el.id == resize.element_id {
+          @model.round_element_coords(el)
+        } else {
+          el
+        }
+      })
+    })
   }
   // リサイズ完了後、要素を選択状態にする（ハンドルを表示するため）
   if self.resize_state.get() is Some(resize) {
@@ -1965,6 +1989,19 @@ pub fn EditorState::multi_drag_move(
 ///|
 /// 複数要素のドラッグを終了
 pub fn EditorState::end_multi_drag(self : EditorState) -> Unit {
+  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）
+  if self.multi_drag_state.get() is Some(state) {
+    let ids = state.element_ids
+    self.elements.update(fn(els) {
+      els.map(fn(el) {
+        if ids.contains(el.id) {
+          @model.round_element_coords(el)
+        } else {
+          el
+        }
+      })
+    })
+  }
   self.multi_drag_state.set(None)
 }
 
@@ -2186,13 +2223,13 @@ pub fn EditorState::update_placement(
     }
   }
 
-  // 単一値のグリッドスナップ（常に整数に丸める）
+  // 単一値のグリッドスナップ（グリッド有効時のみ丸める）
   let snap = fn(v : Double) -> Double {
     if self.grid_enabled.get() {
       let size = self.grid_size.get().to_double()
       (v / size).round() * size
     } else {
-      @model.round_coord(v)
+      v // グリッド無効時はそのまま
     }
   }
   let anchor_x = placement.anchor_point.x
