@@ -1442,6 +1442,22 @@ fn get_anchor_from_coords(coords : LineCoords, anchor : Anchor) -> Point {
 }
 
 ///|
+/// Line の座標からアンカーポイントを計算（公開版）
+pub fn get_anchor_from_line_coords(
+  x : Double,
+  y : Double,
+  x2 : Double,
+  y2 : Double,
+  anchor : Anchor,
+) -> Point {
+  match anchor {
+    LineStart => { x, y }
+    LineEnd => { x: x2, y: y2 }
+    _ => { x: (x + x2) / 2.0, y: (y + y2) / 2.0 }
+  }
+}
+
+///|
 /// Line 移動時の座標更新を計算（トポロジー検出）
 ///
 /// 移動した Line から BFS で接続グラフをたどり、

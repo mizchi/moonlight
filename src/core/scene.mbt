@@ -2032,104 +2032,212 @@ pub fn EditorState::sync_related_elements(
 // ============================================================
 
 ///|
-/// 指定要素に接続されている全てのラインを更新
+/// 指定要素に接続されている全てのラインを更新（BFS で全ホップを伝播）
 pub fn EditorState::update_connected_lines(
   self : EditorState,
   element_id : String,
 ) -> Unit {
-  // 接続されているラインを探して更新
+  // BFS で接続されている全てのラインを更新
   self.elements.update(fn(elements) {
-    // 更新対象の要素を elements から探す（最新の状態を取得）
-    let target : @model.Element? = {
-      let mut found : @model.Element? = None
-      for e in elements {
-        if e.id == element_id {
-          found = Some(e)
-          break
-        }
+    // 座標を管理する Map（id -> (x, y, x2, y2)）
+    let coords_map : Map[String, (Double, Double, Double, Double)] = {}
+    // 初期状態を設定
+    for e in elements {
+      if e.shape is @model.Line(x2, y2) {
+        coords_map[e.id] = (e.x, e.y, x2, y2)
       }
-      found
     }
-    guard target is Some(t) else { return elements }
+    // BFS キュー（更新が必要な要素を順次処理）
+    let queue : Array[String] = [element_id]
+    let processed : Array[String] = []
+    while queue.length() > 0 {
+      let current_id = queue.remove(0)
+      if processed.contains(current_id) {
+        continue
+      }
+      processed.push(current_id)
+      // current_id の最新座標を取得
+      let current_el = elements.iter().find_first(fn(e) { e.id == current_id })
+      guard current_el is Some(target) else { continue }
+      // current_id に接続している Line を探して更新
+      for el in elements {
+        guard el.shape is @model.Line(x2, y2) else { continue }
+        guard el.connections is Some(conns) else { continue }
+        // 既存の座標を取得
+        let (base_x, base_y, base_x2, base_y2) = coords_map.get(el.id).unwrap_or(
+          (el.x, el.y, x2, y2),
+        )
+        let mut new_x = base_x
+        let mut new_y = base_y
+        let mut new_x2 = base_x2
+        let mut new_y2 = base_y2
+        let mut changed = false
+        // 始点が current_id に接続している場合
+        if conns.start is Some(conn) && conn.element_id == current_id {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          // Line の場合は更新された座標を使用
+          let p = if target.shape is @model.Line(_, _) {
+            match coords_map.get(current_id) {
+              Some((cx, cy, cx2, cy2)) =>
+                @model.get_anchor_from_line_coords(cx, cy, cx2, cy2, conn.anchor)
+              None => anchor_point
+            }
+          } else {
+            anchor_point
+          }
+          if p.x != new_x || p.y != new_y {
+            new_x = p.x
+            new_y = p.y
+            changed = true
+          }
+        }
+        // 終点が current_id に接続している場合
+        if conns.end is Some(conn) && conn.element_id == current_id {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          // Line の場合は更新された座標を使用
+          let p = if target.shape is @model.Line(_, _) {
+            match coords_map.get(current_id) {
+              Some((cx, cy, cx2, cy2)) =>
+                @model.get_anchor_from_line_coords(cx, cy, cx2, cy2, conn.anchor)
+              None => anchor_point
+            }
+          } else {
+            anchor_point
+          }
+          if p.x != new_x2 || p.y != new_y2 {
+            new_x2 = p.x
+            new_y2 = p.y
+            changed = true
+          }
+        }
+        if changed {
+          coords_map[el.id] = (new_x, new_y, new_x2, new_y2)
+          // この Line に接続している Line も更新が必要
+          if not(queue.contains(el.id)) && not(processed.contains(el.id)) {
+            queue.push(el.id)
+          }
+        }
+      }
+    }
+    // 更新を適用
     elements.map(fn(el) {
-      // Line 要素のみ処理
-      guard el.shape is @model.Line(x2, y2) else { return el }
-      guard el.connections is Some(conns) else { return el }
-      // 始点の接続を確認（el.x, el.y が始点の絶対座標）
-      let (new_x, new_y) = match conns.start {
-        Some(conn) if conn.element_id == element_id => {
-          let anchor_point = t.get_anchor_point(conn.anchor)
-          (anchor_point.x, anchor_point.y)
-        }
-        _ => (el.x, el.y)
-      }
-      // 終点の接続を確認（x2, y2 は終点の絶対座標）
-      let (new_x2, new_y2) = match conns.end {
-        Some(conn) if conn.element_id == element_id => {
-          let anchor_point = t.get_anchor_point(conn.anchor)
-          (anchor_point.x, anchor_point.y)
-        }
-        _ => (x2, y2)
-      }
-      // 変更があれば更新
-      if new_x != el.x || new_y != el.y || new_x2 != x2 || new_y2 != y2 {
-        { ..el, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
-      } else {
-        el
+      guard el.shape is @model.Line(_, _) else { return el }
+      match coords_map.get(el.id) {
+        Some((x, y, x2, y2)) =>
+          if x != el.x ||
+            y != el.y ||
+            (el.shape is @model.Line(ox2, oy2) && (x2 != ox2 || y2 != oy2)) {
+            { ..el, x, y, shape: @model.Line(x2, y2) }
+          } else {
+            el
+          }
+        None => el
       }
     })
   })
 }
 
 ///|
-/// 指定要素に接続されているラインを更新（特定のラインを除く）
+/// 指定要素に接続されているラインを更新（特定のラインを除く、BFS で全ホップを伝播）
 pub fn EditorState::update_connected_lines_except(
   self : EditorState,
   element_id : String,
   except_line_id : String,
 ) -> Unit {
+  // BFS で接続されている全てのラインを更新（except_line_id を除く）
   self.elements.update(fn(elements) {
-    // 更新対象の要素を elements から探す（最新の状態を取得）
-    let target : @model.Element? = {
-      let mut found : @model.Element? = None
-      for e in elements {
-        if e.id == element_id {
-          found = Some(e)
-          break
+    // 座標を管理する Map（id -> (x, y, x2, y2)）
+    let coords_map : Map[String, (Double, Double, Double, Double)] = {}
+    // 初期状態を設定
+    for e in elements {
+      if e.shape is @model.Line(x2, y2) {
+        coords_map[e.id] = (e.x, e.y, x2, y2)
+      }
+    }
+    // BFS キュー
+    let queue : Array[String] = [element_id]
+    let processed : Array[String] = []
+    while queue.length() > 0 {
+      let current_id = queue.remove(0)
+      if processed.contains(current_id) {
+        continue
+      }
+      processed.push(current_id)
+      let current_el = elements.iter().find_first(fn(e) { e.id == current_id })
+      guard current_el is Some(target) else { continue }
+      for el in elements {
+        // 除外するラインはスキップ
+        if el.id == except_line_id {
+          continue
+        }
+        guard el.shape is @model.Line(x2, y2) else { continue }
+        guard el.connections is Some(conns) else { continue }
+        let (base_x, base_y, base_x2, base_y2) = coords_map.get(el.id).unwrap_or(
+          (el.x, el.y, x2, y2),
+        )
+        let mut new_x = base_x
+        let mut new_y = base_y
+        let mut new_x2 = base_x2
+        let mut new_y2 = base_y2
+        let mut changed = false
+        if conns.start is Some(conn) && conn.element_id == current_id {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          let p = if target.shape is @model.Line(_, _) {
+            match coords_map.get(current_id) {
+              Some((cx, cy, cx2, cy2)) =>
+                @model.get_anchor_from_line_coords(cx, cy, cx2, cy2, conn.anchor)
+              None => anchor_point
+            }
+          } else {
+            anchor_point
+          }
+          if p.x != new_x || p.y != new_y {
+            new_x = p.x
+            new_y = p.y
+            changed = true
+          }
+        }
+        if conns.end is Some(conn) && conn.element_id == current_id {
+          let anchor_point = target.get_anchor_point(conn.anchor)
+          let p = if target.shape is @model.Line(_, _) {
+            match coords_map.get(current_id) {
+              Some((cx, cy, cx2, cy2)) =>
+                @model.get_anchor_from_line_coords(cx, cy, cx2, cy2, conn.anchor)
+              None => anchor_point
+            }
+          } else {
+            anchor_point
+          }
+          if p.x != new_x2 || p.y != new_y2 {
+            new_x2 = p.x
+            new_y2 = p.y
+            changed = true
+          }
+        }
+        if changed {
+          coords_map[el.id] = (new_x, new_y, new_x2, new_y2)
+          if not(queue.contains(el.id)) && not(processed.contains(el.id)) {
+            queue.push(el.id)
+          }
         }
       }
-      found
     }
-    guard target is Some(t) else { return elements }
+    // 更新を適用
     elements.map(fn(el) {
-      // 除外するラインはスキップ
       if el.id == except_line_id {
         return el
       }
-      // Line 要素のみ処理
-      guard el.shape is @model.Line(x2, y2) else { return el }
-      guard el.connections is Some(conns) else { return el }
-      // 始点の接続を確認
-      let (new_x, new_y) = match conns.start {
-        Some(conn) if conn.element_id == element_id => {
-          let anchor_point = t.get_anchor_point(conn.anchor)
-          (anchor_point.x, anchor_point.y)
-        }
-        _ => (el.x, el.y)
-      }
-      // 終点の接続を確認
-      let (new_x2, new_y2) = match conns.end {
-        Some(conn) if conn.element_id == element_id => {
-          let anchor_point = t.get_anchor_point(conn.anchor)
-          (anchor_point.x, anchor_point.y)
-        }
-        _ => (x2, y2)
-      }
-      // 変更があれば更新
-      if new_x != el.x || new_y != el.y || new_x2 != x2 || new_y2 != y2 {
-        { ..el, x: new_x, y: new_y, shape: @model.Line(new_x2, new_y2) }
-      } else {
-        el
+      guard el.shape is @model.Line(_, _) else { return el }
+      match coords_map.get(el.id) {
+        Some((x, y, x2, y2)) =>
+          if x != el.x ||
+            y != el.y ||
+            (el.shape is @model.Line(ox2, oy2) && (x2 != ox2 || y2 != oy2)) {
+            { ..el, x, y, shape: @model.Line(x2, y2) }
+          } else {
+            el
+          }
+        None => el
       }
     })
   })
