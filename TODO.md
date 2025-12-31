@@ -28,12 +28,41 @@
 - [x] shift おしながらクリックで複数選択して、移動できる。ツールチップ側には選択中の要素をリストで表示する
 - [x] Ctrl-C で選択要素をコピーして、　Ctrl-V で右下にややずらした位置に複製
 - [x] Ctrl-A で全要素を選択する
+- [x] ヘルプシステム
+  - SSOT キーバインド定義 (`src/model/keybindings.mbt`)
+  - ヘルプページ (`docs/help.html`)
+  - ヘルプボタン UI (右下 ? ボタン、? キーでも開く)
+  - `showHelpButton` オプションで非表示可能
+- [x] Examples ドキュメント整備
+  - HTMLファイルを `examples/` に移動
+  - `examples/README.md` 追加
 
 ## Icebox
 
 - [ ] Round やCSSによるパラメータを折りたたみで対応する
 
 ## Model 層の機能
+
+### Keybindings モジュール (`src/model/keybindings.mbt`) ✓ 統合済み
+
+キーバインドのSSOT（Single Source of Truth）定義。実装とドキュメント双方で参照。
+
+#### 機能一覧
+
+| 関数 | 説明 |
+|-----|------|
+| `get_keybindings()` | 全キーバインド定義を取得 |
+| `get_keybindings_by_category(category)` | カテゴリでフィルタ |
+| `find_keybinding_by_action(action)` | アクション名で検索 |
+| `match_keybinding(key, ctrl, shift, meta)` | キーイベントに一致するバインドを検索 |
+| `keybinding_to_string(kb)` | 表示用文字列に変換 |
+
+#### カテゴリ
+
+- `Tool`: 図形作成 (1-6キー)
+- `Edit`: 編集操作 (Delete, Escape, ?)
+- `Navigation`: 移動 (矢印キー)
+- `Mode`: モード切替 (P, V)
 
 ### Validation モジュール (`src/model/validation.mbt`) ✓ 統合済み
 
