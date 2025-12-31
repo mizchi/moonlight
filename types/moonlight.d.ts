@@ -20,12 +20,39 @@ export interface EditorOptions {
   toolbarVisible?: boolean;
   /** Initial SVG content */
   initialSvg?: string;
+  /** Show help button (default: true) */
+  showHelpButton?: boolean;
 }
+
+/**
+ * Element information returned by getElements
+ */
+export interface ElementInfo {
+  id: string;
+  x: number;
+  y: number;
+  shape: unknown;
+  style: unknown;
+  transform?: string;
+  parent_id?: string;
+  connections?: unknown;
+}
+
+/**
+ * Tool mode for the editor
+ */
+export type ToolMode = 'select' | 'freedraw';
+
+/**
+ * Unsubscribe function returned by event subscriptions
+ */
+export type Unsubscribe = () => void;
 
 /**
  * Editor handle for controlling the embedded editor
  */
 export interface EditorHandle {
+  // === Existing API ===
   /** Export the current content as SVG string */
   exportSvg(): string;
   /** Import SVG content into the editor */
@@ -34,10 +61,62 @@ export interface EditorHandle {
   clear(): void;
   /** Destroy the editor and clean up resources */
   destroy(): void;
-  /** Subscribe to change events */
-  onChange(callback: (elements: any[]) => void): void;
   /** Check if the editor has focus */
   hasFocus(): boolean;
+
+  // === Selection API ===
+  /** Select elements by IDs */
+  select(ids: string[]): void;
+  /** Select all elements */
+  selectAll(): void;
+  /** Deselect all elements */
+  deselect(): void;
+  /** Get currently selected element IDs */
+  getSelectedIds(): string[];
+
+  // === Focus API ===
+  /** Focus the editor */
+  focus(): void;
+  /** Blur the editor */
+  blur(): void;
+
+  // === Element API ===
+  /** Get all elements */
+  getElements(): ElementInfo[];
+  /** Get an element by ID */
+  getElementById(id: string): ElementInfo | null;
+  /** Delete elements by IDs */
+  deleteElements(ids: string[]): void;
+
+  // === Mode API ===
+  /** Set the tool mode */
+  setMode(mode: ToolMode): void;
+  /** Get the current tool mode */
+  getMode(): ToolMode;
+
+  // === Readonly API ===
+  /** Set readonly mode */
+  setReadonly(readonly: boolean): void;
+  /** Check if readonly mode is enabled */
+  isReadonly(): boolean;
+
+  // === Event Subscriptions ===
+  /** Subscribe to change events. Returns unsubscribe function. */
+  onChange(callback: () => void): Unsubscribe;
+  /** Subscribe to selection events. Returns unsubscribe function. */
+  onSelect(callback: (ids: string[]) => void): Unsubscribe;
+  /** Subscribe to deselection events. Returns unsubscribe function. */
+  onDeselect(callback: () => void): Unsubscribe;
+  /** Subscribe to focus events. Returns unsubscribe function. */
+  onFocus(callback: () => void): Unsubscribe;
+  /** Subscribe to blur events. Returns unsubscribe function. */
+  onBlur(callback: () => void): Unsubscribe;
+  /** Subscribe to mode change events. Returns unsubscribe function. */
+  onModeChange(callback: (mode: ToolMode) => void): Unsubscribe;
+  /** Subscribe to element add events. Returns unsubscribe function. */
+  onElementAdd(callback: (id: string) => void): Unsubscribe;
+  /** Subscribe to element delete events. Returns unsubscribe function. */
+  onElementDelete(callback: (id: string) => void): Unsubscribe;
 }
 
 /**

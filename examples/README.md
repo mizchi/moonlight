@@ -48,6 +48,44 @@ const preview = MoonlightPreview.create(container, {
 ### [viewer.html](./viewer.html)
 **SVG Viewer** - Minimal read-only SVG viewer component.
 
+### [api-demo.html](./api-demo.html)
+**API Demo** - Interactive demonstration of the full EditorHandle API.
+
+```javascript
+const editor = MoonlightEditor.create(container, options);
+
+// Event subscriptions (returns unsubscribe function)
+const unsubscribe = editor.onSelect((ids) => console.log('Selected:', ids));
+editor.onFocus(() => console.log('Focused'));
+editor.onBlur(() => console.log('Blurred'));
+editor.onModeChange((mode) => console.log('Mode:', mode));
+editor.onElementAdd((id) => console.log('Added:', id));
+editor.onElementDelete((id) => console.log('Deleted:', id));
+
+// Selection API
+editor.select(['el-1', 'el-2']);
+editor.selectAll();
+editor.deselect();
+const ids = editor.getSelectedIds();
+
+// Focus API
+editor.focus();
+editor.blur();
+
+// Element API
+const elements = editor.getElements();
+const element = editor.getElementById('el-1');
+editor.deleteElements(['el-1']);
+
+// Mode API
+editor.setMode('freedraw');
+const mode = editor.getMode(); // 'select' | 'freedraw'
+
+// Readonly API
+editor.setReadonly(true);
+const isReadonly = editor.isReadonly();
+```
+
 ## Options Reference
 
 | Option | Type | Default | Description |

@@ -197,8 +197,16 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   let dom_container : @js_dom.Element = @js.identity(container)
   @element.render(dom_container |> @element.DomElement::from_dom, editor_node)
 
-  // ハンドルを作成して返す
-  create_editor_handle_js(state, options.doc_width, options.doc_height)
+  // ハンドルを作成
+  let handle = create_editor_handle_js(
+    state,
+    options.doc_width,
+    options.doc_height,
+  )
+
+  // イベントリスナーをセットアップ
+  setup_handle_events(state, handle)
+  handle
 }
 
 ///|
@@ -236,7 +244,51 @@ fn create_editor_handle_js(
   }
   let clear = fn() -> Unit { state.elements.set([]) }
   let has_focus = fn() -> Bool { state.has_focus.get() }
-  create_editor_handle_ffi(export_svg, import_svg, clear, has_focus)
+  // 選択 API
+  let select = fn(ids : Array[String]) -> Unit { state.selected_ids.set(ids) }
+  let select_all = fn() -> Unit {
+    let all_ids = state.elements.get().map(fn(el) { el.id })
+    state.selected_ids.set(all_ids)
+  }
+  let deselect = fn() -> Unit { state.selected_ids.set([]) }
+  let get_selected_ids = fn() -> Array[String] { state.selected_ids.get() }
+  // フォーカス API
+  let focus = fn() -> Unit { state.has_focus.set(true) }
+  let blur = fn() -> Unit { state.has_focus.set(false) }
+  // 要素操作 API
+  let get_elements = fn() -> Array[@model.Element] { state.elements.get() }
+  let delete_elements = fn(ids : Array[String]) -> Unit {
+    state.elements.update(fn(els) {
+      els.filter(fn(el) { not(ids.contains(el.id)) })
+    })
+    // 削除された要素を選択から除外
+    state.selected_ids.update(fn(sel) {
+      sel.filter(fn(id) { not(ids.contains(id)) })
+    })
+  }
+  // モード API
+  let set_mode = fn(mode : String) -> Unit {
+    let tool_mode = if mode == "freedraw" {
+      @core.FreeDraw
+    } else {
+      @core.Select
+    }
+    state.tool_mode.set(tool_mode)
+  }
+  let get_mode = fn() -> String {
+    match state.tool_mode.get() {
+      @core.Select => "select"
+      @core.FreeDraw => "freedraw"
+    }
+  }
+  // readonly API
+  let set_readonly = fn(value : Bool) -> Unit { state.is_readonly.set(value) }
+  let is_readonly = fn() -> Bool { state.is_readonly.get() }
+  create_editor_handle_ffi(
+    export_svg, import_svg, clear, has_focus, select, select_all, deselect, get_selected_ids,
+    focus, blur, get_elements, delete_elements, set_mode, get_mode, set_readonly,
+    is_readonly,
+  )
 }
 
 ///|
@@ -246,16 +298,201 @@ extern "js" fn create_editor_handle_ffi(
   import_svg : (String) -> Unit,
   clear : () -> Unit,
   has_focus : () -> Bool,
+  select : (Array[String]) -> Unit,
+  select_all : () -> Unit,
+  deselect : () -> Unit,
+  get_selected_ids : () -> Array[String],
+  focus : () -> Unit,
+  blur : () -> Unit,
+  get_elements : () -> Array[@model.Element],
+  delete_elements : (Array[String]) -> Unit,
+  set_mode : (String) -> Unit,
+  get_mode : () -> String,
+  set_readonly : (Bool) -> Unit,
+  is_readonly : () -> Bool,
 ) -> @js.Any =
-  #| (exportSvg, importSvg, clear, hasFocus) => ({
+  #| (exportSvg, importSvg, clear, hasFocus, select, selectAll, deselect, getSelectedIds, focus, blur, getElements, deleteElements, setMode, getMode, setReadonly, isReadonly) => ({
+  #|   // 内部コールバック配列
   #|   _changeCallbacks: [],
+  #|   _selectCallbacks: [],
+  #|   _deselectCallbacks: [],
+  #|   _focusCallbacks: [],
+  #|   _blurCallbacks: [],
+  #|   _modeChangeCallbacks: [],
+  #|   _elementAddCallbacks: [],
+  #|   _elementDeleteCallbacks: [],
+  #|   // 既存 API
   #|   exportSvg: exportSvg,
   #|   importSvg: importSvg,
   #|   clear: clear,
   #|   destroy: () => {},
   #|   hasFocus: hasFocus,
-  #|   onChange: function(callback) { this._changeCallbacks.push(callback); }
+  #|   // 選択 API
+  #|   select: select,
+  #|   selectAll: selectAll,
+  #|   deselect: deselect,
+  #|   getSelectedIds: getSelectedIds,
+  #|   // フォーカス API
+  #|   focus: focus,
+  #|   blur: blur,
+  #|   // 要素操作 API
+  #|   getElements: getElements,
+  #|   getElementById: function(id) {
+  #|     const els = getElements();
+  #|     return els.find(el => el.id === id) || null;
+  #|   },
+  #|   deleteElements: deleteElements,
+  #|   // モード API
+  #|   setMode: setMode,
+  #|   getMode: getMode,
+  #|   // readonly API
+  #|   setReadonly: setReadonly,
+  #|   isReadonly: isReadonly,
+  #|   // イベント購読 API
+  #|   onChange: function(callback) {
+  #|     this._changeCallbacks.push(callback);
+  #|     return () => { this._changeCallbacks = this._changeCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onSelect: function(callback) {
+  #|     this._selectCallbacks.push(callback);
+  #|     return () => { this._selectCallbacks = this._selectCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onDeselect: function(callback) {
+  #|     this._deselectCallbacks.push(callback);
+  #|     return () => { this._deselectCallbacks = this._deselectCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onFocus: function(callback) {
+  #|     this._focusCallbacks.push(callback);
+  #|     return () => { this._focusCallbacks = this._focusCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onBlur: function(callback) {
+  #|     this._blurCallbacks.push(callback);
+  #|     return () => { this._blurCallbacks = this._blurCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onModeChange: function(callback) {
+  #|     this._modeChangeCallbacks.push(callback);
+  #|     return () => { this._modeChangeCallbacks = this._modeChangeCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onElementAdd: function(callback) {
+  #|     this._elementAddCallbacks.push(callback);
+  #|     return () => { this._elementAddCallbacks = this._elementAddCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   onElementDelete: function(callback) {
+  #|     this._elementDeleteCallbacks.push(callback);
+  #|     return () => { this._elementDeleteCallbacks = this._elementDeleteCallbacks.filter(c => c !== callback); };
+  #|   },
+  #|   // 内部: イベント発火用
+  #|   _fireChange: function() { this._changeCallbacks.forEach(cb => cb()); },
+  #|   _fireSelect: function(ids) { this._selectCallbacks.forEach(cb => cb(ids)); },
+  #|   _fireDeselect: function() { this._deselectCallbacks.forEach(cb => cb()); },
+  #|   _fireFocus: function() { this._focusCallbacks.forEach(cb => cb()); },
+  #|   _fireBlur: function() { this._blurCallbacks.forEach(cb => cb()); },
+  #|   _fireModeChange: function(mode) { this._modeChangeCallbacks.forEach(cb => cb(mode)); },
+  #|   _fireElementAdd: function(id) { this._elementAddCallbacks.forEach(cb => cb(id)); },
+  #|   _fireElementDelete: function(id) { this._elementDeleteCallbacks.forEach(cb => cb(id)); }
   #| })
+
+///|
+/// ハンドルにイベントリスナーをセットアップ
+fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
+  // 要素変更イベント
+  let prev_elements : Ref[Array[@model.Element]] = { val: [] }
+  let _ = @luna.effect(fn() {
+    let elements = state.elements.get()
+    // onChange を発火
+    fire_change(handle)
+    // 要素追加/削除を検出
+    let prev_ids = prev_elements.val.map(fn(el) { el.id })
+    let curr_ids = elements.map(fn(el) { el.id })
+    // 追加された要素
+    for id in curr_ids {
+      if not(prev_ids.contains(id)) {
+        fire_element_add(handle, id)
+      }
+    }
+    // 削除された要素
+    for id in prev_ids {
+      if not(curr_ids.contains(id)) {
+        fire_element_delete(handle, id)
+      }
+    }
+    prev_elements.val = elements
+  })
+  // 選択変更イベント
+  let prev_selected : Ref[Array[String]] = { val: [] }
+  let _ = @luna.effect(fn() {
+    let selected = state.selected_ids.get()
+    if selected.length() > 0 && prev_selected.val.length() == 0 {
+      // 選択開始
+      fire_select(handle, selected)
+    } else if selected.length() == 0 && prev_selected.val.length() > 0 {
+      // 選択解除
+      fire_deselect(handle)
+    } else if selected.length() > 0 {
+      // 選択変更
+      fire_select(handle, selected)
+    }
+    prev_selected.val = selected
+  })
+  // フォーカス変更イベント
+  let prev_focus : Ref[Bool] = { val: false }
+  let _ = @luna.effect(fn() {
+    let focused = state.has_focus.get()
+    if focused && not(prev_focus.val) {
+      fire_focus(handle)
+    } else if not(focused) && prev_focus.val {
+      fire_blur(handle)
+    }
+    prev_focus.val = focused
+  })
+  // モード変更イベント
+  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select }
+  let _ = @luna.effect(fn() {
+    let mode = state.tool_mode.get()
+    if mode != prev_mode.val {
+      let mode_str = match mode {
+        @core.Select => "select"
+        @core.FreeDraw => "freedraw"
+      }
+      fire_mode_change(handle, mode_str)
+    }
+    prev_mode.val = mode
+  })
+
+}
+
+///|
+/// イベント発火用 FFI
+extern "js" fn fire_change(handle : @js.Any) =
+  #| (h) => h._fireChange()
+
+///|
+extern "js" fn fire_select(handle : @js.Any, ids : Array[String]) =
+  #| (h, ids) => h._fireSelect(ids)
+
+///|
+extern "js" fn fire_deselect(handle : @js.Any) =
+  #| (h) => h._fireDeselect()
+
+///|
+extern "js" fn fire_focus(handle : @js.Any) =
+  #| (h) => h._fireFocus()
+
+///|
+extern "js" fn fire_blur(handle : @js.Any) =
+  #| (h) => h._fireBlur()
+
+///|
+extern "js" fn fire_mode_change(handle : @js.Any, mode : String) =
+  #| (h, mode) => h._fireModeChange(mode)
+
+///|
+extern "js" fn fire_element_add(handle : @js.Any, id : String) =
+  #| (h, id) => h._fireElementAdd(id)
+
+///|
+extern "js" fn fire_element_delete(handle : @js.Any, id : String) =
+  #| (h, id) => h._fireElementDelete(id)
 
 ///|
 /// 現在の状態を IndexedDB に保存
