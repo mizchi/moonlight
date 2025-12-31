@@ -410,7 +410,15 @@ pub fn get_text_fill_color(
 ) -> String {
   match parent_stroke {
     Some(stroke) => stroke
-    None => text_style.fill.unwrap_or("none")
+    None => {
+      // "none" だとテキストが不可視になるためCSS変数にフォールバック
+      let fill = text_style.fill.unwrap_or(css_var_text)
+      if fill == "none" || fill == "" {
+        css_var_text
+      } else {
+        fill
+      }
+    }
   }
 }
 

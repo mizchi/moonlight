@@ -1974,7 +1974,7 @@ test "get_text_fill_color - parent_stroke が None の場合はテキストの f
 }
 
 ///|
-test "get_text_fill_color - parent_stroke も fill も None の場合は 'none' を返す" {
+test "get_text_fill_color - parent_stroke も fill も None の場合は css_var_text を返す" {
   let text_style : Style = {
     fill: None,
     stroke: None,
@@ -1986,7 +1986,25 @@ test "get_text_fill_color - parent_stroke も fill も None の場合は 'none' 
     font_family: None,
   }
   let result = get_text_fill_color(text_style, None)
-  assert_eq(result, "none")
+  // "none" だとテキストが不可視になるためCSS変数にフォールバック
+  assert_eq(result, css_var_text)
+}
+
+///|
+test "get_text_fill_color - fill が明示的に 'none' の場合も css_var_text を返す" {
+  let text_style : Style = {
+    fill: Some("none"),
+    stroke: None,
+    stroke_width: None,
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+    font_family: None,
+  }
+  let result = get_text_fill_color(text_style, None)
+  // "none" だとテキストが不可視になるためCSS変数にフォールバック
+  assert_eq(result, css_var_text)
 }
 
 ///|
