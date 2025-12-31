@@ -1,14 +1,4 @@
 {
   "is-main": true,
-  "supported-targets": ["js"],
-  "import": [
-    {
-      "path": "mizchi/moonlight",
-      "alias": "editor"
-    },
-    {
-      "path": "mizchi/js/core",
-      "alias": "js"
-    }
-  ]
+  "supported-targets": ["js"]
 }
