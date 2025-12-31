@@ -9,7 +9,10 @@ mizchi/moonlight
 ├── core      # EditorState, Signal 管理
 ├── model     # 純粋なデータ型と計算関数
 ├── lib       # UI ロジック（DOM 依存）
-└── embed     # JavaScript 統合エントリポイント
+├── embed     # JavaScript 統合エントリポイント
+├── entries/
+│   └── viewer/  # 軽量 SVG 生成（エディタ機能なし）
+└── luna_testing # VNode テスト用ヘルパー
 ```
 
 ## 基本的な型
@@ -258,13 +261,104 @@ const handle = MoonlightEditor.create(container, {
   initialSvg: '<svg>...</svg>'
 });
 
-// API
+// === 基本 API ===
 handle.exportSvg();        // SVG を取得
 handle.importSvg(svg);     // SVG をインポート
 handle.clear();            // クリア
 handle.destroy();          // 破棄
 handle.hasFocus();         // フォーカス状態
-handle.onChange(callback); // 変更コールバック
+
+// === 選択 API ===
+handle.select(['id1', 'id2']);  // 要素を選択
+handle.selectAll();             // 全選択
+handle.deselect();              // 選択解除
+handle.getSelectedIds();        // 選択中のIDを取得
+
+// === フォーカス API ===
+handle.focus();            // フォーカス
+handle.blur();             // フォーカス解除
+
+// === 要素 API ===
+handle.getElements();           // 全要素を取得
+handle.getElementById('id');    // IDで要素を取得
+handle.deleteElements(['id']);  // 要素を削除
+
+// === モード API ===
+handle.setMode('select');       // モード設定 ('select' | 'freedraw')
+handle.getMode();               // 現在のモード
+
+// === 読み取り専用 API ===
+handle.setReadonly(true);       // 読み取り専用に設定
+handle.isReadonly();            // 読み取り専用か確認
+```
+
+### イベント購読
+
+```javascript
+// 変更イベント
+const unsub = handle.onChange(() => {
+  console.log('Content changed');
+});
+unsub(); // 購読解除
+
+// 選択イベント
+handle.onSelect((ids) => {
+  console.log('Selected:', ids);
+});
+
+// 選択解除イベント
+handle.onDeselect(() => {
+  console.log('Deselected');
+});
+
+// フォーカスイベント
+handle.onFocus(() => {
+  console.log('Editor focused');
+});
+
+handle.onBlur(() => {
+  console.log('Editor blurred');
+});
+
+// モード変更イベント
+handle.onModeChange((mode) => {
+  console.log('Mode:', mode);
+});
+
+// 要素追加/削除イベント
+handle.onElementAdd((id) => {
+  console.log('Added:', id);
+});
+
+handle.onElementDelete((id) => {
+  console.log('Deleted:', id);
+});
+```
+
+### WYSIWYG 統合例
+
+```javascript
+// TipTap/ProseMirror NodeView での使用例
+const editor = MoonlightEditor.create(container, {
+  width: 400,
+  height: 300,
+  readonly: false,
+});
+
+// コンテンツ変更を親エディタに反映
+editor.onChange(() => {
+  updateNodeAttributes({ svg: editor.exportSvg() });
+});
+
+// フォーカス制御
+editor.onFocus(() => {
+  // 親エディタのフォーカスを無効化
+  parentEditor.setEditable(false);
+});
+
+editor.onBlur(() => {
+  parentEditor.setEditable(true);
+});
 ```
 
 ## テスト用ヘルパー
@@ -338,4 +432,69 @@ let neighbors : Array[String] = graph.get_neighbors("element-id")
 
 // 最短パスを検索
 let path : ShortestPath? = graph.find_shortest_path("from", "to", elements)
+```
+
+## Viewer パッケージ（軽量 SVG 生成）
+
+`@viewer` パッケージは DOM に依存しない純粋な SVG 生成機能を提供する。
+エディタ機能が不要な場合に使用（バンドルサイズ最小化）。
+
+### 要素作成
+
+```moonbit
+// 矩形
+let rect = @viewer.rect("rect-1", 100.0, 100.0, 80.0, 60.0, @viewer.default_style())
+
+// 円
+let circle = @viewer.circle("circle-1", 200.0, 150.0, 40.0, @viewer.default_style())
+
+// 線
+let line = @viewer.line("line-1", 50.0, 50.0, 150.0, 100.0, @viewer.line_style("#333", 2.0))
+
+// テキスト
+let text = @viewer.text("text-1", 100.0, 200.0, "Hello", 16.0, @viewer.default_style())
+```
+
+### スタイル作成
+
+```moonbit
+// デフォルトスタイル（白塗り、黒線）
+let style = @viewer.default_style()
+
+// 塗りつぶしスタイル
+let filled = @viewer.fill_style("#4CAF50", "#2E7D32")
+
+// 線スタイル
+let stroked = @viewer.line_style("#333333", 2.0)
+```
+
+### SVG 生成
+
+```moonbit
+// 標準 SVG 文字列に変換
+let svg : String = @viewer.to_svg(elements, 400, 300)
+
+// 背景色指定
+let svg_with_bg : String = @viewer.to_svg_with_options(elements, 400, 300, "#ffffff")
+
+// Moonlight 形式（再編集可能なメタデータ付き）
+let moonlight_svg : String = @viewer.to_moonlight_svg(elements, 400, 300, "#ffffff")
+
+// 単一要素を SVG 文字列に変換
+let el_svg : String = @viewer.element_to_svg(element)
+```
+
+### 使用例
+
+```moonbit
+fn generate_diagram() -> String {
+  let elements = [
+    @viewer.rect("box1", 50.0, 50.0, 100.0, 60.0, @viewer.fill_style("#E3F2FD", "#1976D2")),
+    @viewer.rect("box2", 200.0, 50.0, 100.0, 60.0, @viewer.fill_style("#E8F5E9", "#388E3C")),
+    @viewer.line("arrow", 150.0, 80.0, 200.0, 80.0, @viewer.line_style("#333", 2.0)),
+    @viewer.text("label1", 65.0, 85.0, "Start", 14.0, @viewer.default_style()),
+    @viewer.text("label2", 220.0, 85.0, "End", 14.0, @viewer.default_style()),
+  ]
+  @viewer.to_svg(elements, 350, 150)
+}
 ```
