@@ -1662,7 +1662,8 @@ test "compute_line_move_topology - two lines connected A.end to B.start" {
 test "compute_line_move_topology - moved line start connected to other line" {
   // Line A: (0,0) → (100,0)
   // Line B: (100,0) → (200,0) で B の始点が A の終点に接続
-  // B を移動すると、B の始点は A の終点に固定される
+  // B を移動すると、B は自由に移動する
+  // A は B に接続されていないので更新されない（接続方向は B→A）
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
     start: Some({ element_id: "line-a", anchor: LineEnd }),
@@ -1674,19 +1675,18 @@ test "compute_line_move_topology - moved line start connected to other line" {
   }
   let elements = [line_a, line_b]
 
-  // Line B を移動しようとする
+  // Line B を移動しようとする (dy=50)
   let result = compute_line_move_topology(
     elements, "line-b", 100.0, 50.0, 0.0, 50.0,
   )
 
-  // Line B のみが結果に含まれる（A は移動対象ではない）
+  // Line B のみが結果に含まれる（A は B に接続されていないので更新されない）
   assert_eq(result.length(), 1)
   let b_coords = result[0]
   assert_eq(b_coords.id, "line-b")
-  // 始点は A の終点に固定される (100, 0)
+  // B は自由に移動
   assert_eq(b_coords.x, 100.0)
-  assert_eq(b_coords.y, 0.0)
-  // 終点は dx, dy で移動
+  assert_eq(b_coords.y, 50.0) // 0 + 50 で移動
   assert_eq(b_coords.x2, 200.0)
   assert_eq(b_coords.y2, 50.0) // 0 + 50
 }
@@ -1800,8 +1800,7 @@ test "compute_line_move_topology - triangle formation" {
 ///|
 test "compute_line_move_topology - triangle move B" {
   // 三角形で B を移動した場合
-  // B.start は A.end に接続されているので固定
-  // B.end は自由に動く → C.start が追従すべき
+  // B は自由に移動し、C が追従する（A は接続がないので変化なし）
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
     start: Some({ element_id: "line-a", anchor: LineEnd }),
@@ -1821,21 +1820,19 @@ test "compute_line_move_topology - triangle move B" {
   }
   let elements = [line_a, line_b, line_c]
 
-  // Line B を dx=30, dy=0 で移動しようとする
-  // B.start は A.end (100, 0) に固定される
-  // B.end は 50+30=80, 86+0=86 に移動
+  // Line B を dx=30, dy=0 で移動
+  // B は自由に移動し、C.start が B.end に追従
   let result = compute_line_move_topology(
     elements, "line-b", 130.0, 0.0, 30.0, 0.0,
   )
 
-  // B と C が更新される（A は移動対象外）
+  // B と C が更新される（A は誰からも接続されていないので更新されない）
   assert_eq(result.length(), 2)
 
-  // Line B - 始点は A.end (100, 0) に固定
+  // Line B - 自由に移動
   let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
-  assert_eq(b_coords.x, 100.0) // 固定
-  assert_eq(b_coords.y, 0.0) // 固定
-  // 終点は移動
+  assert_eq(b_coords.x, 130.0) // 100 + 30
+  assert_eq(b_coords.y, 0.0)
   assert_eq(b_coords.x2, 80.0) // 50 + 30
   assert_eq(b_coords.y2, 86.0)
 
@@ -1843,7 +1840,7 @@ test "compute_line_move_topology - triangle move B" {
   let c_coords = result.iter().find_first(fn(c) { c.id == "line-c" }).unwrap()
   assert_eq(c_coords.x, 80.0) // B の新しい終点
   assert_eq(c_coords.y, 86.0)
-  // 終点は A.start (0, 0) のまま
+  // 終点は A.start (0, 0) のまま（A は変化していない）
   assert_eq(c_coords.x2, 0.0)
   assert_eq(c_coords.y2, 0.0)
 }
@@ -1895,6 +1892,7 @@ test "compute_line_move_topology - U shape formation" {
 ///|
 test "compute_line_move_topology - U shape move middle segment" {
   // コの字の底辺（B）を移動する場合
+  // B は自由に移動し、C が追従する
   let line_a = Element::new("line-a", 0.0, 0.0, Line(0.0, 100.0))
   let line_b_conns : LineConnections = {
     start: Some({ element_id: "line-a", anchor: LineEnd }),
@@ -1914,20 +1912,19 @@ test "compute_line_move_topology - U shape move middle segment" {
   }
   let elements = [line_a, line_b, line_c]
 
-  // Line B を dy=20 で下に移動しようとする
-  // B の始点は A の終点に接続されているので固定
+  // Line B を dy=20 で下に移動
+  // B は自由に移動し、C.start が B.end に追従
   let result = compute_line_move_topology(
     elements, "line-b", 0.0, 120.0, 0.0, 20.0,
   )
 
-  // B と C が更新される（A は移動対象ではないので含まれない）
+  // B と C が更新される（A は誰からも接続されていないので更新されない）
   assert_eq(result.length(), 2)
 
-  // Line B - 始点は A の終点 (0, 100) に固定される
+  // Line B - 自由に移動
   let b_coords = result.iter().find_first(fn(c) { c.id == "line-b" }).unwrap()
   assert_eq(b_coords.x, 0.0)
-  assert_eq(b_coords.y, 100.0) // 固定
-  // 終点は移動
+  assert_eq(b_coords.y, 120.0) // 100 + 20
   assert_eq(b_coords.x2, 100.0)
   assert_eq(b_coords.y2, 120.0) // 100 + 20
 

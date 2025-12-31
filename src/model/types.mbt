@@ -1423,20 +1423,6 @@ fn get_anchor_from_coords(coords : LineCoords, anchor : Anchor) -> Point {
 }
 
 ///|
-/// 接続先の Line のアンカー位置を取得
-fn find_connected_line_anchor(
-  elements : Array[Element],
-  conn : Connection,
-) -> Point? {
-  for target in elements {
-    if target.id == conn.element_id && target.shape is Line(_, _) {
-      return Some(target.get_anchor_point(conn.anchor))
-    }
-  }
-  None
-}
-
-///|
 /// Line 移動時の座標更新を計算（トポロジー検出）
 ///
 /// 移動した Line から BFS で接続グラフをたどり、
@@ -1454,26 +1440,12 @@ pub fn compute_line_move_topology(
   guard el.shape is Line(x2, y2) else { return [] }
 
   // 移動した Line の新しい座標を計算
-  let mut final_x = new_x
-  let mut final_y = new_y
-  let mut final_x2 = x2 + dx
-  let mut final_y2 = y2 + dy
-
-  // 接続端点は接続先の Line の位置に固定
-  if el.connections is Some(conns) {
-    if conns.start is Some(conn) {
-      if find_connected_line_anchor(elements, conn) is Some(p) {
-        final_x = p.x
-        final_y = p.y
-      }
-    }
-    if conns.end is Some(conn) {
-      if find_connected_line_anchor(elements, conn) is Some(p) {
-        final_x2 = p.x
-        final_y2 = p.y
-      }
-    }
-  }
+  // ドラッグ時は接続先に固定せず、自由に移動させる
+  // 接続された他の Line は BFS で追従する
+  let final_x = new_x
+  let final_y = new_y
+  let final_x2 = x2 + dx
+  let final_y2 = y2 + dy
 
   // 座標を Map で管理（複数回の更新に対応）
   let coords_map : Map[String, LineCoords] = {}
