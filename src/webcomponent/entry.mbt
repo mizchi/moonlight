@@ -170,6 +170,12 @@ extern "js" fn define_custom_element(editor_url : String) =
   #|
   #|         this._handle = module.createEditor(container, options);
   #|         this._hydrated = true;
+  #|
+  #|         // 保留中の onChange コールバックを登録
+  #|         if (this._pendingOnChange) {
+  #|           this._pendingOnChange.forEach(cb => this._handle.onChange(cb));
+  #|           this._pendingOnChange = null;
+  #|         }
   #|       } catch (e) {
   #|         console.error('Failed to load editor:', e);
   #|         if (btn) {
@@ -189,6 +195,19 @@ extern "js" fn define_custom_element(editor_url : String) =
   #|     importSvg(svg) { this._handle?.importSvg?.(svg); }
   #|     clear() { this._handle?.clear?.(); }
   #|     hasFocus() { return this._handle?.hasFocus?.() || false; }
+  #|
+  #|     // イベント購読 API
+  #|     onChange(callback) {
+  #|       if (this._handle) {
+  #|         return this._handle.onChange(callback);
+  #|       }
+  #|       // hydration 前は保留リストに追加
+  #|       this._pendingOnChange = this._pendingOnChange || [];
+  #|       this._pendingOnChange.push(callback);
+  #|       return () => {
+  #|         this._pendingOnChange = this._pendingOnChange?.filter(c => c !== callback);
+  #|       };
+  #|     }
   #|
   #|     // 明示的に hydration を開始
   #|     startEditing() { return this._hydrate(); }
