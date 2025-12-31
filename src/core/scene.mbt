@@ -1482,6 +1482,8 @@ pub fn EditorState::resize_move(
               }
             })
           })
+          // この Line に接続されているラインを更新
+          self.update_connected_lines(state.element_id)
         }
         @model.LineEnd => {
           // 終点を移動（Line の x2, y2 は絶対座標）
@@ -1517,6 +1519,8 @@ pub fn EditorState::resize_move(
               }
             })
           })
+          // この Line に接続されているラインを更新
+          self.update_connected_lines(state.element_id)
         }
         _ => () // Line に対して NW/NE/SW/SE ハンドルは無効
       }

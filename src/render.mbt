@@ -22,15 +22,22 @@ extern "js" fn append_child_ffi(parent : @js.Any, child : @js.Any) =
 
 ///|
 /// SVG 要素を作成（Luna の create_element_ns を使用）
+/// class 属性は luna の setClassName がSVG要素で動作しないため、別途 setAttribute で設定
 fn create_svg_element(
   tag : String,
   attrs : Array[(String, String)],
   handlers : Array[(String, (@js.Any) -> Unit)],
 ) -> @js.Any {
+  // class 属性を分離（luna の setClassName はSVG要素で動作しないため）
+  let class_value : Ref[String?] = { val: None }
   // 属性を AttrValue に変換
   let luna_attrs : Array[(String, @element.AttrValue)] = []
   for attr in attrs {
-    luna_attrs.push((attr.0, @element.Static(attr.1)))
+    if attr.0 == "class" {
+      class_value.val = Some(attr.1)
+    } else {
+      luna_attrs.push((attr.0, @element.Static(attr.1)))
+    }
   }
   // ハンドラを追加
   for handler in handlers {
@@ -38,7 +45,12 @@ fn create_svg_element(
   }
   // Luna の create_element_ns で作成し、@js.Any に変換
   let node = @element.create_element_ns(@element.svg_ns, tag, luna_attrs, [])
-  node.to_dom().as_any()
+  let el = node.to_dom().as_any()
+  // class 属性は直接 setAttribute で設定
+  if class_value.val is Some(cv) {
+    set_svg_attr_ffi(el, "class", cv)
+  }
+  el
 }
 
 ///|
@@ -1198,20 +1210,32 @@ pub fn render_all_anchor_points(
 
 ///|
 /// SVG ノードを作成（Luna の create_element_ns を使用、DomNode を返す）
+/// class 属性は luna の setClassName がSVG要素で動作しないため、別途 setAttribute で設定
 fn create_svg_node(
   tag : String,
   attrs : Array[(String, String)],
   handlers : Array[(String, (@js.Any) -> Unit)],
   children : Array[@element.DomNode],
 ) -> @element.DomNode {
+  // class 属性を分離
+  let class_value : Ref[String?] = { val: None }
   let luna_attrs : Array[(String, @element.AttrValue)] = []
   for attr in attrs {
-    luna_attrs.push((attr.0, @element.Static(attr.1)))
+    if attr.0 == "class" {
+      class_value.val = Some(attr.1)
+    } else {
+      luna_attrs.push((attr.0, @element.Static(attr.1)))
+    }
   }
   for handler in handlers {
     luna_attrs.push((handler.0, @element.Handler(handler.1)))
   }
-  @element.create_element_ns(@element.svg_ns, tag, luna_attrs, children)
+  let node = @element.create_element_ns(@element.svg_ns, tag, luna_attrs, children)
+  // class 属性は直接 setAttribute で設定
+  if class_value.val is Some(cv) {
+    set_svg_attr_ffi(node.to_dom().as_any(), "class", cv)
+  }
+  node
 }
 
 ///|
@@ -1818,9 +1842,9 @@ fn render_element_with_effect(
     initial_el.parent_id,
   )
 
-  // Effect で Signal 変更時に直接 DOM を更新
-  // 位置・サイズの変更を全て反映
-  let _ = @luna.effect(fn() {
+  // render_effect で Signal 変更時に直接 DOM を更新（同期的）
+  // 位置・サイズの変更を全て即座に反映
+  let _ = @signal.render_effect(fn() {
     let elements = state.elements.get()
     guard el_ref.val is Some(dom_el) else { return }
 
@@ -1843,8 +1867,8 @@ fn render_element_with_effect(
     update_element_attrs(dom_el, el, parent_stroke)
   })
 
-  // テキスト編集状態の変化を監視して visibility を制御
-  let _ = @luna.effect(fn() {
+  // テキスト編集状態の変化を監視して visibility を制御（同期的）
+  let _ = @signal.render_effect(fn() {
     let text_edit = state.text_edit.get()
     guard el_ref.val is Some(dom_el) else { return }
 
@@ -2405,8 +2429,8 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
   // コンテナへの参照
   let container_ref : Ref[@js.Any?] = { val: None }
 
-  // Effect で選択要素の変更を監視して再描画
-  let _ = @luna.effect(fn() {
+  // render_effect で選択要素の変更を監視して再描画（同期的）
+  let _ = @signal.render_effect(fn() {
     let elements = state.elements.get()
     let selected_ids = state.selected_ids.get()
     guard container_ref.val is Some(container) else { return }
@@ -2453,8 +2477,14 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
 
   // コンテナグループを作成
   let attrs : Array[(String, @element.AttrValue)] = [
-    ("class", @element.Static("selection-overlay")),
-    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+    (
+      "__ref",
+      @element.Handler(fn(el) {
+        container_ref.val = Some(el)
+        // class 属性は直接 setAttribute で設定（luna の setClassName はSVG要素で動作しない）
+        set_svg_attr_ffi(el, "class", "selection-overlay")
+      }),
+    ),
   ]
   @element.create_element_ns(@element.svg_ns, "g", attrs, [])
 }
@@ -2463,7 +2493,7 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
 /// 矩形選択ボックスを VNode として描画（Effect ベース）
 pub fn render_box_select_vnode(state : @core.EditorState) -> @element.DomNode {
   let rect_ref : Ref[@js.Any?] = { val: None }
-  let _ = @luna.effect(fn() {
+  let _ = @signal.render_effect(fn() {
     let box_state = state.box_select.get()
     guard rect_ref.val is Some(rect) else { return }
     guard box_state is Some(bs) else { return }
@@ -2502,7 +2532,7 @@ pub fn render_box_select_vnode(state : @core.EditorState) -> @element.DomNode {
 /// 全アンカーポイントを VNode として描画（ライン編集中、Effect ベース）
 pub fn render_all_anchors_vnode(state : @core.EditorState) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
-  let _ = @luna.effect(fn() {
+  let _ = @signal.render_effect(fn() {
     let elements = state.elements.get()
     let resize_state = state.resize_state.get()
     guard container_ref.val is Some(container) else { return }
@@ -2531,8 +2561,13 @@ pub fn render_all_anchors_vnode(state : @core.EditorState) -> @element.DomNode {
     }
   })
   let attrs : Array[(String, @element.AttrValue)] = [
-    ("class", @element.Static("all-anchors")),
-    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+    (
+      "__ref",
+      @element.Handler(fn(el) {
+        container_ref.val = Some(el)
+        set_svg_attr_ffi(el, "class", "all-anchors")
+      }),
+    ),
   ]
   @element.create_element_ns(@element.svg_ns, "g", attrs, [])
 }
@@ -2543,7 +2578,7 @@ pub fn render_connection_highlight_vnode(
   state : @core.EditorState,
 ) -> @element.DomNode {
   let circle_ref : Ref[@js.Any?] = { val: None }
-  let _ = @luna.effect(fn() {
+  let _ = @signal.render_effect(fn() {
     let pending = state.pending_connection.get()
     guard circle_ref.val is Some(circle) else { return }
     guard pending is Some(p) else { return }
@@ -2579,8 +2614,8 @@ pub fn render_canvas_background_vnode(
 ) -> @element.DomNode {
   let container_ref : Ref[@js.Any?] = { val: None }
 
-  // Effect で viewport / canvas サイズ変更を監視して再描画
-  let _ = @luna.effect(fn() {
+  // render_effect で viewport / canvas サイズ変更を監視して再描画（同期的）
+  let _ = @signal.render_effect(fn() {
     let viewport = state.viewport.get()
     let doc_width = state.doc_width.get()
     let doc_height = state.doc_height.get()
@@ -2606,8 +2641,13 @@ pub fn render_canvas_background_vnode(
 
   // コンテナグループを作成
   let attrs : Array[(String, @element.AttrValue)] = [
-    ("class", @element.Static("canvas-background")),
-    ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),
+    (
+      "__ref",
+      @element.Handler(fn(el) {
+        container_ref.val = Some(el)
+        set_svg_attr_ffi(el, "class", "canvas-background")
+      }),
+    ),
   ]
   @element.create_element_ns(@element.svg_ns, "g", attrs, [])
 }

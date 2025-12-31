@@ -11,6 +11,10 @@
     },
     "mizchi/luna",
     {
+      "path": "mizchi/luna/luna/signal",
+      "alias": "signal"
+    },
+    {
       "path": "mizchi/luna/luna/dom/element",
       "alias": "element"
     },

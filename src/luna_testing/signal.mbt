@@ -14,9 +14,11 @@ pub struct SignalTracker[T] {
 
 ///|
 /// Signal の変更を追跡開始
+/// render_effect を使用して同期的に値変更を追跡
 pub fn[T : Eq] track_signal(sig : @signal.Signal[T]) -> SignalTracker[T] {
-  let values : Array[T] = [sig.get()]
-  let cleanup = @signal.effect(fn() {
+  let values : Array[T] = []
+  // render_effect は同期的に実行されるため、テストで正しく動作する
+  let cleanup = @signal.render_effect(fn() {
     let v = sig.get()
     // 重複を避けて追加
     if values.length() == 0 || values[values.length() - 1] != v {
@@ -67,9 +69,10 @@ pub struct EffectCounter {
 
 ///|
 /// Effect の実行をカウント開始
+/// render_effect を使用して同期的にカウント
 pub fn count_effect(effect_fn : () -> Unit) -> EffectCounter {
   let counter : Ref[Int] = { val: 0 }
-  let cleanup = @signal.effect(fn() {
+  let cleanup = @signal.render_effect(fn() {
     effect_fn()
     counter.val = counter.val + 1
   })
