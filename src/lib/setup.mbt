@@ -67,6 +67,8 @@ pub fn setup_editor(
   setup_context_menu(state, context_menu, new_id)
   // ヘルプボタンをセットアップ
   setup_help_button(state, options.show_help_button)
+  // GitHub リンクボタンをセットアップ
+  setup_github_link(state, options.github_url)
   // エディタハンドルを作成
   let export_svg = fn() -> String {
     let bg_color = match state.theme_mode.get() {

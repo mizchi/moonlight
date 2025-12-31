@@ -17,6 +17,7 @@ pub(all) struct EditorOptions {
   toolbar_visible : Bool // ツールバー表示（デフォルト: true）
   initial_svg : String? // 初期SVG（デフォルト: None）
   show_help_button : Bool // ヘルプボタン表示（デフォルト: true）
+  github_url : String? // GitHub リンク URL（デフォルト: None）
 }
 
 ///|
@@ -32,6 +33,7 @@ pub fn EditorOptions::default() -> EditorOptions {
     toolbar_visible: true,
     initial_svg: None,
     show_help_button: true,
+    github_url: None,
   }
 }
 
@@ -84,6 +86,11 @@ pub fn EditorOptions::from_js(obj : @js.Any) -> EditorOptions {
   } else {
     obj._get("showHelpButton").cast()
   }
+  let github_url : String? = if is_undefined_ffi(obj._get("githubUrl")) {
+    None
+  } else {
+    Some(obj._get("githubUrl").cast())
+  }
   {
     width,
     height,
@@ -94,6 +101,7 @@ pub fn EditorOptions::from_js(obj : @js.Any) -> EditorOptions {
     toolbar_visible,
     initial_svg,
     show_help_button,
+    github_url,
   }
 }
 

@@ -2823,8 +2823,35 @@ fn render_embedded_toolbar(
       },
       theme~,
     ),
+    // GitHub リンク（フルモードのみ）
+    @element.show(fn() { state.mode is @core.Full }, fn() {
+      @element.fragment([
+        @components.toolbar_separator(theme),
+        @components.toolbar_button(
+          @components.svg_icon(@components.icon_github, 16),
+          None,
+          "View on GitHub",
+          fn() { open_github_url() },
+          theme~,
+        ),
+      ])
+    }),
   ])
 }
+
+///|
+/// GitHub URL
+let github_url : String = "https://github.com/mizchi/moonlight"
+
+///|
+/// GitHub ページを開く
+fn open_github_url() -> Unit {
+  open_url_ffi(github_url)
+}
+
+///|
+extern "js" fn open_url_ffi(url : String) =
+  #| (url) => window.open(url, '_blank')
 
 // =============================================================================
 // SVG キャンバス（Luna VNode + for_each による差分更新）

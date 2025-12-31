@@ -1,25 +1,25 @@
 # Moonlight MoonBit API
 
-MoonBit から Moonlight を使用するための API ドキュメント。
+API documentation for using Moonlight from MoonBit.
 
-## パッケージ構成
+## Package Structure
 
 ```
 mizchi/moonlight
-├── core      # EditorState, Signal 管理
-├── model     # 純粋なデータ型と計算関数
-├── lib       # UI ロジック（DOM 依存）
-├── embed     # JavaScript 統合エントリポイント
+├── core      # EditorState, Signal management
+├── model     # Pure data types and computation functions
+├── lib       # UI logic (DOM dependent)
+├── embed     # JavaScript integration entry point
 ├── entries/
-│   └── viewer/  # 軽量 SVG 生成（エディタ機能なし）
-└── luna_testing # VNode テスト用ヘルパー
+│   └── viewer/  # Lightweight SVG generation (no editor features)
+└── luna_testing # VNode test helpers
 ```
 
-## 基本的な型
+## Basic Types
 
 ### Point
 
-2D 座標点。
+2D coordinate point.
 
 ```moonbit
 pub(all) struct Point {
@@ -30,15 +30,15 @@ pub(all) struct Point {
 
 ### ShapeType
 
-図形の種類。
+Shape types.
 
 ```moonbit
 pub(all) enum ShapeType {
   Rect(Double, Double, Double?, Double?)  // width, height, rx?, ry?
   Circle(Double)                           // radius
   Ellipse(Double, Double)                  // rx, ry
-  Line(Double, Double)                     // end_x, end_y (始点は Element.x, y)
-  Polyline(Array[Point])                   // 折れ線
+  Line(Double, Double)                     // end_x, end_y (start is Element.x, y)
+  Polyline(Array[Point])                   // polyline
   Path(String, Double, Double, Double, Double)  // d, start_x, start_y, end_x, end_y
   Text(String, Double?)                    // content, font_size?
 }
@@ -46,41 +46,41 @@ pub(all) enum ShapeType {
 
 ### Style
 
-要素のスタイル。
+Element style.
 
 ```moonbit
 pub(all) struct Style {
-  fill : String?           // 塗りつぶし色
-  stroke : String?         // 線色
-  stroke_width : Double?   // 線幅
-  opacity : Double?        // 不透明度
-  stroke_dasharray : String?  // 破線パターン
-  marker_start : ArrowType?   // 始点マーカー
-  marker_end : ArrowType?     // 終点マーカー
-  font_family : String?    // フォント
+  fill : String?           // fill color
+  stroke : String?         // stroke color
+  stroke_width : Double?   // stroke width
+  opacity : Double?        // opacity
+  stroke_dasharray : String?  // dash pattern
+  marker_start : ArrowType?   // start marker
+  marker_end : ArrowType?     // end marker
+  font_family : String?    // font family
 }
 ```
 
 ### Element
 
-図形要素。
+Shape element.
 
 ```moonbit
 pub(all) struct Element {
-  id : String              // 一意の識別子
-  x : Double               // X 座標
-  y : Double               // Y 座標
-  shape : ShapeType        // 図形タイプ
-  style : Style            // スタイル
-  transform : String?      // SVG transform 属性
-  parent_id : String?      // 親要素ID（子要素の場合）
-  connections : LineConnections?  // 線の接続情報
+  id : String              // unique identifier
+  x : Double               // X coordinate
+  y : Double               // Y coordinate
+  shape : ShapeType        // shape type
+  style : Style            // style
+  transform : String?      // SVG transform attribute
+  parent_id : String?      // parent element ID (for child elements)
+  connections : LineConnections?  // line connection info
 }
 ```
 
 ### Anchor
 
-接続点の位置。
+Connection point positions.
 
 ```moonbit
 pub(all) enum Anchor {
@@ -93,99 +93,99 @@ pub(all) enum Anchor {
   TopRight
   BottomLeft
   BottomRight
-  LineStart   // 線の始点
-  LineEnd     // 線の終点
+  LineStart   // line start point
+  LineEnd     // line end point
 }
 ```
 
 ## EditorState
 
-エディタの状態管理。Signal ベースのリアクティブな状態。
+Editor state management. Signal-based reactive state.
 
-### 作成
+### Creation
 
 ```moonbit
-// 基本的な作成
+// Basic creation
 let state = @core.EditorState::new(800, 600)
 
-// モード指定で作成
+// Create with mode
 let state = @core.EditorState::new_with_mode(800, 600, @core.Embedded)
 ```
 
-### 要素操作
+### Element Operations
 
 ```moonbit
-// 要素を追加
+// Add element
 state.add_element(element)
 
-// 要素を検索
+// Find element
 let el : Element? = state.find_element("element-id")
 
-// 要素を更新
+// Update element
 state.update_element("element-id", fn(el) {
   { ..el, x: 100.0, y: 100.0 }
 })
 
-// 汎用更新ヘルパー
+// Generic update helper
 state.update_element_by_id("element-id", fn(el) {
   { ..el, style: { ..el.style, fill: Some("#ff0000") } }
 })
 
-// 要素を移動（接続されたラインも自動更新）
+// Move element (connected lines auto-update)
 state.move_element("element-id", 200.0, 150.0)
 ```
 
-### 選択操作
+### Selection Operations
 
 ```moonbit
-// 単一選択
+// Single selection
 state.select(Some("element-id"))
 
-// 複数選択
+// Multiple selection
 state.select_multiple(["id1", "id2", "id3"])
 
-// 選択に追加
+// Add to selection
 state.add_to_selection("element-id")
 
-// 選択から除去
+// Remove from selection
 state.remove_from_selection("element-id")
 
-// 全選択
+// Select all
 state.select_all()
 
-// 選択中か確認
+// Check if selected
 let is_sel : Bool = state.is_selected("element-id")
 
-// 選択中のIDを取得
+// Get selected ID
 let selected_id : String? = state.get_selected_id()
 ```
 
-### ヒットテスト
+### Hit Testing
 
 ```moonbit
-// 座標で要素を検索
+// Find element at coordinates
 let hit_id : String? = state.hit_test(100.0, 200.0)
 ```
 
-### テーマ
+### Theme
 
 ```moonbit
-// テーマを取得
+// Get theme
 let theme : @model.Theme = state.get_theme()
 
-// ライトテーマ
+// Light theme
 let light = @model.Theme::light()
 
-// ダークテーマ
+// Dark theme
 let dark = @model.Theme::dark()
 ```
 
-## Element 操作
+## Element Operations
 
-### 作成
+### Creation
 
 ```moonbit
-// 基本的な作成
+// Basic creation
 let rect = @model.Element::new(
   "rect-1",
   100.0,  // x
@@ -194,124 +194,126 @@ let rect = @model.Element::new(
   @model.Style::default(),
 )
 
-// 親要素を指定
+// With parent element
 let text = rect.with_parent("parent-id")
 
-// スタイルを指定
+// With style
 let styled = rect.with_style({ ..@model.Style::default(), fill: Some("#ff0000") })
 ```
 
-### バウンディングボックス
+### Bounding Box
 
 ```moonbit
 let bbox : @model.BoundingBox = element.bounding_box()
 // bbox.x, bbox.y, bbox.width, bbox.height
 ```
 
-### ヒットテスト
+### Hit Testing
 
 ```moonbit
 let hit : Bool = element.hit_test(@model.Point::new(50.0, 50.0))
 ```
 
-### アンカーポイント
+### Anchor Points
 
 ```moonbit
-// 特定のアンカー位置を取得
+// Get specific anchor position
 let point : Point = element.get_anchor_point(@model.Center)
 
-// 全アンカーを取得
+// Get all anchors
 let anchors : Array[(Anchor, Point)] = element.get_all_anchors()
 
-// 最も近いアンカーを検索
+// Find nearest anchor
 let nearest : (Anchor, Point, Double)? = element.find_nearest_anchor(
   @model.Point::new(100.0, 100.0),
   20.0,  // threshold
 )
 ```
 
-## JavaScript 統合
+## JavaScript Integration
 
 ### EditorOptions
 
-JavaScript から渡されるオプション。
+Options passed from JavaScript.
 
 ```moonbit
 pub(all) struct EditorOptions {
-  width : Int?           // キャンバス幅
-  height : Int?          // キャンバス高さ
-  gridsnap : Bool        // グリッドスナップ
+  width : Int?           // canvas width
+  height : Int?          // canvas height
+  gridsnap : Bool        // grid snap
   theme : String?        // "light" | "dark"
-  zoom : Double?         // 初期ズーム
-  is_readonly : Bool     // 読み取り専用
-  toolbar_visible : Bool // ツールバー表示
-  initial_svg : String?  // 初期SVG
-  show_help_button : Bool // ヘルプボタン表示
+  zoom : Double?         // initial zoom
+  is_readonly : Bool     // read-only mode
+  toolbar_visible : Bool // toolbar visibility
+  initial_svg : String?  // initial SVG
+  show_help_button : Bool // help button visibility
+  github_url : String?   // GitHub link URL (optional)
 }
 ```
 
-### JavaScript からの呼び出し
+### JavaScript API
 
 ```javascript
-// エディタ作成
+// Create editor
 const handle = MoonlightEditor.create(container, {
   width: 800,
   height: 600,
   theme: 'light',
-  initialSvg: '<svg>...</svg>'
+  initialSvg: '<svg>...</svg>',
+  githubUrl: 'https://github.com/user/repo' // optional
 });
 
-// === 基本 API ===
-handle.exportSvg();        // SVG を取得
-handle.importSvg(svg);     // SVG をインポート
-handle.clear();            // クリア
-handle.destroy();          // 破棄
-handle.hasFocus();         // フォーカス状態
+// === Basic API ===
+handle.exportSvg();        // Get SVG
+handle.importSvg(svg);     // Import SVG
+handle.clear();            // Clear
+handle.destroy();          // Destroy
+handle.hasFocus();         // Focus state
 
-// === 選択 API ===
-handle.select(['id1', 'id2']);  // 要素を選択
-handle.selectAll();             // 全選択
-handle.deselect();              // 選択解除
-handle.getSelectedIds();        // 選択中のIDを取得
+// === Selection API ===
+handle.select(['id1', 'id2']);  // Select elements
+handle.selectAll();             // Select all
+handle.deselect();              // Deselect
+handle.getSelectedIds();        // Get selected IDs
 
-// === フォーカス API ===
-handle.focus();            // フォーカス
-handle.blur();             // フォーカス解除
+// === Focus API ===
+handle.focus();            // Focus
+handle.blur();             // Blur
 
-// === 要素 API ===
-handle.getElements();           // 全要素を取得
-handle.getElementById('id');    // IDで要素を取得
-handle.deleteElements(['id']);  // 要素を削除
+// === Element API ===
+handle.getElements();           // Get all elements
+handle.getElementById('id');    // Get element by ID
+handle.deleteElements(['id']);  // Delete elements
 
-// === モード API ===
-handle.setMode('select');       // モード設定 ('select' | 'freedraw')
-handle.getMode();               // 現在のモード
+// === Mode API ===
+handle.setMode('select');       // Set mode ('select' | 'freedraw')
+handle.getMode();               // Get current mode
 
-// === 読み取り専用 API ===
-handle.setReadonly(true);       // 読み取り専用に設定
-handle.isReadonly();            // 読み取り専用か確認
+// === Read-only API ===
+handle.setReadonly(true);       // Set read-only
+handle.isReadonly();            // Check read-only
 ```
 
-### イベント購読
+### Event Subscriptions
 
 ```javascript
-// 変更イベント
+// Change event
 const unsub = handle.onChange(() => {
   console.log('Content changed');
 });
-unsub(); // 購読解除
+unsub(); // Unsubscribe
 
-// 選択イベント
+// Selection event
 handle.onSelect((ids) => {
   console.log('Selected:', ids);
 });
 
-// 選択解除イベント
+// Deselection event
 handle.onDeselect(() => {
   console.log('Deselected');
 });
 
-// フォーカスイベント
+// Focus events
 handle.onFocus(() => {
   console.log('Editor focused');
 });
@@ -320,12 +322,12 @@ handle.onBlur(() => {
   console.log('Editor blurred');
 });
 
-// モード変更イベント
+// Mode change event
 handle.onModeChange((mode) => {
   console.log('Mode:', mode);
 });
 
-// 要素追加/削除イベント
+// Element add/delete events
 handle.onElementAdd((id) => {
   console.log('Added:', id);
 });
@@ -335,24 +337,24 @@ handle.onElementDelete((id) => {
 });
 ```
 
-### WYSIWYG 統合例
+### WYSIWYG Integration Example
 
 ```javascript
-// TipTap/ProseMirror NodeView での使用例
+// TipTap/ProseMirror NodeView usage
 const editor = MoonlightEditor.create(container, {
   width: 400,
   height: 300,
   readonly: false,
 });
 
-// コンテンツ変更を親エディタに反映
+// Sync content changes to parent editor
 editor.onChange(() => {
   updateNodeAttributes({ svg: editor.exportSvg() });
 });
 
-// フォーカス制御
+// Focus control
 editor.onFocus(() => {
-  // 親エディタのフォーカスを無効化
+  // Disable parent editor focus
   parentEditor.setEditable(false);
 });
 
@@ -361,38 +363,38 @@ editor.onBlur(() => {
 });
 ```
 
-## テスト用ヘルパー
+## Testing Helpers
 
-`luna_testing` パッケージで VNode のユニットテストが可能。
+The `luna_testing` package enables VNode unit testing.
 
 ```moonbit
-// VNode クエリ
+// VNode queries
 let tag : String? = get_tag(node)
 let text : String = get_all_text(node)
 let found : Node? = find_by_tag(node, "button")
 
-// アサーション
+// Assertions
 assert_tag(node, "div")
 assert_text_contains(node, "Hello")
 assert_has_element(node, "button")
 
-// Signal トラッキング
+// Signal tracking
 let tracker = track_signal(sig)
 sig.set(1)
 sig.set(2)
 assert_tracked_values(tracker, [0, 1, 2])
 ```
 
-詳細は `src/luna_testing/README.md` を参照。
+See `src/luna_testing/README.md` for details.
 
-## モデル層の純粋関数
+## Model Layer Pure Functions
 
-`@model` パッケージには DOM に依存しない純粋関数が含まれる。
+The `@model` package contains DOM-independent pure functions.
 
-### 要素移動
+### Element Movement
 
 ```moonbit
-// 要素を移動し、関連する全ての更新を行う（純粋関数）
+// Move element and update all relations (pure function)
 let updated : Array[Element] = @model.move_element_with_relations(
   elements,
   "element-id",
@@ -401,10 +403,10 @@ let updated : Array[Element] = @model.move_element_with_relations(
 )
 ```
 
-### リサイズ
+### Resize
 
 ```moonbit
-// 要素をリサイズし、関連要素を更新
+// Resize element and update related elements
 let updated : Array[Element] = @model.resize_element_with_relations(
   elements,
   "element-id",
@@ -412,79 +414,79 @@ let updated : Array[Element] = @model.resize_element_with_relations(
 )
 ```
 
-### バリデーション
+### Validation
 
 ```moonbit
-// 要素を検証
+// Validate elements
 let result : ValidationResult = @model.validate_elements(elements)
 let capability : ElementCapability = @model.get_element_capability(result, "id")
 let issues : Array[ValidationIssue] = @model.get_element_issues(result, "id")
 ```
 
-### トポロジー
+### Topology
 
 ```moonbit
-// 接続グラフを構築
+// Build connection graph
 let graph : ConnectionGraph = @model.build_connection_graph(elements)
 
-// 隣接要素を取得
+// Get neighboring elements
 let neighbors : Array[String] = graph.get_neighbors("element-id")
 
-// 最短パスを検索
+// Find shortest path
 let path : ShortestPath? = graph.find_shortest_path("from", "to", elements)
 ```
 
-## Viewer パッケージ（軽量 SVG 生成）
+## Viewer Package (Lightweight SVG Generation)
 
-`@viewer` パッケージは DOM に依存しない純粋な SVG 生成機能を提供する。
-エディタ機能が不要な場合に使用（バンドルサイズ最小化）。
+The `@viewer` package provides DOM-independent pure SVG generation.
+Use when editor features are not needed (minimizes bundle size).
 
-### 要素作成
+### Element Creation
 
 ```moonbit
-// 矩形
+// Rectangle
 let rect = @viewer.rect("rect-1", 100.0, 100.0, 80.0, 60.0, @viewer.default_style())
 
-// 円
+// Circle
 let circle = @viewer.circle("circle-1", 200.0, 150.0, 40.0, @viewer.default_style())
 
-// 線
+// Line
 let line = @viewer.line("line-1", 50.0, 50.0, 150.0, 100.0, @viewer.line_style("#333", 2.0))
 
-// テキスト
+// Text
 let text = @viewer.text("text-1", 100.0, 200.0, "Hello", 16.0, @viewer.default_style())
 ```
 
-### スタイル作成
+### Style Creation
 
 ```moonbit
-// デフォルトスタイル（白塗り、黒線）
+// Default style (white fill, black stroke)
 let style = @viewer.default_style()
 
-// 塗りつぶしスタイル
+// Fill style
 let filled = @viewer.fill_style("#4CAF50", "#2E7D32")
 
-// 線スタイル
+// Line style
 let stroked = @viewer.line_style("#333333", 2.0)
 ```
 
-### SVG 生成
+### SVG Generation
 
 ```moonbit
-// 標準 SVG 文字列に変換
+// Convert to standard SVG string
 let svg : String = @viewer.to_svg(elements, 400, 300)
 
-// 背景色指定
+// With background color
 let svg_with_bg : String = @viewer.to_svg_with_options(elements, 400, 300, "#ffffff")
 
-// Moonlight 形式（再編集可能なメタデータ付き）
+// Moonlight format (with re-editable metadata)
 let moonlight_svg : String = @viewer.to_moonlight_svg(elements, 400, 300, "#ffffff")
 
-// 単一要素を SVG 文字列に変換
+// Convert single element to SVG string
 let el_svg : String = @viewer.element_to_svg(element)
 ```
 
-### 使用例
+### Usage Example
 
 ```moonbit
 fn generate_diagram() -> String {
