@@ -21,30 +21,6 @@ test('should handle undo/redo with empty stack', async ({ page }) => {
   expect(errors.length).toBe(0);
 });
 
-// Skip: context menu structure may have changed
-test.skip('should insert shape from context menu', async ({ page }) => {
-  await page.goto('/');
-
-  // Initial rect count
-  const initialRectCount = await page.locator('svg rect[data-id]').count();
-
-  // Right-click on empty area (use main canvas SVG with viewBox)
-  await page.locator('svg[viewBox]').first().click({ button: 'right', position: { x: 350, y: 250 } });
-  await page.waitForTimeout(100);
-
-  // Click Rectangle in insert menu (find the button within the menu, not toolbar)
-  const insertMenu = page.locator('div').filter({ has: page.locator('text=Insert') });
-  await insertMenu.locator('button').filter({ hasText: 'Rectangle' }).click();
-  await page.waitForTimeout(100);
-
-  // Check shape was added
-  const afterRectCount = await page.locator('svg rect[data-id]').count();
-  expect(afterRectCount).toBe(initialRectCount + 1);
-
-  // Context menu should be closed
-  await expect(page.locator('text=Insert')).not.toBeVisible();
-});
-
 test('should duplicate shape with Ctrl+D', async ({ page }) => {
   await page.goto('/');
 

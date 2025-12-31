@@ -5,18 +5,6 @@ test.describe('Moonlight SVG Editor', () => {
     await page.goto('/');
   });
 
-  // Skip: requires data-testid="element-tree" to be implemented in UI
-  test.skip('should display element tree in sidebar when nothing selected', async ({ page }) => {
-    // Sidebar should show element tree when nothing is selected (no breadcrumb at root)
-    // Should show element list (initial shapes - ID shown in separate span)
-    // Current data: moonbit(el-1), moonbit_text(el-2), luna(el-3), luna_text(el-4), js(el-5), etc.
-    // Check that some elements are visible in the sidebar
-    await expect(page.locator('[data-testid="element-tree"]')).toBeVisible();
-    // Check for at least some element items
-    const elementItems = page.locator('[data-testid="element-tree"] [data-element-id]');
-    await expect(elementItems.first()).toBeVisible();
-  });
-
   test('should have Rectangle and Circle buttons', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Rectangle' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Circle' })).toBeVisible();
@@ -139,23 +127,6 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(page.locator('button:has-text("Delete")')).not.toBeVisible();
   });
 
-  // Skip - circle at edge of viewport may have context menu issues with force click
-  test.skip('should delete shape via context menu', async ({ page }) => {
-    // Use a different approach - click on the circle which has no children
-    const circle = page.locator('svg circle[data-id]').first();
-    const initialCircleCount = await page.locator('svg circle[data-id]').count();
-
-    // Right-click on circle (use force:true as SVG may intercept at edge)
-    await circle.click({ button: 'right', force: true });
-
-    // Click Delete
-    await page.locator('button:has-text("Delete")').click();
-    await page.waitForTimeout(100);
-
-    // Check circle was deleted
-    await expect(page.locator('svg circle[data-id]')).toHaveCount(initialCircleCount - 1);
-  });
-
   test('should show insert menu when right-clicking empty area', async ({ page }) => {
     // Get SVG bounding box (use main canvas SVG)
     const svg = page.locator('svg[viewBox]').first();
@@ -183,56 +154,9 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(menuContainer.locator('button').filter({ hasText: 'Text' })).toBeVisible();
   });
 
-  // Skip z-order tests - with for_each rendering, DOM order may not change as expected
-  test.skip('should bring element to front via context menu', async ({ page }) => {
-    // Shape rects only (with cursor="move")
-    const shapeRects = page.locator('svg rect[data-id][cursor="move"]');
-
-    // Get initial order
-    const initialFirstId = await shapeRects.first().getAttribute('data-id');
-
-    // Right-click on first rect (which is behind others)
-    await shapeRects.first().click({ button: 'right', force: true });
-
-    // Click "Bring to Front"
-    await page.locator('button:has-text("Bring to Front")').click();
-    await page.waitForTimeout(100);
-
-    // The first rect should now be the last one in DOM order (on top)
-    const newLastId = await shapeRects.last().getAttribute('data-id');
-
-    // After bringing first to front, it should be last
-    expect(newLastId).toBe(initialFirstId);
-  });
-
-  // Skip z-order tests - with for_each rendering, DOM order may not change as expected
-  test.skip('should send element to back via context menu', async ({ page }) => {
-    // Shape rects only (with cursor="move")
-    const shapeRects = page.locator('svg rect[data-id][cursor="move"]');
-
-    // Get initial order
-    const initialLastId = await shapeRects.last().getAttribute('data-id');
-
-    // Right-click on last rect (which is on top)
-    await shapeRects.last().click({ button: 'right', force: true });
-
-    // Click "Send to Back"
-    await page.locator('button:has-text("Send to Back")').click();
-    await page.waitForTimeout(100);
-
-    // The last rect should now be the first one in DOM order (at back)
-    const newFirstId = await shapeRects.first().getAttribute('data-id');
-    expect(newFirstId).toBe(initialLastId);
-  });
-
   test('should have Undo and Redo buttons', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Redo' })).toBeVisible();
-  });
-
-  // Skip: Export SVG button may have different name or aria-label
-  test.skip('should have Export SVG button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Export SVG' })).toBeVisible();
   });
 
   test('should have zoom controls', async ({ page }) => {
@@ -320,24 +244,6 @@ test.describe('Moonlight SVG Editor', () => {
     // Redo
     await page.getByRole('button', { name: 'Redo' }).click();
     await expect(shapeRects).toHaveCount(initialRectCount + 1);
-  });
-
-  // Skip - circle at edge of viewport may have context menu issues with force click
-  test.skip('should undo deleting a shape', async ({ page }) => {
-    // Use circle which has no children for simpler test
-    const circles = page.locator('svg circle[data-id]');
-    const initialCircleCount = await circles.count();
-
-    // Delete circle via context menu (use force:true as SVG may intercept at edge)
-    await circles.first().click({ button: 'right', force: true });
-    await page.locator('button:has-text("Delete")').click();
-    await page.waitForTimeout(100);
-    await expect(circles).toHaveCount(initialCircleCount - 1);
-
-    // Undo
-    await page.getByRole('button', { name: 'Undo' }).click();
-    await page.waitForTimeout(100);
-    await expect(circles).toHaveCount(initialCircleCount);
   });
 
   test('should undo moving a shape', async ({ page }) => {
@@ -607,125 +513,6 @@ test.describe('Moonlight SVG Editor', () => {
 
       // Textarea should be hidden
       await expect(textarea).not.toBeVisible();
-    });
-
-    // Skip: text editing via textarea may not be implemented yet
-    test.skip('should edit text inside a shape (Shape内のテキスト)', async ({ page }) => {
-      // Rectangle elements include a text child element
-      // First add a new Rectangle which includes text inside
-      await page.getByRole('button', { name: 'Rectangle' }).click();
-      await page.waitForTimeout(200);
-
-      // Find the newly added rectangle (last one)
-      const rectElement = page.locator('svg rect[data-id]').last();
-      await expect(rectElement).toBeVisible();
-
-      // Get the data-id to find associated text
-      const rectId = await rectElement.getAttribute('data-id');
-      expect(rectId).not.toBeNull();
-
-      // Find text element with matching parent_id or associated with this rect
-      // In this codebase, text elements for shapes have parent_id pointing to the shape
-      // Look for text elements that are related (the text added with Rectangle should be near it)
-      const lastTextElement = page.locator('svg g[data-element-type="text"]').last();
-
-      // Double-click on the rectangle to edit its text
-      const bbox = await rectElement.boundingBox();
-      expect(bbox).not.toBeNull();
-
-      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
-      await page.waitForTimeout(200);
-
-      // Textarea should appear
-      const textarea = page.locator('textarea');
-      await expect(textarea).toBeVisible();
-
-      // Clear and type new text
-      await textarea.selectText();
-      await page.keyboard.type('Updated Shape Text');
-
-      // Press Enter to confirm
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(200);
-
-      // Verify text is updated in the text element
-      const textContent = lastTextElement.locator('text');
-      await expect(textContent).toHaveText('Updated Shape Text');
-
-      // Textarea should be hidden
-      await expect(textarea).not.toBeVisible();
-    });
-
-    // Skip - text update may have timing issues with Effect-based rendering
-    test.skip('should support multiline text with Shift+Enter', async ({ page }) => {
-      // Add a text element first
-      await page.getByRole('button', { name: 'Text' }).click();
-      await page.waitForTimeout(100);
-
-      // Find the text element
-      const textElement = page.locator('svg text').last();
-
-      // Get text element bounding box for double-click
-      const bbox = await textElement.boundingBox();
-      expect(bbox).not.toBeNull();
-
-      // Double-click on text element
-      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
-      await page.waitForTimeout(100);
-
-      // Find textarea and type multiline text
-      const textarea = page.locator('textarea');
-      await expect(textarea).toBeVisible();
-      await textarea.fill('Line 1');
-      await page.keyboard.press('Shift+Enter');
-      await page.keyboard.type('Line 2');
-
-      // Press Enter to confirm
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(100);
-
-      // Verify text contains both lines (SVG text may render as tspans)
-      const textContent = await textElement.textContent();
-      expect(textContent).toContain('Line 1');
-      expect(textContent).toContain('Line 2');
-    });
-
-    // Skip - text update may have timing issues with Effect-based rendering
-    test.skip('should undo text edit', async ({ page }) => {
-      // Add a text element first
-      await page.getByRole('button', { name: 'Text' }).click();
-      await page.waitForTimeout(100);
-
-      // Find the text element and get its data-id for stable reference
-      const textElement = page.locator('svg text').last();
-      const textId = await textElement.getAttribute('data-id');
-      expect(textId).not.toBeNull();
-      const originalText = await textElement.textContent();
-
-      // Get text element bounding box for double-click
-      const bbox = await textElement.boundingBox();
-      expect(bbox).not.toBeNull();
-
-      // Double-click on text element
-      await page.mouse.dblclick(bbox!.x + bbox!.width / 2, bbox!.y + bbox!.height / 2);
-      await page.waitForTimeout(100);
-
-      // Edit text
-      const textarea = page.locator('textarea');
-      await textarea.fill('Changed Text');
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(100);
-
-      // Verify text changed using data-id selector for stability
-      const textByIdSelector = page.locator(`svg text[data-id="${textId}"]`);
-      await expect(textByIdSelector).toHaveText('Changed Text');
-
-      // Undo text edit (not the add element command)
-      await page.getByRole('button', { name: 'Undo' }).click();
-      await page.waitForTimeout(100);
-
-      // Verify original text is restored
-      await expect(textByIdSelector).toHaveText(originalText!);
     });
   });
 });

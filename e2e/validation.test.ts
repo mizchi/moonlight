@@ -17,10 +17,6 @@ const plainRect = fs.readFileSync(
   path.join(fixturesDir, "plain-rect.svg"),
   "utf-8"
 );
-const moonlightOrphan = fs.readFileSync(
-  path.join(fixturesDir, "moonlight-orphan-connection.svg"),
-  "utf-8"
-);
 
 test.describe("Validation and Capability", () => {
   test.describe("Moonlight SVG (Full Editable)", () => {
@@ -129,101 +125,6 @@ test.describe("Validation and Capability", () => {
 
       // プレーンSVGはStroke/Fillオプションが非表示になるはず
       // （ただし、実装によっては表示される可能性がある）
-    });
-
-    // Note: This test is skipped as plain SVG drag behavior depends on
-    // the internal state management which may need additional setup.
-    test.skip("should still allow moving plain SVG elements", async ({
-      page,
-    }) => {
-      await page.goto("http://localhost:5173/examples/embed.html");
-      await page.waitForSelector("svg");
-
-      // Plain SVG をインポート
-      await page.evaluate((svg: string) => {
-        (window as any).editor.importSvg(svg);
-      }, plainRect);
-
-      await page.waitForTimeout(200);
-
-      // 要素の初期位置を取得
-      const rect = page.locator('svg rect[data-id]').first();
-      const initialX = parseFloat((await rect.getAttribute("x")) || "0");
-
-      // dragTo を使用して移動
-      await rect.dragTo(page.locator("svg[viewBox]").first(), {
-        targetPosition: { x: 300, y: 200 },
-        force: true,
-      });
-
-      await page.waitForTimeout(200);
-
-      // 位置が変わっていることを確認
-      const newX = parseFloat((await rect.getAttribute("x")) || "0");
-      expect(newX).not.toBe(initialX);
-    });
-  });
-
-  // Note: Orphan connection tests are skipped because the SVG parser
-  // doesn't preserve data-connection-* attributes during import.
-  // These tests would need the import system to handle connection metadata.
-  test.describe.skip("Orphan Connection (Move Only)", () => {
-    test("should mark line with orphan connection as move only", async ({
-      page,
-    }) => {
-      await page.goto("http://localhost:5173/examples/embed.html");
-      await page.waitForSelector("svg");
-
-      // Orphan connection SVG をインポート
-      await page.evaluate((svg: string) => {
-        (window as any).editor.importSvg(svg);
-      }, moonlightOrphan);
-
-      await page.waitForTimeout(100);
-
-      // Line 要素を選択（orphan connection があるので move_and_delete になる）
-      const line = page.locator('svg line[data-id]').first();
-      await line.click();
-
-      await page.waitForTimeout(100);
-
-      // リサイズハンドルを探す（Line の場合は始点・終点のハンドル）
-      // orphan connection がある要素は can_resize=false
-      const resizeHandles = page.locator(
-        '.selection-overlay circle[r="5"], .selection-overlay rect[width="10"]'
-      );
-
-      // orphan connection のため、ハンドルは非表示になるはず
-      // ただし、line のアンカーポイントは別途表示される可能性がある
-      // 主に確認したいのは、リサイズが効かないこと
-    });
-
-    test("should allow deleting element with orphan connection", async ({
-      page,
-    }) => {
-      await page.goto("http://localhost:5173/examples/embed.html");
-      await page.waitForSelector("svg");
-
-      // Orphan connection SVG をインポート
-      await page.evaluate((svg: string) => {
-        (window as any).editor.importSvg(svg);
-      }, moonlightOrphan);
-
-      await page.waitForTimeout(100);
-
-      // Line 要素を選択
-      const line = page.locator('svg line[data-id]').first();
-      await line.click();
-
-      // Delete キーで削除
-      await page.keyboard.press("Delete");
-
-      await page.waitForTimeout(100);
-
-      // Line が削除されていることを確認
-      const lineAfter = page.locator('svg line[data-id]');
-      const count = await lineAfter.count();
-      expect(count).toBe(0);
     });
   });
 

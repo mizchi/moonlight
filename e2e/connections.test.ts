@@ -9,26 +9,6 @@ test.describe('Line Connections', () => {
     await page.goto('/');
   });
 
-  // Skip - context menu positioning is complex and depends on click location
-  // Line creation via anchor drag is tested in 'should create line by dragging from anchor point'
-  test.skip('should add a line via context menu', async ({ page }) => {
-    const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
-
-    // Right-click on background to open insert context menu
-    const svg = page.locator('svg[viewBox]').first();
-    const svgBox = await svg.boundingBox();
-    expect(svgBox).not.toBeNull();
-    await page.mouse.click(svgBox!.x + 300, svgBox!.y + 200, { button: 'right' });
-    await page.waitForTimeout(100);
-
-    // Click Line button in context menu
-    await page.getByRole('button', { name: 'Line' }).click();
-    await page.waitForTimeout(100);
-
-    const afterLineCount = await page.locator('svg g[data-element-type="line"]').count();
-    expect(afterLineCount).toBe(initialLineCount + 1);
-  });
-
   test('should show line handles when line is selected', async ({ page }) => {
     // Use an existing line (scene already has lines)
     // Select the first line (Line is wrapped in a group with data-element-type="line")
@@ -105,73 +85,6 @@ test.describe('Line Connections', () => {
     await expect(page.locator('svg circle[data-anchor="right"]')).toBeVisible();
   });
 
-  // TODO: Investigate why anchor drag doesn't create lines consistently
-  test.skip('should create line by dragging from anchor point', async ({ page }) => {
-    const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
-
-    // Select the first rect (exclude text hit areas)
-    // Use force:true because child text hit area may intercept clicks
-    const rect = page.locator('svg rect[data-id][cursor="move"]').first();
-    await rect.click({ force: true });
-    await page.waitForTimeout(100);
-
-    // Find the right anchor and drag from it
-    const rightAnchor = page.locator('svg circle[data-anchor="right"]');
-    const anchorBox = await rightAnchor.boundingBox();
-    expect(anchorBox).not.toBeNull();
-
-    // Drag from anchor to create a new line
-    await page.mouse.move(anchorBox!.x + anchorBox!.width / 2, anchorBox!.y + anchorBox!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(anchorBox!.x + 100, anchorBox!.y + 50);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    // Check that a new line was created
-    const afterLineCount = await page.locator('svg g[data-element-type="line"]').count();
-    expect(afterLineCount).toBe(initialLineCount + 1);
-  });
-
-  // TODO: Investigate why anchor drag doesn't create lines consistently
-  test.skip('should create connected line from anchor', async ({ page }) => {
-    // Count initial lines
-    const initialLineCount = await page.locator('svg g[data-element-type="line"]').count();
-
-    // Select first rect (exclude text hit areas)
-    // Use force:true because child text hit area may intercept clicks
-    const rect = page.locator('svg rect[data-id][cursor="move"]').first();
-    await rect.click({ force: true });
-    await page.waitForTimeout(100);
-
-    // Get rect's SVG attributes for verification
-    const rectX = parseFloat(await rect.getAttribute('x') || '0');
-    const rectWidth = parseFloat(await rect.getAttribute('width') || '0');
-
-    // Create line from right anchor
-    const rightAnchor = page.locator('svg circle[data-anchor="right"]');
-    const anchorBox = await rightAnchor.boundingBox();
-    expect(anchorBox).not.toBeNull();
-
-    await page.mouse.move(anchorBox!.x + anchorBox!.width / 2, anchorBox!.y + anchorBox!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(anchorBox!.x + 100, anchorBox!.y);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    // Verify a new line was created
-    const newLineCount = await page.locator('svg g[data-element-type="line"]').count();
-    expect(newLineCount).toBe(initialLineCount + 1);
-
-    // Get the newly created line (the last one)
-    const lineGroup = page.locator('svg g[data-element-type="line"]').last();
-    const line = lineGroup.locator('line').last();
-    const x1 = parseFloat(await line.getAttribute('x1') || '0');
-
-    // The line's start point should be near the rect's right edge (in SVG coordinates)
-    const expectedX1 = rectX + rectWidth;
-    expect(Math.abs(x1 - expectedX1)).toBeLessThan(10);
-  });
-
   test('should show connection highlight when dragging line endpoint near anchor', async ({ page }) => {
     // Use an existing line (scene already has lines)
     // Select the first line (Line is wrapped in a group with data-element-type="line")
@@ -231,76 +144,3 @@ test.describe('Line Connections', () => {
   });
 });
 
-test.describe('Multi-select with Lines', () => {
-  test.beforeEach(async ({ page }) => {
-    // Set viewport to match coordinate transformation expectations
-    await page.setViewportSize({ width: 800, height: 600 });
-    await page.goto('/');
-  });
-
-  // Skip - box selection with line may not be working correctly
-  test.skip('should select multiple elements including line with box selection', async ({ page }) => {
-    // Add a line
-    await page.getByRole('button', { name: 'Line' }).click();
-    await page.waitForTimeout(100);
-
-    // Box select to include all elements (use main canvas SVG)
-    const svg = page.locator('svg[viewBox]').first();
-    const svgBox = await svg.boundingBox();
-    expect(svgBox).not.toBeNull();
-
-    await page.mouse.move(svgBox!.x + 10, svgBox!.y + 10);
-    await page.mouse.down();
-    await page.mouse.move(svgBox!.x + 390, svgBox!.y + 280);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    // Should show multiple elements selected
-    const selectedText = page.getByText(/\d+ elements selected/);
-    await expect(selectedText).toBeVisible();
-  });
-
-  // Skip - box selection may not be working correctly in current implementation
-  test.skip('should move multiple selected elements together', async ({ page }) => {
-    // First add a line to have more elements
-    await page.getByRole('button', { name: 'Line' }).click();
-    await page.waitForTimeout(100);
-
-    // Box select all initial elements (use main canvas SVG)
-    const svg = page.locator('svg[viewBox]').first();
-    const svgBox = await svg.boundingBox();
-    expect(svgBox).not.toBeNull();
-
-    await page.mouse.move(svgBox!.x + 10, svgBox!.y + 10);
-    await page.mouse.down();
-    // Expand selection to include circle at x=400
-    await page.mouse.move(svgBox!.x + 450, svgBox!.y + 280);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    // Verify multiple elements are selected (check for any "X elements selected" message)
-    const selectedText = page.getByText(/\d+ elements selected/);
-    await expect(selectedText).toBeVisible();
-
-    // Get initial positions
-    const rect1 = page.locator('svg rect[data-id="el-1"]');
-    const circle = page.locator('svg circle[data-id="el-5"]');
-    const initialX = await rect1.getAttribute('x');
-    const initialCx = await circle.getAttribute('cx');
-
-    // Drag to move all selected elements - start from corner to avoid text hit area
-    const rect1Box = await rect1.boundingBox();
-    expect(rect1Box).not.toBeNull();
-    await page.mouse.move(rect1Box!.x + 5, rect1Box!.y + 5);
-    await page.mouse.down();
-    await page.mouse.move(svgBox!.x + 200, svgBox!.y + 200);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    // All elements should have moved
-    const newX = await rect1.getAttribute('x');
-    const newCx = await circle.getAttribute('cx');
-    expect(newX).not.toBe(initialX);
-    expect(newCx).not.toBe(initialCx);
-  });
-});
