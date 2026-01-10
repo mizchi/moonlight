@@ -1,5 +1,18 @@
 {
-  "private": true,
+  "name": "@mizchi/moonlight",
+  "version": "0.1.0",
+  "description": "Lightweight SVG editor like Excalidraw",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./js/api.js",
+      "types": "./js/api.d.ts"
+    }
+  },
+  "files": [
+    "js",
+    "_build/js/release/build/api"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -24,6 +37,5 @@
     "vite": "8.0.0-beta.5",
     "vite-plugin-moonbit": "^0.1.2",
     "wrangler": "^4.54.0"
-  },
-  "type": "module"
+  }
 }

@@ -5,4 +5,4 @@ node_modules
 tmp
 test-results
 playwright-report
-.wrangler
+.wrangler_build
