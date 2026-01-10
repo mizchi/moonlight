@@ -192,10 +192,23 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
     None => add_sample_shapes(state, new_id)
   }
 
+  // コンテナ要素を状態に保存（キーボードハンドラで使用）
+  state.container_el.set(container)
+
   // Luna でレンダリング
   let editor_node = embedded_editor_app(state, history, new_id)
   let dom_container : @js_dom.Element = @js.identity(container)
   @element.render(dom_container |> @element.DomElement::from_dom, editor_node)
+
+  // フォーカス管理をセットアップ（キーボードイベントの制御用）
+  let focus_state : @lib.FocusState = {
+    has_focus: state.has_focus,
+    container: @luna.signal(None),
+  }
+  @lib.setup_focus_management(focus_state, container)
+
+  // キーボードハンドラをセットアップ（Delete キーなど）
+  @lib.setup_keyboard_handler(state, new_id)
 
   // ハンドルを作成
   let handle = create_editor_handle_js(
@@ -2410,15 +2423,24 @@ fn render_text_input_container(
             None => default_text_color
           }
       }
-      let (text_x, text_y) : (Double, Double) = match
-        state.find_element(edit_state.parent_id) {
-        Some(parent) => {
-          let bbox = parent.bounding_box()
-          let center_x = bbox.x + bbox.width / 2.0
-          let center_y = bbox.y + bbox.height / 2.0
-          (center_x, center_y)
-        }
-        None => (edit_state.x, edit_state.y)
+      // テキスト入力の位置を決定
+      // 既存テキスト編集：テキスト要素自体の位置を使用
+      // 新規テキスト作成：親要素の中心を使用
+      let (text_x, text_y) : (Double, Double) = match edit_state.editing_id {
+        Some(_) =>
+          // 既存テキストを編集中：edit_state.x/y はテキスト要素の位置
+          (edit_state.x, edit_state.y)
+        None =>
+          // 新規テキスト作成：親要素の中心に配置
+          match state.find_element(edit_state.parent_id) {
+            Some(parent) => {
+              let bbox = parent.bounding_box()
+              let center_x = bbox.x + bbox.width / 2.0
+              let center_y = bbox.y + bbox.height / 2.0
+              (center_x, center_y)
+            }
+            None => (edit_state.x, edit_state.y)
+          }
       }
       // 背景色（テキスト色とのコントラストを考慮）
       // テキスト色が暗い（#000000に近い）場合は明るい背景、逆の場合は暗い背景

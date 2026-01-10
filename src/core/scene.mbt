@@ -624,7 +624,8 @@ pub fn EditorState::start_drag(
   mouse_x : Double,
   mouse_y : Double,
 ) -> Unit {
-  guard self.find_element(element_id) is Some(el)
+  // 要素が見つからない場合は何もしない（無効な要素は add_element_raw でスキップされる）
+  guard self.find_element(element_id) is Some(el) else { return }
   // Line の場合は終点と接続情報、接続要素の位置も保存
   let (start_shape, start_connections, connected_positions) : (
     @model.ShapeType?,
@@ -1245,7 +1246,8 @@ pub fn EditorState::start_resize(
   mouse_x : Double,
   mouse_y : Double,
 ) -> Unit {
-  guard self.find_element(element_id) is Some(el)
+  // 要素が見つからない場合は何もしない（無効な要素は add_element_raw でスキップされる）
+  guard self.find_element(element_id) is Some(el) else { return }
   self.resize_state.set(
     Some({
       element_id,
