@@ -748,11 +748,43 @@ pub fn EditorState::remove_element(self : EditorState, id : String) -> Unit {
 }
 
 ///|
-/// 選択中の要素を削除
+/// 選択中の要素を削除（親子関係を考慮）
+/// - 親要素を削除すると子要素も削除
+/// - 子要素を削除すると親要素も削除
 pub fn EditorState::delete_selected(self : EditorState) -> Unit {
   let ids = self.selected_ids.get().copy()
+  let all_ids : Array[String] = []
+  let elements = self.elements.get()
+
   for id in ids {
-    self.remove_element(id)
+    all_ids.push(id)
+    // 子要素を収集
+    for el in elements {
+      if el.parent_id == Some(id) {
+        all_ids.push(el.id)
+      }
+    }
+    // 親要素を収集
+    if self.find_element(id) is Some(el) {
+      if el.parent_id is Some(parent_id) {
+        all_ids.push(parent_id)
+        // 親の他の子も収集（親を削除するので）
+        for child in elements {
+          if child.parent_id == Some(parent_id) {
+            all_ids.push(child.id)
+          }
+        }
+      }
+    }
+  }
+
+  // 重複を除去して削除
+  let deleted : Array[String] = []
+  for id in all_ids {
+    if not(deleted.contains(id)) {
+      deleted.push(id)
+      self.remove_element(id)
+    }
   }
 }
 
