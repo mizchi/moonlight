@@ -1667,9 +1667,40 @@ fn setup_keyboard_shortcuts(
     match key {
       "Delete" | "Backspace" => {
         let selected_ids = state.selected_ids.get()
+        let elements = state.elements.get()
+        let all_ids : Array[String] = []
+
+        // 選択された要素とその親子関係を収集
         for id in selected_ids {
+          all_ids.push(id)
+          // 子要素を収集
+          for el in elements {
+            if el.parent_id == Some(id) {
+              all_ids.push(el.id)
+            }
+          }
+          // 親要素を収集
           if state.find_element(id) is Some(el) {
-            @core.execute_command(history, state, @model.RemoveElement(el))
+            if el.parent_id is Some(parent_id) {
+              all_ids.push(parent_id)
+              // 親の他の子も収集
+              for child in elements {
+                if child.parent_id == Some(parent_id) {
+                  all_ids.push(child.id)
+                }
+              }
+            }
+          }
+        }
+
+        // 重複を除去して削除
+        let deleted : Array[String] = []
+        for id in all_ids {
+          if not(deleted.contains(id)) {
+            deleted.push(id)
+            if state.find_element(id) is Some(el) {
+              @core.execute_command(history, state, @model.RemoveElement(el))
+            }
           }
         }
       }

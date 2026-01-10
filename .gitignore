@@ -6,3 +6,4 @@ tmp
 test-results
 playwright-report
 .wrangler_build
+_build
