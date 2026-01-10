@@ -67,12 +67,12 @@ pub fn EmbedOptions::default() -> EmbedOptions {
 pub fn EmbedOptions::from_js(js_obj : @js.Any) -> EmbedOptions {
   let width = get_int_or_default(js_obj, "width", 400)
   let height = get_int_or_default(js_obj, "height", 300)
-  let doc_width = get_int_or_default(js_obj, "docWidth", width)
-  let doc_height = get_int_or_default(js_obj, "docHeight", height)
+  let doc_width = get_int_or_default(js_obj, "doc_width", width)
+  let doc_height = get_int_or_default(js_obj, "doc_height", height)
   let zoom = get_double_or_default(js_obj, "zoom", 1.0)
   let theme = get_string_or_default(js_obj, "theme", "light")
-  let is_readonly = get_bool_or_default(js_obj, "readonly", false)
-  let initial_svg = get_string_option(js_obj, "initialSvg")
+  let is_readonly = get_bool_or_default(js_obj, "is_readonly", false)
+  let initial_svg = get_string_option(js_obj, "initial_svg")
   {
     width,
     height,
