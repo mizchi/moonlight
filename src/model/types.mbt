@@ -382,9 +382,13 @@ pub fn Element::new(
 }
 
 ///|
-/// 親要素を設定
+/// 親要素を設定（空文字列の場合はNone）
 pub fn Element::with_parent(self : Element, parent_id : String) -> Element {
-  { ..self, parent_id: Some(parent_id) }
+  if parent_id == "" {
+    self
+  } else {
+    { ..self, parent_id: Some(parent_id) }
+  }
 }
 
 ///|

@@ -173,15 +173,10 @@ fn get_placement_position(state : @core.EditorState) -> (Double, Double) {
 }
 
 ///|
-/// 選択要素を削除
+/// 選択要素を削除（親子関係を考慮）
 fn delete_selected(state : @core.EditorState) -> Unit {
-  match state.get_selected_id() {
-    None => ()
-    Some(id) => {
-      state.elements.update(fn(els) { els.filter(fn(el) { el.id != id }) })
-      set_selected_id(state, None)
-    }
-  }
+  // EditorState.delete_selected() は親子関係を考慮した削除を行う
+  state.delete_selected()
 }
 
 ///|
