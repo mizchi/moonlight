@@ -1357,6 +1357,20 @@ fn create_pointermove_handler(
   active_pointers : Ref[Map[Int, @model.Point]],
 ) -> (@js.Any) -> Unit {
   fn(e) {
+    // ボタンが離されているのにドラッグ中の場合は終了（領域外でリリースされた場合）
+    let buttons : Int = e._get("buttons").cast()
+    if buttons == 0 {
+      if state.drag_state.get() is Some(_) {
+        state.end_drag()
+      }
+      if state.resize_state.get() is Some(_) {
+        state.end_resize()
+      }
+      if state.multi_drag_state.get() is Some(_) {
+        state.end_multi_drag()
+      }
+    }
+
     // ポインター位置を更新
     let pointer_id = get_pointer_id(e)
     let (screen_x, screen_y) = get_screen_coords(e)
@@ -1556,6 +1570,7 @@ fn create_pointerup_handler(
 
 ///|
 /// pointerleave ハンドラを作成（ポインターが画面外に出た時に状態をリセット）
+/// 注意: ドラッグ/リサイズ中の状態はリセットしない（pointerup で処理）
 fn create_pointerleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
   fn(_e) {
     // マウスがキャンバス外に出たことを記録
@@ -1568,25 +1583,19 @@ fn create_pointerleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
       }
       state.free_draw_state.set(None)
     }
-    // すべてのドラッグ・選択状態をリセット
+    // パンと矩形選択のみリセット（ドラッグ/リサイズは継続可能に）
     if state.is_panning.get() {
       state.end_pan()
     }
     if state.is_box_selecting() {
       state.end_box_select()
     }
-    if state.resize_state.get() is Some(_) {
-      state.end_resize()
-    }
-    if state.multi_drag_state.get() is Some(_) {
-      state.end_multi_drag()
-    }
-    if state.drag_state.get() is Some(_) {
-      state.end_drag()
-    }
+    // 配置モードはキャンセル
     if state.placement_state.get() is Some(_) {
       state.end_placement()
     }
+    // ドラッグ/リサイズ/マルチドラッグは pointerup で終了するので
+    // ここではリセットしない（領域外でもドラッグ継続可能に）
   }
 }
 
