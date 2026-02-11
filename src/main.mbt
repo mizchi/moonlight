@@ -1261,11 +1261,15 @@ fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
   for child in children {
     if child.shape is @model.Text(content, font_size) {
       // 既存テキストを編集
+      // 子テキストの座標は親からの相対座標の場合があるため、親要素の中心座標を使用する
+      let bbox = el.bounding_box()
+      let center_x = bbox.x + bbox.width / 2.0
+      let center_y = bbox.y + bbox.height / 2.0
       state.start_text_edit_existing(
         child.id,
         element_id,
-        child.x,
-        child.y,
+        center_x,
+        center_y,
         content,
         font_size,
       )
@@ -1286,11 +1290,24 @@ fn handle_text_edit(state : @core.EditorState, text_id : String) -> Unit {
   guard el.shape is @model.Text(content, font_size)
   // parent_id がない場合は自分自身を親として扱う
   let parent_id = el.parent_id.unwrap_or(text_id)
+  // テキストの表示位置を計算
+  // 親要素がある場合は親の中心座標、ない場合はテキスト自体の座標を使用
+  let (text_x, text_y) = match el.parent_id {
+    Some(pid) =>
+      match state.find_element(pid) {
+        Some(parent) => {
+          let bbox = parent.bounding_box()
+          (bbox.x + bbox.width / 2.0, bbox.y + bbox.height / 2.0)
+        }
+        None => (el.x, el.y)
+      }
+    None => (el.x, el.y)
+  }
   state.start_text_edit_existing(
     text_id,
     parent_id,
-    el.x,
-    el.y,
+    text_x,
+    text_y,
     content,
     font_size,
   )
@@ -2464,23 +2481,17 @@ fn render_text_input_container(
           }
       }
       // テキスト入力の位置を決定
-      // 既存テキスト編集：テキスト要素自体の位置を使用
-      // 新規テキスト作成：親要素の中心を使用
-      let (text_x, text_y) : (Double, Double) = match edit_state.editing_id {
-        Some(_) =>
-          // 既存テキストを編集中：edit_state.x/y はテキスト要素の位置
-          (edit_state.x, edit_state.y)
-        None =>
-          // 新規テキスト作成：親要素の中心に配置
-          match state.find_element(edit_state.parent_id) {
-            Some(parent) => {
-              let bbox = parent.bounding_box()
-              let center_x = bbox.x + bbox.width / 2.0
-              let center_y = bbox.y + bbox.height / 2.0
-              (center_x, center_y)
-            }
-            None => (edit_state.x, edit_state.y)
-          }
+      // 常に親要素の中心座標を使用（子テキストの座標が相対座標の場合があるため）
+      let (text_x, text_y) : (Double, Double) = match state.find_element(
+        edit_state.parent_id,
+      ) {
+        Some(parent) => {
+          let bbox = parent.bounding_box()
+          let center_x = bbox.x + bbox.width / 2.0
+          let center_y = bbox.y + bbox.height / 2.0
+          (center_x, center_y)
+        }
+        None => (edit_state.x, edit_state.y)
       }
       // 背景色（テキスト色とのコントラストを考慮）
       // テキスト色が暗い（#000000に近い）場合は明るい背景、逆の場合は暗い背景
@@ -2537,7 +2548,7 @@ fn render_text_input_container(
       (
         "style",
         @element.Static(
-          "position: absolute; top: 0; left: 0; pointer-events: none;",
+          "position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;",
         ),
       ),
       ("__ref", @element.Handler(fn(el) { container_ref.val = Some(el) })),

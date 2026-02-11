@@ -44,6 +44,16 @@ fn handle_key(
   e : KeyEvent,
   new_id : () -> String,
 ) -> Bool {
+  // テキスト編集中はショートカットキーを無視（Escapeのみ例外）
+  if state.text_edit.get() is Some(_) {
+    // Escapeはテキスト編集を終了するために許可
+    if e.key == "Escape" {
+      state.text_edit.set(None)
+      return true
+    }
+    // その他のキーはテキスト入力として扱う（ブラウザに処理させる）
+    return false
+  }
   // keybindings から一致するアクションを検索
   match @model.match_keybinding(e.key, e.ctrl_key, e.shift_key, e.meta_key) {
     Some(kb) => execute_action(state, kb.action, new_id)
