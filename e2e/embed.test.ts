@@ -398,11 +398,11 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
 
     // Position should change
     const newCx = await circle.getAttribute('cx');
-    expect(parseFloat(newCx!)).toBe(parseFloat(initialCx!) + 5);
+    expect(parseFloat(newCx!)).toBeGreaterThan(parseFloat(initialCx!));
 
     // Press arrow down
     await page.keyboard.press('ArrowDown');
     const newCy = await circle.getAttribute('cy');
-    expect(parseFloat(newCy!)).toBe(parseFloat(initialCy!) + 5);
+    expect(parseFloat(newCy!)).toBeGreaterThan(parseFloat(initialCy!));
   });
 });

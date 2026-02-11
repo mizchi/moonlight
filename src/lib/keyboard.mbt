@@ -25,6 +25,10 @@ pub fn setup_keyboard_handler(
     if not(state.has_focus.get()) {
       return
     }
+    // フルスクリーンモーダルでは main 側のキーボード処理に委譲する
+    if state.modal_open.get() {
+      return
+    }
     // 読み取り専用モードの場合は無視
     if state.is_readonly.get() {
       return
@@ -52,6 +56,13 @@ fn handle_key(
       return true
     }
     // その他のキーはテキスト入力として扱う（ブラウザに処理させる）
+    return false
+  }
+  // Arrow は main.mbt のグローバルハンドラで一元処理する
+  if e.key == "ArrowUp" ||
+    e.key == "ArrowDown" ||
+    e.key == "ArrowLeft" ||
+    e.key == "ArrowRight" {
     return false
   }
   // keybindings から一致するアクションを検索
