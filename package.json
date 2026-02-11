@@ -16,8 +16,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:component": "moon build --target js && rolldown -c rolldown.config.mjs",
-    "build:all": "moon build --target js && vite build && rolldown -c rolldown.config.mjs",
+    "moon:build:compat": "moon build --target js && (test -e _build || ln -s target _build) && (test -e target || ln -s _build target)",
+    "build:component": "pnpm moon:build:compat && rolldown -c rolldown.config.mjs",
+    "build:all": "pnpm moon:build:compat && vite build && rolldown -c rolldown.config.mjs",
     "deploy": "pnpm build:all && wrangler deploy",
     "worker:dev": "pnpm build:all && wrangler dev",
     "example": "npx serve examples -p 3000",
