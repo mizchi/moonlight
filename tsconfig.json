@@ -10,16 +10,16 @@
     "skipLibCheck": true,
     "paths": {
       "mbt:internal/app": [
-        "./target/js/release/build/app.js"
+        "./_build/js/release/build/app.js"
       ],
       "mbt:internal/app/embed": [
-        "./target/js/release/build/embed/embed.js"
+        "./_build/js/release/build/embed/embed.js"
       ],
       "mbt:internal/app/webcomponent": [
-        "./target/js/release/build/webcomponent/webcomponent.js"
+        "./_build/js/release/build/webcomponent/webcomponent.js"
       ],
       "mbt:internal/app/preview": [
-        "./target/js/release/build/preview/preview.js"
+        "./_build/js/release/build/preview/preview.js"
       ]
     }
   },

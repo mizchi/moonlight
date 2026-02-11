@@ -6,7 +6,7 @@ import { defineConfig } from 'rolldown';
 export default defineConfig([
   // Shell: 軽量なカスタム要素登録
   {
-    input: 'target/js/release/build/webcomponent/webcomponent.js',
+    input: '_build/js/release/build/webcomponent/webcomponent.js',
     output: {
       file: 'dist/moonlight-editor.component.js',
       format: 'iife',
@@ -16,7 +16,7 @@ export default defineConfig([
   },
   // Editor: 重量級エディタモジュール（ESM で動的 import 用）
   {
-    input: 'target/js/release/build/webcomponent-editor/webcomponent-editor.js',
+    input: '_build/js/release/build/webcomponent-editor/webcomponent-editor.js',
     output: {
       file: 'dist/moonlight-editor.editor.js',
       format: 'esm',
