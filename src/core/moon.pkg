@@ -1,0 +1,10 @@
+import {
+  "mizchi/moonlight/model",
+  "mizchi/luna",
+  "mizchi/signals",
+  "mizchi/js/core" @js,
+}
+
+options(
+  "supported-targets": [ "js" ],
+)

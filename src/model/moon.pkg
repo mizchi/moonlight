@@ -1,0 +1,6 @@
+import {
+}
+
+options(
+  "supported-targets": [ "wasm", "wasm-gc", "js" ],
+)

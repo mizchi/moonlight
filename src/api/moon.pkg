@@ -1,0 +1,10 @@
+import {
+  "mizchi/moonlight" @editor,
+  "mizchi/js/core" @js,
+}
+
+options(
+  "is-main": true,
+  link: { "js": { "exports": [ "createEditor" ] } },
+  "supported-targets": [ "js" ],
+)

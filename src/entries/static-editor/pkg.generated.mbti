@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/entries/static-editor"
 
-import(
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/moonlight/model",
+}
 
 // Values
 pub fn circle(String, Double, Double, Double, @model.Style) -> @model.Element
@@ -28,7 +28,7 @@ pub fn line(String, Double, Double, Double, Double, @model.Style) -> @model.Elem
 
 pub fn move_element(@model.Element, Double, Double) -> @model.Element
 
-pub fn path(String, String, @model.Style) -> @model.Element
+pub fn path(String, String, Double, Double, Double, Double, @model.Style) -> @model.Element
 
 pub fn rect(String, Double, Double, Double, Double, @model.Style) -> @model.Element
 

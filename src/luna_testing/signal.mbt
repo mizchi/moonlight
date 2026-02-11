@@ -14,11 +14,11 @@ pub struct SignalTracker[T] {
 
 ///|
 /// Signal の変更を追跡開始
-/// render_effect を使用して同期的に値変更を追跡
-pub fn[T : Eq] track_signal(sig : @signal.Signal[T]) -> SignalTracker[T] {
+/// Note: render_effect を使用して同期的に追跡（テスト用途に適切）
+pub fn[T : Eq] track_signal(sig : @resource.Signal[T]) -> SignalTracker[T] {
   let values : Array[T] = []
-  // render_effect は同期的に実行されるため、テストで正しく動作する
-  let cleanup = @signal.render_effect(fn() {
+  // render_effect は同期的に実行される（effect は microtask で非同期）
+  let cleanup = @resource.render_effect(fn() {
     let v = sig.get()
     // 重複を避けて追加
     if values.length() == 0 || values[values.length() - 1] != v {
@@ -69,10 +69,9 @@ pub struct EffectCounter {
 
 ///|
 /// Effect の実行をカウント開始
-/// render_effect を使用して同期的にカウント
 pub fn count_effect(effect_fn : () -> Unit) -> EffectCounter {
-  let counter : Ref[Int] = { val: 0 }
-  let cleanup = @signal.render_effect(fn() {
+  let counter : Ref[Int] = Ref::new(0)
+  let cleanup = @resource.effect(fn() {
     effect_fn()
     counter.val = counter.val + 1
   })
@@ -109,7 +108,7 @@ pub fn test_batch(
   verify : () -> Unit,
 ) -> Unit {
   setup()
-  @signal.batch(updates)
+  @resource.batch(updates)
   verify()
 }
 
@@ -120,7 +119,7 @@ pub fn test_batch(
 ///|
 /// Signal の現在値を検証
 pub fn[T : Eq + Show] assert_signal_value(
-  sig : @signal.Signal[T],
+  sig : @resource.Signal[T],
   expected : T,
 ) -> Unit {
   let actual = sig.get()
@@ -141,7 +140,7 @@ pub fn[T : Eq + Show] assert_tracked_values(
       "Expected \{expected.length()} tracked values, but got \{actual.length()}",
     )
   }
-  for i = 0; i < actual.length(); i = i + 1 {
+  for i in 0..<actual.length() {
     if actual[i] != expected[i] {
       abort(
         "Tracked value at index \{i}: expected \{expected[i]}, but got \{actual[i]}",

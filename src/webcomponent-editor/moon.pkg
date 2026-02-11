@@ -1,0 +1,9 @@
+import {
+  "mizchi/moonlight" @editor,
+  "mizchi/js/core" @js,
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "js" ],
+)

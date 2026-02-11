@@ -2,14 +2,14 @@
 
 ///|
 test "track_signal records initial value" {
-  let sig = @signal.signal(0)
+  let sig = @resource.signal(0)
   let tracker = track_signal(sig)
   assert_eq(tracker_values(tracker), [0])
 }
 
 ///|
 test "track_signal records value changes" {
-  let sig = @signal.signal(0)
+  let sig = @resource.signal(0)
   let tracker = track_signal(sig)
   sig.set(1)
   sig.set(2)
@@ -19,7 +19,7 @@ test "track_signal records value changes" {
 
 ///|
 test "tracker_last returns last value" {
-  let sig = @signal.signal(0)
+  let sig = @resource.signal(0)
   let tracker = track_signal(sig)
   sig.set(42)
   assert_eq(tracker_last(tracker), Some(42))
@@ -27,7 +27,7 @@ test "tracker_last returns last value" {
 
 ///|
 test "tracker_count returns change count" {
-  let sig = @signal.signal(0)
+  let sig = @resource.signal(0)
   let tracker = track_signal(sig)
   sig.set(1)
   sig.set(2)
@@ -36,13 +36,13 @@ test "tracker_count returns change count" {
 
 ///|
 test "assert_signal_value succeeds for correct value" {
-  let sig = @signal.signal(42)
+  let sig = @resource.signal(42)
   assert_signal_value(sig, 42)
 }
 
 ///|
 test "assert_tracked_values succeeds for correct values" {
-  let sig = @signal.signal(0)
+  let sig = @resource.signal(0)
   let tracker = track_signal(sig)
   sig.set(1)
   sig.set(2)
@@ -51,8 +51,8 @@ test "assert_tracked_values succeeds for correct values" {
 
 ///|
 test "test_batch executes in order" {
-  let result : Ref[String] = { val: "" }
-  let verified : Ref[Bool] = { val: false }
+  let result : Ref[String] = Ref::new("")
+  let verified : Ref[Bool] = Ref::new(false)
   test_batch(
     fn() { result.val = "setup" },
     fn() { result.val = result.val + "-update" },

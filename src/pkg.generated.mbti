@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight"
 
-import(
-  "mizchi/luna/luna/dom/element"
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/luna/dom",
+  "mizchi/moonlight/model",
+}
 
 // Values
 pub fn add_keyboard_listener((@mizchi/js/core.Any) -> Unit) -> Unit
@@ -12,6 +12,8 @@ pub fn add_keyboard_listener((@mizchi/js/core.Any) -> Unit) -> Unit
 pub fn add_keydown_listener((@mizchi/js/core.Any) -> Unit) -> Unit
 
 pub fn add_keyup_listener((@mizchi/js/core.Any) -> Unit) -> Unit
+
+pub fn add_sample_shapes(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
 
 pub fn app_main() -> Unit
 
@@ -23,17 +25,19 @@ pub fn copy_text_to_clipboard(String, () -> Unit, () -> Unit) -> Unit
 
 pub fn create_arrow_defs() -> @mizchi/js/core.Any
 
-pub fn create_arrow_defs_node() -> @element.DomNode
+pub fn create_arrow_defs_node() -> @dom.DomNode
 
 pub fn create_doc_shadow_filter(Bool) -> @mizchi/js/core.Any
 
-pub fn create_doc_shadow_filter_node(Bool) -> @element.DomNode
+pub fn create_doc_shadow_filter_node(Bool) -> @dom.DomNode
 
-pub fn create_embedded_app() -> @element.DomNode
+pub fn create_embedded_app() -> @dom.DomNode
 
 pub fn create_js_editor(@mizchi/js/core.Any, EmbedOptions) -> @mizchi/js/core.Any
 
 pub fn create_textarea_ffi(String, String, (String) -> Unit, (String) -> Unit, (String) -> Unit) -> @mizchi/js/core.Any
+
+pub fn debug_log(String) -> Unit
 
 pub fn download_file(String, String, String) -> Unit
 
@@ -69,6 +73,8 @@ pub fn hide_popover(String) -> Unit
 
 pub fn import_svg_elements(String, () -> String) -> Array[@model.Element]
 
+pub fn import_svg_validated(String, () -> String) -> ImportResult
+
 pub fn insert_before_ffi(@mizchi/js/core.Any, @mizchi/js/core.Any, @mizchi/js/core.Any) -> Unit
 
 pub fn is_composing_ffi() -> Bool
@@ -95,13 +101,13 @@ pub fn remove_element_ffi(@mizchi/js/core.Any) -> Unit
 
 pub fn render_all_anchor_points(Array[@model.Element], String) -> Array[@mizchi/js/core.Any]
 
-pub fn render_all_anchors_vnode(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_all_anchors_vnode(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
-pub fn render_box_select_vnode(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_box_select_vnode(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
 pub fn render_canvas_background(Double, Double, @model.Viewport, Int, Int, Bool) -> Array[@mizchi/js/core.Any]
 
-pub fn render_canvas_background_vnode(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_canvas_background_vnode(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
 pub fn render_connected_anchor_highlights(Array[@model.Element], @model.Element) -> Array[@mizchi/js/core.Any]
 
@@ -109,51 +115,57 @@ pub fn render_connected_point(@model.Point) -> @mizchi/js/core.Any
 
 pub fn render_connection_highlight(@model.Point) -> @mizchi/js/core.Any
 
-pub fn render_connection_highlight_node(@model.Point) -> @element.DomNode
+pub fn render_connection_highlight_node(@model.Point) -> @dom.DomNode
 
-pub fn render_connection_highlight_vnode(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_connection_highlight_vnode(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
-pub fn render_context_menu(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> @element.DomNode
+pub fn render_context_menu(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> @dom.DomNode
 
-pub fn render_editor_modal(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> @element.DomNode
+pub fn render_delete_button(@mizchi/moonlight/core.EditorState, @model.History, String, () -> Unit) -> @dom.DomNode
+
+pub fn render_editor_modal(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> @dom.DomNode
 
 pub fn render_element(@model.Element, Bool, parent? : @model.Element?) -> @mizchi/js/core.Any
 
 pub fn render_element_anchors(@model.Element) -> Array[@mizchi/js/core.Any]
 
-pub fn render_element_anchors_nodes(@model.Element) -> Array[@element.DomNode]
+pub fn render_element_anchors_nodes(@model.Element) -> Array[@dom.DomNode]
 
-pub fn render_element_node(@model.Element, Bool, parent? : @model.Element?) -> @element.DomNode
+pub fn render_element_node(@model.Element, Bool, parent? : @model.Element?) -> @dom.DomNode
 
-pub fn render_element_vnode(@mizchi/moonlight/core.EditorState, String) -> @element.DomNode
+pub fn render_element_vnode(@mizchi/moonlight/core.EditorState, String) -> @dom.DomNode
 
-pub fn render_floating_panel(@mizchi/moonlight/core.EditorState, @model.History) -> @element.DomNode
+pub fn render_floating_panel(@mizchi/moonlight/core.EditorState, @model.History) -> @dom.DomNode
 
 pub fn render_grid(Int, Int, Int, @model.Viewport) -> Array[@mizchi/js/core.Any]
 
-pub fn render_grid_nodes(Int, Int, Int, @model.Viewport) -> Array[@element.DomNode]
+pub fn render_grid_nodes(Int, Int, Int, @model.Viewport) -> Array[@dom.DomNode]
 
-pub fn render_grid_vnode(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_grid_vnode(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
-pub fn render_inline_panel(@mizchi/moonlight/core.EditorState, @model.History) -> @element.DomNode
+pub fn render_inline_panel(@mizchi/moonlight/core.EditorState, @model.History) -> @dom.DomNode
+
+pub fn render_layer_operations(@mizchi/moonlight/core.EditorState, @model.History, String, () -> Unit) -> @dom.DomNode
 
 pub fn render_resize_handles(@model.Element) -> Array[@mizchi/js/core.Any]
 
-pub fn render_resize_handles_nodes(@model.Element) -> Array[@element.DomNode]
+pub fn render_resize_handles_nodes(@model.Element) -> Array[@dom.DomNode]
 
 pub fn render_selection_box(@model.BoxSelectState) -> @mizchi/js/core.Any
 
-pub fn render_selection_box_node(@model.BoxSelectState) -> @element.DomNode
+pub fn render_selection_box_node(@model.BoxSelectState) -> @dom.DomNode
 
-pub fn render_selection_overlay(@mizchi/moonlight/core.EditorState) -> @element.DomNode
+pub fn render_selection_overlay(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
 
-pub fn render_sidebar(@mizchi/moonlight/core.EditorState, @model.History, Int) -> @element.DomNode
+pub fn render_sidebar(@mizchi/moonlight/core.EditorState, @model.History, Int) -> @dom.DomNode
+
+pub fn render_style_editor(@mizchi/moonlight/core.EditorState, @model.History, String, () -> Unit) -> @dom.DomNode
 
 pub fn render_svg_container(Int, Int, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, Array[@mizchi/js/core.Any]) -> @mizchi/js/core.Any
 
 pub fn render_svg_container_with_viewport(Int, Int, @model.Viewport, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, (@mizchi/js/core.Any) -> Unit, Array[@mizchi/js/core.Any]) -> @mizchi/js/core.Any
 
-pub fn render_text_input(@mizchi/moonlight/core.EditorState, (String) -> Unit, () -> Unit) -> @element.DomNode
+pub fn render_text_input(@mizchi/moonlight/core.EditorState, (String) -> Unit, () -> Unit) -> @dom.DomNode
 
 pub fn save_to_indexeddb(String, String, String, String, () -> Unit, () -> Unit) -> Unit
 
@@ -165,7 +177,7 @@ pub fn set_multiline_text_ffi(@mizchi/js/core.Any, String, Double, Double) -> Un
 
 pub fn show_popover_at_button(String, @mizchi/js/core.Any) -> Unit
 
-pub fn svg_to_dom_node(@mizchi/js/core.Any) -> @element.DomNode
+pub fn svg_to_dom_node(@mizchi/js/core.Any) -> @dom.DomNode
 
 pub fn update_svg_background_ffi(@mizchi/js/core.Any, String) -> Unit
 
@@ -188,6 +200,12 @@ pub struct EmbedOptions {
 }
 pub fn EmbedOptions::default() -> Self
 pub fn EmbedOptions::from_js(@mizchi/js/core.Any) -> Self
+
+pub struct ImportResult {
+  elements : Array[@model.Element]
+  is_moonlight : Bool
+  plain_svg_ids : Array[String]
+}
 
 // Type aliases
 

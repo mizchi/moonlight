@@ -2,7 +2,10 @@
 
 ///|
 /// GitHub リンクボタンをセットアップ
-pub fn setup_github_link(state : @core.EditorState, github_url : String?) -> Unit {
+pub fn setup_github_link(
+  state : @core.EditorState,
+  github_url : String?,
+) -> Unit {
   let url = match github_url {
     Some(u) => u
     None => return

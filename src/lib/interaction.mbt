@@ -567,13 +567,11 @@ pub fn update_selection_ui(state : @core.EditorState) -> Unit {
               // Line はハンドルを描画
               let _ = render_line_handle(svg, el.x, el.y, "line-start", el.id)
               let _ = render_line_handle(svg, x2, y2, "line-end", el.id)
-
             }
             @model.Path(_, _, _, _, _) => {
               // Path は選択枠のみ（リサイズハンドルなし）
               let (x, y, w, h) = get_element_bounds(el)
               let _ = create_selection_rect(svg, x, y, w, h)
-
             }
             _ => {
               // 他の要素は選択枠を描画
@@ -598,5 +596,4 @@ fn render_resize_handles(svg : @js.Any, el : @model.Element) -> Unit {
   let _ = render_resize_handle(svg, x + w, y, "ne", el.id, "ne-resize")
   let _ = render_resize_handle(svg, x, y + h, "sw", el.id, "sw-resize")
   let _ = render_resize_handle(svg, x + w, y + h, "se", el.id, "se-resize")
-
 }

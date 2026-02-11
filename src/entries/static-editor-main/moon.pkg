@@ -1,0 +1,8 @@
+import {
+  "mizchi/moonlight/entries/static-editor" @editor,
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "js" ],
+)

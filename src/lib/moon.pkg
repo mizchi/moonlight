@@ -1,0 +1,12 @@
+import {
+  "mizchi/moonlight/model",
+  "mizchi/moonlight/core" @core,
+  "mizchi/luna",
+  "mizchi/signals",
+  "mizchi/js/core" @js,
+  "mizchi/moonlight/bezier_fit" @bezier,
+}
+
+options(
+  "supported-targets": [ "js" ],
+)

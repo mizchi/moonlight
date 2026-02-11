@@ -471,7 +471,6 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     }
     prev_mode.val = mode
   })
-
 }
 
 ///|
@@ -562,7 +561,6 @@ fn setup_auto_save(state : @core.EditorState) -> Unit {
     let _ = state.elements.get() // 依存関係を登録
     save_state(state)
   })
-
 }
 
 ///|
@@ -978,7 +976,6 @@ fn setup_keyboard_listener(
       }
     }
   })
-
 }
 
 // ============================================================
@@ -1304,12 +1301,7 @@ fn handle_text_edit(state : @core.EditorState, text_id : String) -> Unit {
     None => (el.x, el.y)
   }
   state.start_text_edit_existing(
-    text_id,
-    parent_id,
-    text_x,
-    text_y,
-    content,
-    font_size,
+    text_id, parent_id, text_x, text_y, content, font_size,
   )
 }
 
@@ -1944,13 +1936,11 @@ fn setup_keyboard_shortcuts(
         if is_cmd {
           let _ = e._call("preventDefault", [])
           let _ = @core.undo_command(history, state)
-
         }
       "y" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
           let _ = @core.redo_command(history, state)
-
         }
       "s" =>
         if is_cmd {
@@ -2211,7 +2201,6 @@ pub fn render_editor_modal(
         }
       }
       let _ = add_keydown_listener(handler)
-
     }
   })
 
@@ -2225,7 +2214,6 @@ pub fn render_editor_modal(
         style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
         on=events().click(fn(e) {
           let _ = e.as_any()._call("stopPropagation", [])
-
         }),
         [
           // ヘッダー
@@ -2482,9 +2470,8 @@ fn render_text_input_container(
       }
       // テキスト入力の位置を決定
       // 常に親要素の中心座標を使用（子テキストの座標が相対座標の場合があるため）
-      let (text_x, text_y) : (Double, Double) = match state.find_element(
-        edit_state.parent_id,
-      ) {
+      let (text_x, text_y) : (Double, Double) = match
+        state.find_element(edit_state.parent_id) {
         Some(parent) => {
           let bbox = parent.bounding_box()
           let center_x = bbox.x + bbox.width / 2.0
@@ -2714,20 +2701,14 @@ fn render_embedded_toolbar(
       @components.svg_icon(@components.icon_undo, 16),
       Some("⌘Z"),
       "Undo",
-      fn() {
-        let _ = @core.undo_command(history, state)
-
-      },
+      fn() { let _ = @core.undo_command(history, state) },
       theme~,
     ),
     @components.toolbar_button(
       @components.svg_icon(@components.icon_redo, 16),
       Some("⌘Y"),
       "Redo",
-      fn() {
-        let _ = @core.redo_command(history, state)
-
-      },
+      fn() { let _ = @core.redo_command(history, state) },
       theme~,
     ),
     // セパレータ

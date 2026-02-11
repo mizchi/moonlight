@@ -1230,7 +1230,9 @@ fn create_svg_node(
   for handler in handlers {
     luna_attrs.push((handler.0, @element.Handler(handler.1)))
   }
-  let node = @element.create_element_ns(@element.svg_ns, tag, luna_attrs, children)
+  let node = @element.create_element_ns(
+    @element.svg_ns, tag, luna_attrs, children,
+  )
   // class 属性は直接 setAttribute で設定
   if class_value.val is Some(cv) {
     set_svg_attr_ffi(node.to_dom().as_any(), "class", cv)

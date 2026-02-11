@@ -115,5 +115,4 @@ pub fn setup_event_listeners(
     }
     prev_mode.val = mode
   })
-
 }

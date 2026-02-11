@@ -1,0 +1,8 @@
+import {
+  "mizchi/moonlight/entries/viewer" @viewer,
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "js" ],
+)

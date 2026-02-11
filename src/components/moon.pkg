@@ -1,0 +1,13 @@
+import {
+  "mizchi/moonlight/model",
+  "mizchi/luna" @luna,
+  "mizchi/luna/dom" @element,
+  "mizchi/signals",
+  "mizchi/js/core" @js,
+  "mizchi/js/browser/dom" @dom,
+  "moonbitlang/core/strconv" @strconv,
+}
+
+options(
+  "supported-targets": [ "js" ],
+)

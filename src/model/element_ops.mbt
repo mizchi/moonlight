@@ -18,7 +18,7 @@ pub(all) struct MoveResult {
 pub fn propagate_line_connections_bfs(
   elements : Array[Element],
   start_ids : Array[String],
-  except_ids~ : Array[String] = [],
+  except_ids? : Array[String] = [],
 ) -> Array[Element] {
   // 座標を管理する Map（id -> (x, y, x2, y2)）
   let coords_map : Map[String, (Double, Double, Double, Double)] = {}
@@ -52,9 +52,9 @@ pub fn propagate_line_connections_bfs(
       guard el.shape is Line(x2, y2) else { continue }
       guard el.connections is Some(conns) else { continue }
       // 既存の座標を取得
-      let (base_x, base_y, base_x2, base_y2) = coords_map.get(el.id).unwrap_or(
-        (el.x, el.y, x2, y2),
-      )
+      let (base_x, base_y, base_x2, base_y2) = coords_map
+        .get(el.id)
+        .unwrap_or((el.x, el.y, x2, y2))
       let mut new_x = base_x
       let mut new_y = base_y
       let mut new_x2 = base_x2

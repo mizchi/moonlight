@@ -1,0 +1,9 @@
+import {
+  "mizchi/moonlight/bezier_fit" @bezier,
+  "mizchi/js/core" @js,
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "js" ],
+)

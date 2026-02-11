@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/core"
 
-import(
-  "mizchi/luna/luna/signal"
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/moonlight/model",
+  "mizchi/signals",
+}
 
 // Values
 pub fn execute_command(@model.History, EditorState, @model.Command) -> Unit
@@ -43,54 +43,65 @@ pub(all) enum EditorMode {
 pub struct EditorState {
   width : Int
   height : Int
-  canvas_width : @signal.Signal[Int]
-  canvas_height : @signal.Signal[Int]
-  doc_width : @signal.Signal[Double]
-  doc_height : @signal.Signal[Double]
-  elements : @signal.Signal[Array[@model.Element]]
-  selected_ids : @signal.Signal[Array[String]]
-  drag_state : @signal.Signal[@model.DragState?]
-  multi_drag_state : @signal.Signal[@model.MultiDragState?]
-  resize_state : @signal.Signal[@model.ResizeState?]
-  box_select : @signal.Signal[@model.BoxSelectState?]
-  context_menu : @signal.Signal[@model.ContextMenu?]
-  viewport : @signal.Signal[@model.Viewport]
-  grid_enabled : @signal.Signal[Bool]
-  grid_size : @signal.Signal[Int]
-  is_panning : @signal.Signal[Bool]
-  pan_start : @signal.Signal[(Double, Double)?]
-  text_edit : @signal.Signal[@model.TextEditState?]
-  pending_connection : @signal.Signal[PendingConnection?]
-  placement_state : @signal.Signal[PlacementState?]
-  mouse_scene_pos : @signal.Signal[@model.Point]
-  mouse_in_canvas : @signal.Signal[Bool]
-  preview_bg : @signal.Signal[String]
-  embed_bg : @signal.Signal[String]
-  theme_mode : @signal.Signal[@model.ThemeMode]
-  is_mobile : @signal.Signal[Bool]
-  panel_visible : @signal.Signal[Bool]
+  canvas_width : @signals.Signal[Int]
+  canvas_height : @signals.Signal[Int]
+  doc_width : @signals.Signal[Double]
+  doc_height : @signals.Signal[Double]
+  elements : @signals.Signal[Array[@model.Element]]
+  selected_ids : @signals.Signal[Array[String]]
+  drag_state : @signals.Signal[@model.DragState?]
+  multi_drag_state : @signals.Signal[@model.MultiDragState?]
+  resize_state : @signals.Signal[@model.ResizeState?]
+  box_select : @signals.Signal[@model.BoxSelectState?]
+  context_menu : @signals.Signal[@model.ContextMenu?]
+  viewport : @signals.Signal[@model.Viewport]
+  grid_enabled : @signals.Signal[Bool]
+  grid_size : @signals.Signal[Int]
+  is_panning : @signals.Signal[Bool]
+  pan_start : @signals.Signal[(Double, Double)?]
+  text_edit : @signals.Signal[@model.TextEditState?]
+  pending_connection : @signals.Signal[PendingConnection?]
+  placement_state : @signals.Signal[PlacementState?]
+  mouse_scene_pos : @signals.Signal[@model.Point]
+  mouse_in_canvas : @signals.Signal[Bool]
+  preview_bg : @signals.Signal[String]
+  embed_bg : @signals.Signal[String]
+  theme_mode : @signals.Signal[@model.ThemeMode]
+  is_mobile : @signals.Signal[Bool]
+  panel_visible : @signals.Signal[Bool]
   mode : EditorMode
-  modal_open : @signal.Signal[Bool]
-  has_focus : @signal.Signal[Bool]
-  is_readonly : @signal.Signal[Bool]
-  show_toolbar : @signal.Signal[Bool]
-  anchor_drag_state : @signal.Signal[AnchorDragState?]
-  svg_el : @signal.Signal[@mizchi/js/core.Any]
-  container_el : @signal.Signal[@mizchi/js/core.Any]
+  modal_open : @signals.Signal[Bool]
+  has_focus : @signals.Signal[Bool]
+  is_readonly : @signals.Signal[Bool]
+  show_toolbar : @signals.Signal[Bool]
+  anchor_drag_state : @signals.Signal[AnchorDragState?]
+  svg_el : @signals.Signal[@mizchi/js/core.Any]
+  container_el : @signals.Signal[@mizchi/js/core.Any]
+  tool_mode : @signals.Signal[ToolMode]
+  free_draw_state : @signals.Signal[FreeDrawState?]
+  free_draw_options : @signals.Signal[FreeDrawOptions]
+  last_placement_pos : @signals.Signal[@model.Point?]
+  pinch_state : @signals.Signal[PinchState?]
+  validation_result : @signals.Signal[@model.ValidationResult?]
+  plain_svg_ids : @signals.Signal[Array[String]]
 }
 pub fn EditorState::add_element(Self, @model.Element) -> Unit
 pub fn EditorState::add_element_raw(Self, @model.Element) -> Unit
 pub fn EditorState::add_to_selection(Self, String) -> Unit
 pub fn EditorState::bring_forward(Self, String) -> (Int, Int)?
 pub fn EditorState::bring_to_front(Self, String) -> (Int, Int)?
+pub fn EditorState::can_edit_element(Self, String) -> Bool
+pub fn EditorState::can_resize_element(Self, String) -> Bool
 pub fn EditorState::cancel_placement(Self) -> Unit
 pub fn EditorState::center_child_elements(Self, String) -> Unit
+pub fn EditorState::clear_plain_svg_ids(Self) -> Unit
 pub fn EditorState::delete_selected(Self) -> Unit
 pub fn EditorState::drag_move(Self, Double, Double) -> Unit
 pub fn EditorState::end_box_select(Self) -> Unit
 pub fn EditorState::end_drag(Self) -> Unit
 pub fn EditorState::end_multi_drag(Self) -> Unit
 pub fn EditorState::end_pan(Self) -> Unit
+pub fn EditorState::end_pinch(Self, Int) -> Unit
 pub fn EditorState::end_placement(Self) -> Unit
 pub fn EditorState::end_resize(Self) -> Unit
 pub fn EditorState::end_text_edit(Self) -> Unit
@@ -101,6 +112,7 @@ pub fn EditorState::get_arrow_style(Self) -> @model.Style
 pub fn EditorState::get_arrow_style_initial(Self) -> @model.Style
 pub fn EditorState::get_children(Self, String) -> Array[@model.Element]
 pub fn EditorState::get_default_style(Self) -> @model.Style
+pub fn EditorState::get_element_capability(Self, String) -> @model.ElementCapability
 pub fn EditorState::get_element_index(Self, String) -> Int?
 pub fn EditorState::get_line_style(Self) -> @model.Style
 pub fn EditorState::get_parent_id(Self, String) -> String?
@@ -116,6 +128,7 @@ pub fn EditorState::is_box_selecting(Self) -> Bool
 pub fn EditorState::is_child_element(Self, String) -> Bool
 pub fn EditorState::is_dragging(Self) -> Bool
 pub fn EditorState::is_multi_dragging(Self) -> Bool
+pub fn EditorState::is_pinching(Self) -> Bool
 pub fn EditorState::is_placing(Self) -> Bool
 pub fn EditorState::is_resizing(Self) -> Bool
 pub fn EditorState::is_selected(Self, String) -> Bool
@@ -125,6 +138,7 @@ pub fn EditorState::new(Int, Int) -> Self
 pub fn EditorState::new_with_mode(Int, Int, EditorMode) -> Self
 pub fn EditorState::pan(Self, Double, Double) -> Unit
 pub fn EditorState::pan_move(Self, Double, Double) -> Unit
+pub fn EditorState::register_plain_svg_ids(Self, Array[String]) -> Unit
 pub fn EditorState::remove_element(Self, String) -> Unit
 pub fn EditorState::remove_element_raw(Self, String) -> Unit
 pub fn EditorState::remove_from_selection(Self, String) -> Unit
@@ -133,6 +147,7 @@ pub fn EditorState::rename_element_raw(Self, String, String) -> Unit
 pub fn EditorState::reorder_element_raw(Self, String, Int) -> Unit
 pub fn EditorState::reset_viewport(Self) -> Unit
 pub fn EditorState::resize_move(Self, Double, Double) -> Unit
+pub fn EditorState::revalidate(Self) -> Unit
 pub fn EditorState::select(Self, String?) -> Unit
 pub fn EditorState::select_all(Self) -> Unit
 pub fn EditorState::select_multiple(Self, Array[String]) -> Unit
@@ -144,6 +159,7 @@ pub fn EditorState::start_box_select(Self, Double, Double) -> Unit
 pub fn EditorState::start_drag(Self, String, Double, Double) -> Unit
 pub fn EditorState::start_multi_drag(Self, Double, Double) -> Unit
 pub fn EditorState::start_pan(Self, Double, Double) -> Unit
+pub fn EditorState::start_pinch(Self, Int, Int, @model.Point, @model.Point) -> Unit
 pub fn EditorState::start_placement(Self, String, String, @model.Anchor, @model.Point, Bool, is_arrow? : Bool) -> Unit
 pub fn EditorState::start_resize(Self, String, @model.HandlePosition, Double, Double) -> Unit
 pub fn EditorState::start_text_edit(Self, String, Double, Double) -> Unit
@@ -154,7 +170,9 @@ pub fn EditorState::update_box_select(Self, Double, Double) -> Unit
 pub fn EditorState::update_connected_lines(Self, String) -> Unit
 pub fn EditorState::update_connected_lines_except(Self, String, String) -> Unit
 pub fn EditorState::update_element(Self, String, (@model.Element) -> @model.Element) -> Unit
+pub fn EditorState::update_element_by_id(Self, String, (@model.Element) -> @model.Element) -> Unit
 pub fn EditorState::update_line_connection(Self, String, @model.LineConnections) -> Unit
+pub fn EditorState::update_pinch(Self, Int, @model.Point) -> Unit
 pub fn EditorState::update_placement(Self, @model.Point) -> Unit
 pub fn EditorState::update_style_raw(Self, String, @model.Style) -> Unit
 pub fn EditorState::update_text_raw(Self, String, String) -> Unit
@@ -162,10 +180,30 @@ pub fn EditorState::zoom_at(Self, Double, Double, Bool) -> Unit
 pub fn EditorState::zoom_in(Self) -> Unit
 pub fn EditorState::zoom_out(Self) -> Unit
 
+pub(all) struct FreeDrawOptions {
+  resample_dist : Double
+  epsilon : Double
+  max_error : Double
+}
+
+pub(all) struct FreeDrawState {
+  points : Array[@model.Point]
+}
+
 pub(all) struct PendingConnection {
   target_id : String
   anchor : @model.Anchor
   point : @model.Point
+}
+
+pub struct PinchState {
+  pointer1_id : Int
+  pointer2_id : Int
+  pointer1_pos : @model.Point
+  pointer2_pos : @model.Point
+  initial_distance : Double
+  initial_zoom : Double
+  center : @model.Point
 }
 
 pub(all) struct PlacementState {
@@ -177,6 +215,13 @@ pub(all) struct PlacementState {
   is_arrow : Bool
   has_moved : Bool
 }
+
+pub(all) enum ToolMode {
+  Select
+  FreeDraw
+}
+pub impl Eq for ToolMode
+pub impl Show for ToolMode
 
 // Type aliases
 

@@ -18,6 +18,8 @@ pub fn calc_circle_resize(Double, Double, Double, HandlePosition, Double) -> Dou
 
 pub fn calc_connected_line_updates(String, Double, Double, Array[Element], Array[Element]) -> Array[ConnectedLineUpdate]
 
+pub fn calc_distance(Double, Double, Double, Double) -> Double
+
 pub fn calc_drag_position(Double, Double, Double, Double) -> Point
 
 pub fn calc_ellipse_resize(Double, Double, Double, Double, Double, Double, HandlePosition, Double) -> EllipseResizeResult
@@ -30,11 +32,23 @@ pub fn calc_send_backward(Int, Int) -> Int?
 
 pub fn calc_send_to_back(Int, Int) -> Int?
 
+pub fn calc_text_bounds(String, Double, Double, Double) -> BoundingBox
+
+pub fn calc_text_hit_area(String, Double) -> (Double, Double)
+
 pub fn calc_text_resize(Double, Double, Double, HandlePosition, Double) -> TextResizeResult
 
 pub fn can_add_element(Element, Array[Element]) -> (Bool, Array[ValidationIssue])
 
 pub fn can_delete_element(String, Array[Element]) -> (Bool, Array[ValidationIssue])
+
+pub let category_edit : String
+
+pub let category_mode : String
+
+pub let category_navigation : String
+
+pub let category_tool : String
 
 pub fn compute_line_move_topology(Array[Element], String, Double, Double, Double, Double) -> Array[LineCoords]
 
@@ -50,15 +64,25 @@ pub fn find_element_at(Array[Element], Point) -> Element?
 
 pub fn find_elements_in_box(Array[Element], BoundingBox) -> Array[Element]
 
+pub fn find_keybinding_by_action(String) -> KeyBinding?
+
 pub fn find_nearest_connection(Array[Element], Point, Array[String], Double) -> NearestConnectionResult?
 
 pub fn format_shape(ShapeType) -> String
+
+pub fn get_anchor_from_line_coords(Double, Double, Double, Double, Anchor) -> Point
 
 pub fn get_element_capability(ValidationResult, String) -> ElementCapability
 
 pub fn get_element_issues(ValidationResult, String) -> Array[ValidationIssue]
 
 pub fn get_errors(ValidationResult) -> Array[ValidationIssue]
+
+pub fn get_keybindings() -> Array[KeyBinding]
+
+pub fn get_keybindings_by_category(String) -> Array[KeyBinding]
+
+pub fn get_marker_attrs(Style) -> Array[(String, String)]
 
 pub fn get_parent_stroke(Array[Element], String?) -> String?
 
@@ -72,6 +96,8 @@ pub let issue_circular_parent : String
 
 pub let issue_duplicate_id : String
 
+pub let issue_invalid_coordinates : String
+
 pub let issue_invalid_id : String
 
 pub let issue_invalid_parent : String
@@ -84,9 +110,17 @@ pub let issue_negative_dimension : String
 
 pub let issue_orphan_connection : String
 
+pub let issue_plain_svg_element : String
+
 pub let issue_self_connection : String
 
 pub let issue_text_empty : String
+
+pub let issue_unsupported_shape : String
+
+pub fn keybinding_to_string(KeyBinding) -> String
+
+pub fn match_keybinding(String, Bool, Bool, Bool) -> KeyBinding?
 
 pub fn move_element_with_relations(Array[Element], String, Double, Double) -> Array[Element]
 
@@ -96,7 +130,15 @@ pub fn parse_anchor(String) -> Anchor?
 
 pub fn parse_handle_position(String) -> HandlePosition
 
+pub fn point_in_circle(Double, Double, Double, Double, Double) -> Bool
+
+pub fn point_in_rect(Double, Double, Double, Double, Double, Double) -> Bool
+
+pub fn point_to_line_distance(Double, Double, Double, Double, Double, Double) -> Double
+
 pub fn preset_colors() -> Array[PresetColor]
+
+pub fn propagate_line_connections_bfs(Array[Element], Array[String], except_ids? : Array[String]) -> Array[Element]
 
 pub fn recalculate_on_partial_move(Array[MoveTarget], Array[Element]) -> RecalculationResult
 
@@ -104,9 +146,17 @@ pub fn[T] reorder_array(Array[T], Int, Int) -> Array[T]
 
 pub fn resize_element_with_relations(Array[Element], String, ShapeType) -> Array[Element]
 
+pub fn round_coord(Double) -> Double
+
+pub fn round_element_coords(Element) -> Element
+
 pub fn shape_name(ShapeType) -> String
 
 pub fn snap_to_grid(Double, Double, Int, Bool) -> (Double, Double)
+
+pub fn sort_elements_for_render(Array[Element]) -> Array[Element]
+
+pub fn style_to_svg_attrs(Style) -> Array[(String, String)]
 
 pub fn suggest_repairs(Array[ValidationIssue]) -> Array[RepairAction]
 
@@ -121,6 +171,14 @@ pub fn test_make_line(String, Double, Double, Double, Double) -> Element
 pub fn test_make_rect(String, Double, Double, Double, Double) -> Element
 
 pub fn test_make_text(String, Double, Double, String) -> Element
+
+pub fn update_element_in_array(Array[Element], String, (Element) -> Element) -> Array[Element]
+
+pub fn update_element_position(Element, Double, Double) -> Element
+
+pub fn update_elements_in_array(Array[Element], Array[(String, (Element) -> Element)]) -> Array[Element]
+
+pub fn update_line_endpoint(Element, String, Double, Double) -> Element
 
 pub fn validate_elements(Array[Element]) -> ValidationResult
 
@@ -281,6 +339,7 @@ pub fn Element::find_nearest_anchor(Self, Point, Double) -> (Anchor, Point, Doub
 pub fn Element::get_all_anchors(Self) -> Array[(Anchor, Point)]
 pub fn Element::get_anchor_point(Self, Anchor) -> Point
 pub fn Element::hit_test(Self, Point) -> Bool
+pub fn Element::is_valid(Self) -> Bool
 pub fn Element::new(String, Double, Double, ShapeType) -> Self
 pub fn Element::with_parent(Self, String) -> Self
 pub fn Element::with_style(Self, Style) -> Self
@@ -296,6 +355,7 @@ pub(all) struct ElementCapability {
   can_add_child : Bool
 }
 pub fn ElementCapability::full() -> Self
+pub fn ElementCapability::move_and_delete() -> Self
 pub fn ElementCapability::move_only() -> Self
 pub fn ElementCapability::none() -> Self
 pub impl Eq for ElementCapability
@@ -339,6 +399,16 @@ pub(all) struct History {
 pub fn History::can_redo(Self) -> Bool
 pub fn History::can_undo(Self) -> Bool
 pub fn History::new() -> Self
+
+pub(all) struct KeyBinding {
+  key : String
+  ctrl : Bool
+  shift : Bool
+  meta : Bool
+  action : String
+  label : String
+  category : String
+}
 
 pub(all) struct LineConnections {
   start : Connection?
@@ -458,15 +528,29 @@ pub(all) struct ResizeState {
 pub impl Eq for ResizeState
 pub impl Show for ResizeState
 
+pub(all) struct ShapeConfig {
+  has_stroke : Bool
+  has_fill : Bool
+  has_stroke_width : Bool
+  has_font : Bool
+  has_dasharray : Bool
+  has_arrows : Bool
+  can_connect : Bool
+  is_connection_target : Bool
+  anchor_types : Array[Anchor]
+}
+
 pub(all) enum ShapeType {
   Rect(Double, Double, Double?, Double?)
   Circle(Double)
   Ellipse(Double, Double)
   Line(Double, Double)
   Polyline(Array[Point])
-  Path(String)
+  Path(String, Double, Double, Double, Double)
   Text(String, Double?)
 }
+pub fn ShapeType::config(Self) -> ShapeConfig
+pub fn ShapeType::is_valid(Self, Double, Double) -> Bool
 pub impl Eq for ShapeType
 pub impl Show for ShapeType
 
@@ -478,6 +562,7 @@ pub(all) struct Style {
   stroke_dasharray : String?
   marker_start : ArrowType?
   marker_end : ArrowType?
+  font_family : String?
 }
 pub fn Style::default() -> Self
 pub impl Eq for Style

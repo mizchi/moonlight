@@ -1,0 +1,144 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/luna_testing"
+
+import {
+  "mizchi/luna/core",
+  "mizchi/signals",
+}
+
+// Values
+pub fn[E] assert_attr(@core.Node[E, String], String, String) -> Unit
+
+pub fn[E] assert_child_count(@core.Node[E, String], Int) -> Unit
+
+pub fn[E] assert_dynamic_attr(@core.Node[E, String], String, String) -> Unit
+
+pub fn assert_effect_count(EffectCounter, Int) -> Unit
+
+pub fn[E] assert_element_count(@core.Node[E, String], String, Int) -> Unit
+
+pub fn[E] assert_for_count(@core.Node[E, String], Int) -> Unit
+
+pub fn[E] assert_has_attr(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_has_element(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_has_handler(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_is_element(@core.Node[E, String]) -> Unit
+
+pub fn[E] assert_is_text(@core.Node[E, String]) -> Unit
+
+pub fn[E] assert_no_element(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_show_hidden(@core.Node[E, String]) -> Unit
+
+pub fn[E] assert_show_visible(@core.Node[E, String]) -> Unit
+
+pub fn[T : Eq + Show] assert_signal_value(@signals.Signal[T], T) -> Unit
+
+pub fn[E] assert_static_attr(@core.Node[E, String], String, String) -> Unit
+
+pub fn[E] assert_tag(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_text(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_text_contains(@core.Node[E, String], String) -> Unit
+
+pub fn[E] assert_text_not_contains(@core.Node[E, String], String) -> Unit
+
+pub fn[T : Eq + Show] assert_tracked_values(SignalTracker[T], Array[T]) -> Unit
+
+pub fn[E] child_count(@core.Node[E, String]) -> Int
+
+pub fn[E] contains_text(@core.Node[E, String], String) -> Bool
+
+pub fn count_effect(() -> Unit) -> EffectCounter
+
+pub fn effect_get_count(EffectCounter) -> Int
+
+pub fn effect_reset(EffectCounter) -> Unit
+
+pub fn effect_stop(EffectCounter) -> Unit
+
+pub fn[E] find_all_by(@core.Node[E, String], (@core.Node[E, String]) -> Bool) -> Array[@core.Node[E, String]]
+
+pub fn[E] find_all_by_tag(@core.Node[E, String], String) -> Array[@core.Node[E, String]]
+
+pub fn[E] find_by(@core.Node[E, String], (@core.Node[E, String]) -> Bool) -> @core.Node[E, String]?
+
+pub fn[E] find_by_attr(@core.Node[E, String], String, String) -> @core.Node[E, String]?
+
+pub fn[E] find_by_tag(@core.Node[E, String], String) -> @core.Node[E, String]?
+
+pub fn[E] get_all_text(@core.Node[E, String]) -> String
+
+pub fn[E] get_attr(@core.Node[E, String], String) -> @core.Attr[E, String]?
+
+pub fn[E] get_attr_names(@core.Node[E, String]) -> Array[String]
+
+pub fn[E] get_attr_value(@core.Node[E, String], String) -> String?
+
+pub fn[E] get_children(@core.Node[E, String]) -> Array[@core.Node[E, String]]
+
+pub fn[E] get_dynamic_attr(@core.Node[E, String], String) -> String?
+
+pub fn[E] get_dynamic_text(@core.Node[E, String]) -> String?
+
+pub fn[E] get_element(@core.Node[E, String]) -> @core.VElement[E, String]?
+
+pub fn[E] get_handler(@core.Node[E, String], String) -> @core.EventHandler[E]?
+
+pub fn[E] get_static_attr(@core.Node[E, String], String) -> String?
+
+pub fn[E] get_tag(@core.Node[E, String]) -> String?
+
+pub fn[E] get_text(@core.Node[E, String]) -> String?
+
+pub fn[E] has_handler(@core.Node[E, String], String) -> Bool
+
+pub fn[E] is_component(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_dynamic_text(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_element(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_for(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_fragment(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_show(@core.Node[E, String]) -> Bool
+
+pub fn[E] is_text(@core.Node[E, String]) -> Bool
+
+pub fn[E] node_type_name(@core.Node[E, String]) -> String
+
+pub fn test_batch(() -> Unit, () -> Unit, () -> Unit) -> Unit
+
+pub fn[T : Eq] track_signal(@signals.Signal[T]) -> SignalTracker[T]
+
+pub fn[T] tracker_count(SignalTracker[T]) -> Int
+
+pub fn[T] tracker_last(SignalTracker[T]) -> T?
+
+pub fn[T] tracker_stop(SignalTracker[T]) -> Unit
+
+pub fn[T] tracker_values(SignalTracker[T]) -> Array[T]
+
+// Errors
+
+// Types and methods
+pub struct EffectCounter {
+  mut count : Int
+  cleanup : () -> Unit
+}
+
+pub struct SignalTracker[T] {
+  values : Array[T]
+  cleanup : () -> Unit
+}
+
+// Type aliases
+
+// Traits
+

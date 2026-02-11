@@ -1,0 +1,13 @@
+import {
+  "mizchi/moonlight/lib",
+  "mizchi/luna",
+  "mizchi/luna/dom" @element,
+  "mizchi/signals",
+  "mizchi/js/browser/dom" @js_dom,
+  "mizchi/js/core" @js,
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "js" ],
+)

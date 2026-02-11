@@ -2086,11 +2086,9 @@ pub fn EditorState::update_connected_lines_except(
 ) -> Unit {
   // model 層の BFS 関数を使用（except_ids で除外）
   self.elements.update(fn(elements) {
-    @model.propagate_line_connections_bfs(
-      elements,
-      [element_id],
-      except_ids=[except_line_id],
-    )
+    @model.propagate_line_connections_bfs(elements, [element_id], except_ids=[
+      except_line_id,
+    ])
   })
 }
 

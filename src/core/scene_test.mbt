@@ -40,7 +40,10 @@ fn test_make_text_with_parent(
   content : String,
   parent_id : String,
 ) -> @model.Element {
-  { ..@model.Element::new(id, x, y, @model.Text(content, None)), parent_id: Some(parent_id) }
+  {
+    ..@model.Element::new(id, x, y, @model.Text(content, None)),
+    parent_id: Some(parent_id),
+  }
 }
 
 // ============================================================
@@ -61,7 +64,9 @@ test "delete_selected: 単一要素の削除" {
 test "delete_selected: 親要素を削除すると子要素も削除される" {
   let state = EditorState::new(800, 600)
   let parent = test_make_rect("parent", 100.0, 100.0, 100.0, 50.0)
-  let child = test_make_text_with_parent("child", 150.0, 125.0, "Hello", "parent")
+  let child = test_make_text_with_parent(
+    "child", 150.0, 125.0, "Hello", "parent",
+  )
   state.elements.set([parent, child])
   state.selected_ids.set(["parent"])
   state.delete_selected()
@@ -73,7 +78,9 @@ test "delete_selected: 親要素を削除すると子要素も削除される" {
 test "delete_selected: 子要素を削除すると親要素も削除される" {
   let state = EditorState::new(800, 600)
   let parent = test_make_rect("parent", 100.0, 100.0, 100.0, 50.0)
-  let child = test_make_text_with_parent("child", 150.0, 125.0, "Hello", "parent")
+  let child = test_make_text_with_parent(
+    "child", 150.0, 125.0, "Hello", "parent",
+  )
   state.elements.set([parent, child])
   state.selected_ids.set(["child"])
   state.delete_selected()
@@ -138,7 +145,9 @@ test "delete_selected: 複数の独立した要素を同時に削除" {
 test "delete_selected: 親子セットと独立要素を同時に削除" {
   let state = EditorState::new(800, 600)
   let parent = test_make_rect("parent", 100.0, 100.0, 100.0, 50.0)
-  let child = test_make_text_with_parent("child", 150.0, 125.0, "Hello", "parent")
+  let child = test_make_text_with_parent(
+    "child", 150.0, 125.0, "Hello", "parent",
+  )
   let independent = test_make_rect("independent", 300.0, 100.0, 50.0, 50.0)
   state.elements.set([parent, child, independent])
   state.selected_ids.set(["parent", "independent"])

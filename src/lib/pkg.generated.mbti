@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/lib"
 
-import(
-  "mizchi/luna/luna/signal"
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/moonlight/model",
+  "mizchi/signals",
+}
 
 // Values
 pub fn add_focusin_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
@@ -17,13 +17,15 @@ pub fn add_keyup_listener_to_element(@mizchi/js/core.Any, (@mizchi/js/core.Any) 
 
 pub fn add_marker_attrs(Array[(String, String)], @model.Style) -> Unit
 
-pub fn add_mousedown_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
+pub fn add_pointercancel_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
-pub fn add_mouseleave_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
+pub fn add_pointerdown_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
-pub fn add_mousemove_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
+pub fn add_pointerleave_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
-pub fn add_mouseup_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
+pub fn add_pointermove_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
+
+pub fn add_pointerup_handler(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
 pub fn add_sample_elements(@mizchi/moonlight/core.EditorState) -> Unit
 
@@ -36,6 +38,8 @@ pub fn append_child(@mizchi/js/core.Any, @mizchi/js/core.Any) -> Unit
 pub fn clear_container_ffi(@mizchi/js/core.Any) -> Unit
 
 pub fn clear_svg_children(@mizchi/js/core.Any) -> Unit
+
+pub fn continue_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
 
 pub fn create_arrow_defs() -> @mizchi/js/core.Any
 
@@ -51,11 +55,15 @@ pub fn create_svg_container(@mizchi/moonlight/core.EditorState, @mizchi/js/core.
 
 pub fn create_svg_element_ns(String) -> @mizchi/js/core.Any
 
+pub fn draw_free_draw_preview(@mizchi/js/core.Any, Array[@model.Point]) -> Unit
+
 pub fn draw_preview_line(@mizchi/js/core.Any, Double, Double, Double, Double) -> Unit
 
 pub fn element_to_svg_string(@model.Element) -> String
 
 pub fn export_elements_to_svg(Array[@model.Element], Int, Int, String) -> String
+
+pub fn finish_free_draw(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
 
 pub fn get_element_anchor_points(@model.Element) -> Array[(Double, Double, @mizchi/moonlight/core.AnchorType)]
 
@@ -63,13 +71,21 @@ pub fn get_element_bounds(@model.Element) -> (Double, Double, Double, Double)
 
 pub fn get_mouse_coords_from_event(@mizchi/js/core.Any) -> (Double, Double)
 
-pub fn get_selected_id(@mizchi/moonlight/core.EditorState) -> String?
+pub fn get_preview_points(@mizchi/moonlight/core.EditorState) -> Array[@model.Point]
 
 pub fn get_target_id(@mizchi/js/core.Any) -> String
 
+pub fn is_drawing(@mizchi/moonlight/core.EditorState) -> Bool
+
 pub fn is_focus_within_ffi(@mizchi/js/core.Any, @mizchi/js/core.Any) -> Bool
 
-pub fn num_to_str(Double) -> String
+pub fn is_free_draw_mode(@mizchi/moonlight/core.EditorState) -> Bool
+
+pub fn is_js_null(@mizchi/js/core.Any) -> Bool
+
+pub fn open_github_page(String) -> Unit
+
+pub fn open_help_page() -> Unit
 
 pub fn parse_anchor_type(String) -> @mizchi/moonlight/core.AnchorType?
 
@@ -80,6 +96,8 @@ pub fn parse_theme(String?) -> @model.ThemeMode
 pub fn redraw_svg(@mizchi/moonlight/core.EditorState) -> Unit
 
 pub fn remove_anchor_points(@mizchi/js/core.Any) -> Unit
+
+pub fn remove_free_draw_preview(@mizchi/js/core.Any) -> Unit
 
 pub fn remove_preview_line(@mizchi/js/core.Any) -> Unit
 
@@ -99,7 +117,13 @@ pub fn render_line_handle(@mizchi/js/core.Any, Double, Double, String, String) -
 
 pub fn render_resize_handle(@mizchi/js/core.Any, Double, Double, String, String, String) -> @mizchi/js/core.Any
 
+pub fn set_free_draw_mode(@mizchi/moonlight/core.EditorState) -> Unit
+
+pub fn set_free_draw_options(@mizchi/moonlight/core.EditorState, Double, Double, Double) -> Unit
+
 pub fn set_inner_html(@mizchi/js/core.Any, String) -> Unit
+
+pub fn set_select_mode(@mizchi/moonlight/core.EditorState) -> Unit
 
 pub fn set_selected_id(@mizchi/moonlight/core.EditorState, String?) -> Unit
 
@@ -113,15 +137,25 @@ pub fn setup_context_menu(@mizchi/moonlight/core.EditorState, ContextMenuState, 
 
 pub fn setup_editor(@mizchi/js/core.Any, EditorOptions, () -> String) -> EditorSetupResult
 
+pub fn setup_event_listeners(@mizchi/moonlight/core.EditorState, EventCallbacks) -> Unit
+
 pub fn setup_focus_management(FocusState, @mizchi/js/core.Any) -> Unit
+
+pub fn setup_github_link(@mizchi/moonlight/core.EditorState, String?) -> Unit
+
+pub fn setup_help_button(@mizchi/moonlight/core.EditorState, Bool) -> Unit
 
 pub fn setup_interaction(@mizchi/moonlight/core.EditorState, DragState) -> Unit
 
 pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
 
-pub fn should_handle_keyboard(@signal.Signal[Bool]) -> Bool
+pub fn should_handle_keyboard(@signals.Signal[Bool]) -> Bool
+
+pub fn start_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
 
 pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
+
+pub fn toggle_tool_mode(@mizchi/moonlight/core.EditorState) -> Unit
 
 pub fn update_selection_ui(@mizchi/moonlight/core.EditorState) -> Unit
 
@@ -129,10 +163,10 @@ pub fn update_selection_ui(@mizchi/moonlight/core.EditorState) -> Unit
 
 // Types and methods
 pub struct ContextMenuState {
-  visible : @signal.Signal[Bool]
-  x : @signal.Signal[Double]
-  y : @signal.Signal[Double]
-  target_id : @signal.Signal[String?]
+  visible : @signals.Signal[Bool]
+  x : @signals.Signal[Double]
+  y : @signals.Signal[Double]
+  target_id : @signals.Signal[String?]
   menu_el : Ref[@mizchi/js/core.Any]
 }
 pub fn ContextMenuState::hide(Self) -> Unit
@@ -140,8 +174,8 @@ pub fn ContextMenuState::new() -> Self
 pub fn ContextMenuState::show(Self, Double, Double, String?) -> Unit
 
 pub struct DragState {
-  is_dragging : @signal.Signal[Bool]
-  dragging_id : @signal.Signal[String?]
+  is_dragging : @signals.Signal[Bool]
+  dragging_id : @signals.Signal[String?]
   start_x : Ref[Double]
   start_y : Ref[Double]
   element_start_x : Ref[Double]
@@ -158,6 +192,8 @@ pub(all) struct EditorOptions {
   is_readonly : Bool
   toolbar_visible : Bool
   initial_svg : String?
+  show_help_button : Bool
+  github_url : String?
 }
 pub fn EditorOptions::default() -> Self
 pub fn EditorOptions::from_js(@mizchi/js/core.Any) -> Self
@@ -168,9 +204,21 @@ pub struct EditorSetupResult {
   context_menu : ContextMenuState
 }
 
+pub struct EventCallbacks {
+  on_change : Array[() -> Unit]
+  on_select : Array[(Array[String]) -> Unit]
+  on_deselect : Array[() -> Unit]
+  on_focus : Array[() -> Unit]
+  on_blur : Array[() -> Unit]
+  on_mode_change : Array[(String) -> Unit]
+  on_element_add : Array[(String) -> Unit]
+  on_element_delete : Array[(String) -> Unit]
+}
+pub fn EventCallbacks::new() -> Self
+
 pub(all) struct FocusState {
-  has_focus : @signal.Signal[Bool]
-  container : @signal.Signal[@mizchi/js/core.Any?]
+  has_focus : @signals.Signal[Bool]
+  container : @signals.Signal[@mizchi/js/core.Any?]
 }
 pub fn FocusState::new() -> Self
 

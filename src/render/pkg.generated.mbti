@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/render"
 
-import(
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/moonlight/model",
+}
 
 // Values
 pub fn add_marker_attrs(Array[(String, String)], @model.Style) -> Unit
@@ -28,7 +28,7 @@ pub fn elements_to_svg_with_options(Array[@model.Element], Int, Int, String) -> 
 
 pub fn generate_arrow_defs() -> String
 
-pub fn num_to_str(Double) -> String
+pub fn sort_elements_for_render(Array[@model.Element]) -> Array[@model.Element]
 
 pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
 

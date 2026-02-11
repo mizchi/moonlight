@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/entries/viewer"
 
-import(
-  "mizchi/moonlight/model"
-)
+import {
+  "mizchi/moonlight/model",
+}
 
 // Values
 pub fn circle(String, Double, Double, Double, @model.Style) -> @model.Element

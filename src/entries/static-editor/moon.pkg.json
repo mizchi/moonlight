@@ -1,8 +1,0 @@
-{
-  "import": [
-    "mizchi/moonlight/model",
-    "mizchi/moonlight/render",
-    "mizchi/moonlight/import"
-  ],
-  "supported-targets": ["js"]
-}
