@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "moon:build:compat": "moon build --target js && (test -e _build || ln -s target _build) && (test -e target || ln -s _build target)",
+    "moon:build:compat": "moon build --target js --release && (test -e _build || ln -s target _build) && (test -e target || ln -s _build target)",
     "build:component": "pnpm moon:build:compat && rolldown -c rolldown.config.mjs",
     "build:all": "pnpm moon:build:compat && vite build && rolldown -c rolldown.config.mjs",
     "deploy": "pnpm build:all && wrangler deploy",
