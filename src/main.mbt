@@ -1110,11 +1110,12 @@ fn handle_anchor_click(
   let (scene_x, scene_y) = get_scene_coords(e)
   let line_id = new_id()
   // Arrow として作成（矢印付き）
+  // 終点を1pxオフセット（ゼロ長Lineはis_validでスキップされるため）
   let new_line = @model.Element::new(
     line_id,
     anchor_point.x,
     anchor_point.y,
-    @model.Line(anchor_point.x, anchor_point.y),
+    @model.Line(anchor_point.x + 1.0, anchor_point.y),
   ).with_style(state.get_arrow_style())
   let line_with_conn = {
     ..new_line,
