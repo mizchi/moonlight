@@ -3,7 +3,7 @@
 ///|
 /// ヘルプボタンをセットアップ
 pub fn setup_help_button(state : @core.EditorState, show_button : Bool) -> Unit {
-  if not(show_button) {
+  if !show_button {
     return
   }
   let container = state.container_el.get()

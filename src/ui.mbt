@@ -228,7 +228,7 @@ fn render_canvas_root_compact(state : @core.EditorState) -> @element.DomNode {
     div(style="", [
       div(
         style=accordion_header_style,
-        on=events().click(fn(_) { settings_open.update(fn(v) { not(v) }) }),
+        on=events().click(fn(_) { settings_open.update(fn(v) { !v }) }),
         [
           text("Canvas Settings"),
           text_dyn(fn() { if settings_open.get() { "▼" } else { "▶" } }),
@@ -240,7 +240,7 @@ fn render_canvas_root_compact(state : @core.EditorState) -> @element.DomNode {
     div(style="", [
       div(
         style=accordion_header_style,
-        on=events().click(fn(_) { elements_open.update(fn(v) { not(v) }) }),
+        on=events().click(fn(_) { elements_open.update(fn(v) { !v }) }),
         [
           text_dyn(fn() {
             let count = state.elements

@@ -52,7 +52,7 @@ extern "js" fn define_custom_element(editor_url : String) =
   #|       const theme = this.getAttribute('theme') || 'light';
   #|       const bg = theme === 'dark' ? '#1a1a2e' : '#ffffff';
   #|       // Light DOM から SVG を取得（template > 直接の SVG 子要素）
-  #|       const template = this.querySelector('template:not([shadowrootmode])');
+  #|       const template = this.querySelector('template:![shadowrootmode]');
   #|       const svgFromTemplate = template?.content.querySelector('svg');
   #|       const svgFromLightDom = this.querySelector(':scope > svg');
   #|       const svg = svgFromTemplate || svgFromLightDom;
@@ -131,7 +131,7 @@ extern "js" fn define_custom_element(editor_url : String) =
   #|         // このエディタで生成したSVGは既にこの形式で出力される
   #|         // TODO: 外部SVGの座標変換は将来対応
   #|         const svgFromLightDom = this.querySelector(':scope > svg');
-  #|         const template = this.querySelector('template:not([shadowrootmode])');
+  #|         const template = this.querySelector('template:![shadowrootmode]');
   #|         const svgFromTemplate = template?.content.querySelector('svg');
   #|         const svg = svgFromLightDom || svgFromTemplate;
   #|         const initialSvg = svg?.outerHTML || '';
@@ -188,7 +188,7 @@ extern "js" fn define_custom_element(editor_url : String) =
   #|     // Public API
   #|     exportSvg() {
   #|       if (this._handle) return this._handle.exportSvg();
-  #|       const svg = this.querySelector('template:not([shadowrootmode])')?.content.querySelector('svg');
+  #|       const svg = this.querySelector('template:![shadowrootmode]')?.content.querySelector('svg');
   #|       return svg?.outerHTML || '<svg></svg>';
   #|     }
   #|

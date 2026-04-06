@@ -32,7 +32,7 @@ pub(all) enum EditorMode {
 pub(all) enum ToolMode {
   Select // 選択モード（デフォルト）
   FreeDraw // フリードローモード
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// フリードロー状態（描画中の点群）
@@ -372,7 +372,7 @@ pub fn EditorState::end_text_edit(self : EditorState) -> Unit {
 ///|
 /// グリッドスナップを切り替え
 pub fn EditorState::toggle_grid(self : EditorState) -> Unit {
-  self.grid_enabled.update(fn(v) { not(v) })
+  self.grid_enabled.update(fn(v) { !v })
 }
 
 ///|
@@ -556,7 +556,7 @@ pub fn EditorState::select_multiple(
 /// 選択に追加
 pub fn EditorState::add_to_selection(self : EditorState, id : String) -> Unit {
   let current = self.selected_ids.get()
-  if not(current.contains(id)) {
+  if !current.contains(id) {
     let new_ids = current.copy()
     new_ids.push(id)
     self.selected_ids.set(new_ids)
@@ -781,7 +781,7 @@ pub fn EditorState::delete_selected(self : EditorState) -> Unit {
   // 重複を除去して削除
   let deleted : Array[String] = []
   for id in all_ids {
-    if not(deleted.contains(id)) {
+    if !deleted.contains(id) {
       deleted.push(id)
       self.remove_element(id)
     }
@@ -1952,12 +1952,12 @@ pub fn EditorState::multi_drag_move(
         let conns = el.connections.unwrap_or(@model.LineConnections::none())
         // 始点が選択外の要素に接続されているか
         let start_connected_outside = match conns.start {
-          Some(conn) => not(selected_ids.contains(conn.element_id))
+          Some(conn) => !selected_ids.contains(conn.element_id)
           None => false
         }
         // 終点が選択外の要素に接続されているか
         let end_connected_outside = match conns.end {
-          Some(conn) => not(selected_ids.contains(conn.element_id))
+          Some(conn) => !selected_ids.contains(conn.element_id)
           None => false
         }
         if start_connected_outside && end_connected_outside {
@@ -2170,7 +2170,7 @@ pub fn EditorState::update_placement(
   guard self.find_element(placement.element_id) is Some(el)
 
   // 初回移動時に has_moved を true に設定し、Arrow のマーカーを有効化
-  if not(placement.has_moved) {
+  if !placement.has_moved {
     self.placement_state.set(Some({ ..placement, has_moved: true }))
     // Arrow の場合、マーカーを追加
     if placement.is_arrow {
@@ -2366,7 +2366,7 @@ pub fn EditorState::register_plain_svg_ids(
   let current = self.plain_svg_ids.get()
   let new_ids = current.copy()
   for id in ids {
-    if not(new_ids.contains(id)) {
+    if !new_ids.contains(id) {
       new_ids.push(id)
     }
   }

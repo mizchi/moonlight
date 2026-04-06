@@ -115,12 +115,72 @@ jobs:
         run: pnpm build:all
 
       - name: Run E2E tests
-        run: pnpm test:e2e
+        run: npx playwright test --grep-invert 'Smoke Test|Visual Regression'
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  vrt:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MoonBit
+        uses: chawyehsu/setup-moonup@v1
+        with:
+          moonbit-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Update MoonBit registry
+        run: moon update
+
+      - name: Install MoonBit dependencies
+        run: moon install
+
+      - name: Install Node.js dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm build:all
+
+      - name: Run smoke tests
+        run: npx playwright test e2e/smoke.test.ts --reporter=list
+
+      - name: Run visual regression tests
+        run: npx playwright test e2e/visual-regression.test.ts --reporter=list
+
+      - name: Upload VRT artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vrt-results
+          path: |
+            e2e/snapshots/current/
+            e2e/snapshots/diff/
+          retention-days: 14
+
+      - name: Upload VRT report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vrt-report
           path: playwright-report/
           retention-days: 7

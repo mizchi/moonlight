@@ -22,7 +22,7 @@ pub fn setup_keyboard_handler(
   // コンテナにキーボードイベントを追加
   add_keyboard_handler(container, fn(e) {
     // フォーカスがない場合は無視
-    if not(state.has_focus.get()) {
+    if !state.has_focus.get() {
       return
     }
     // フルスクリーンモーダルでは main 側のキーボード処理に委譲する

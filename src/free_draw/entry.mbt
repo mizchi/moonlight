@@ -338,7 +338,7 @@ fn on_pointer_move(e : @js.Any) -> Unit {
   }
 
   // Handle drawing
-  if not(state.is_drawing) {
+  if !state.is_drawing {
     return
   }
   prevent_default(e)
@@ -413,7 +413,7 @@ fn on_pointer_up(_e : @js.Any) -> Unit {
   }
 
   // End drawing
-  if not(state.is_drawing) {
+  if !state.is_drawing {
     return
   }
   state.is_drawing = false

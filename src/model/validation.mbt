@@ -11,7 +11,7 @@ pub(all) enum ValidationLevel {
   Error // 致命的な問題（操作不可）
   Warning // 警告（操作可能だが注意が必要）
   Info // 情報（参考）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 検証で見つかった問題
@@ -20,7 +20,7 @@ pub(all) struct ValidationIssue {
   element_id : String? // 問題のある要素ID（None = 全体的な問題）
   code : String // 問題コード（例: "INVALID_PARENT", "ORPHAN_CONNECTION"）
   message : String // 人間が読めるメッセージ
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 要素の操作権限
@@ -31,7 +31,7 @@ pub(all) struct ElementCapability {
   can_delete : Bool // 削除可能
   can_connect : Bool // 接続可能（Line要素）
   can_add_child : Bool // 子要素追加可能
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 全操作可能
@@ -91,7 +91,7 @@ pub(all) struct ValidationResult {
   is_valid : Bool // 全体として有効か
   issues : Array[ValidationIssue] // 見つかった問題
   capabilities : Map[String, ElementCapability] // 要素ごとの操作権限
-} derive(Show)
+} derive(Show, Debug)
 
 ///|
 /// 空の検証結果（有効）
@@ -225,7 +225,7 @@ pub fn validate_elements(elements : Array[Element]) -> ValidationResult {
 
   // 全体の有効性を判定（Errorがなければ有効）
   let has_errors = issues.iter().any(fn(i) { i.level == Error })
-  { is_valid: not(has_errors), issues, capabilities }
+  { is_valid: !has_errors, issues, capabilities }
 }
 
 ///|
@@ -243,7 +243,7 @@ fn validate_element(
   }
 
   // 座標の有効性検証（NaN, Infinity チェック）
-  if not(is_finite(el.x)) || not(is_finite(el.y)) {
+  if !is_finite(el.x) || !is_finite(el.y) {
     add_issue(
       issues,
       Error,
@@ -269,7 +269,7 @@ fn validate_element(
   // 親要素検証
   match el.parent_id {
     Some(pid) => {
-      if not(element_exists(all_elements, pid)) {
+      if !element_exists(all_elements, pid) {
         add_issue(
           issues,
           Warning,
@@ -332,7 +332,7 @@ fn validate_connection(
 ) -> Unit {
   match conn {
     Some(c) =>
-      if not(element_exists(all_elements, c.element_id)) {
+      if !element_exists(all_elements, c.element_id) {
         add_issue(
           issues,
           Warning,
@@ -577,7 +577,7 @@ pub fn can_add_element(
   all_elements.push(new_element)
   let issues = validate_single_element(new_element, all_elements)
   let has_errors = issues.iter().any(fn(i) { i.level == Error })
-  (not(has_errors), issues)
+  (!has_errors, issues)
 }
 
 ///|
@@ -634,7 +634,7 @@ pub fn can_delete_element(
 
   // 警告のみなら削除可能
   let has_errors = issues.iter().any(fn(i) { i.level == Error })
-  (not(has_errors), issues)
+  (!has_errors, issues)
 }
 
 // ============================================================
@@ -648,7 +648,7 @@ pub(all) enum RepairAction {
   RemoveParent(String) // element_id
   DeleteElement(String) // element_id
   RegenerateId(String, String) // (old_id, new_id)
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 問題に対する修復アクションを提案

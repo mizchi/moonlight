@@ -101,7 +101,7 @@ pub fn propagate_line_connections_bfs(
       if changed {
         coords_map[el.id] = (new_x, new_y, new_x2, new_y2)
         // この Line に接続している Line も更新が必要
-        if not(queue.contains(el.id)) && not(processed.contains(el.id)) {
+        if !queue.contains(el.id) && !processed.contains(el.id) {
           queue.push(el.id)
         }
       }
@@ -211,8 +211,8 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if not(is_line) &&
-            not(connected_non_line_ids.contains(conn.element_id)) {
+          if !is_line &&
+            !connected_non_line_ids.contains(conn.element_id) {
             connected_non_line_ids.push(conn.element_id)
           }
         }
@@ -223,8 +223,8 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if not(is_line) &&
-            not(connected_non_line_ids.contains(conn.element_id)) {
+          if !is_line &&
+            !connected_non_line_ids.contains(conn.element_id) {
             connected_non_line_ids.push(conn.element_id)
           }
         }

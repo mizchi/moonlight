@@ -295,7 +295,7 @@ pub fn setup_interaction(
             }),
           )
           // Line端点移動の場合はプレビュー線を使わない（リアルタイム更新するため）
-          if not(is_line_anchor) {
+          if !is_line_anchor {
             // 新規Line作成のプレビュー用
           }
           prevent_default_ffi(e)
@@ -383,7 +383,7 @@ pub fn setup_interaction(
       None => ()
     }
     // 通常のドラッグ
-    if not(drag_state.is_dragging.get()) {
+    if !drag_state.is_dragging.get() {
       return
     }
     match drag_state.dragging_id.get() {

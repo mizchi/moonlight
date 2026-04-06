@@ -272,11 +272,11 @@ fn create_editor_handle_js(
   let get_elements = fn() -> Array[@model.Element] { state.elements.get() }
   let delete_elements = fn(ids : Array[String]) -> Unit {
     state.elements.update(fn(els) {
-      els.filter(fn(el) { not(ids.contains(el.id)) })
+      els.filter(fn(el) { !ids.contains(el.id) })
     })
     // 削除された要素を選択から除外
     state.selected_ids.update(fn(sel) {
-      sel.filter(fn(id) { not(ids.contains(id)) })
+      sel.filter(fn(id) { !ids.contains(id) })
     })
   }
   // モード API
@@ -419,13 +419,13 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     let curr_ids = elements.map(fn(el) { el.id })
     // 追加された要素
     for id in curr_ids {
-      if not(prev_ids.contains(id)) {
+      if !prev_ids.contains(id) {
         fire_element_add(handle, id)
       }
     }
     // 削除された要素
     for id in prev_ids {
-      if not(curr_ids.contains(id)) {
+      if !curr_ids.contains(id) {
         fire_element_delete(handle, id)
       }
     }
@@ -451,9 +451,9 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
   let prev_focus : Ref[Bool] = { val: false }
   let _ = @luna.effect(fn() {
     let focused = state.has_focus.get()
-    if focused && not(prev_focus.val) {
+    if focused && !prev_focus.val {
       fire_focus(handle)
-    } else if not(focused) && prev_focus.val {
+    } else if !focused && prev_focus.val {
       fire_blur(handle)
     }
     prev_focus.val = focused
@@ -1407,7 +1407,7 @@ fn create_pointermove_handler(
       @lib.continue_free_draw(state, scene_x, scene_y)
       // プレビュー描画
       let svg = state.svg_el.get()
-      if not(@js.is_nullish(svg)) {
+      if !@js.is_nullish(svg) {
         let points = @lib.get_preview_points(state)
         @lib.draw_free_draw_preview(svg, points)
       }
@@ -1546,7 +1546,7 @@ fn create_pointerup_handler(
     if @lib.is_drawing(state) {
       // プレビューを削除
       let svg = state.svg_el.get()
-      if not(@js.is_nullish(svg)) {
+      if !@js.is_nullish(svg) {
         @lib.remove_free_draw_preview(svg)
       }
       // Path 要素を作成
@@ -1588,7 +1588,7 @@ fn create_pointerleave_handler(state : @core.EditorState) -> (@js.Any) -> Unit {
     // フリードロー中の場合はキャンセル
     if @lib.is_drawing(state) {
       let svg = state.svg_el.get()
-      if not(@js.is_nullish(svg)) {
+      if !@js.is_nullish(svg) {
         @lib.remove_free_draw_preview(svg)
       }
       state.free_draw_state.set(None)
@@ -1715,7 +1715,7 @@ fn setup_keyboard_shortcuts(
         // 重複を除去して削除
         let deleted : Array[String] = []
         for id in all_ids {
-          if not(deleted.contains(id)) {
+          if !deleted.contains(id) {
             deleted.push(id)
             if state.find_element(id) is Some(el) {
               @core.execute_command(history, state, @model.RemoveElement(el))
@@ -1992,7 +1992,7 @@ fn setup_keyboard_shortcuts(
             },
             fn() { () },
           )
-        } else if not(is_cmd) {
+        } else if !is_cmd {
           // V: 選択モードに切り替え
           @lib.set_select_mode(state)
         }
@@ -2073,7 +2073,7 @@ fn render_panel_toggle(state : @core.EditorState) -> @element.DomNode {
         icon_transform
       }
     },
-    on=events().click(fn(_) { state.panel_visible.update(fn(v) { not(v) }) }),
+    on=events().click(fn(_) { state.panel_visible.update(fn(v) { !v }) }),
     [text_dyn(fn() { if state.panel_visible.get() { "×" } else { "☰" } })],
   )
 }
@@ -2486,7 +2486,7 @@ fn render_text_input_container(
       let bg_color = get_contrasting_bg(text_color, theme)
       // Embed モード（モーダルなし）ではパーセント指定、それ以外はピクセル指定
       let is_embed_view = state.mode is @core.Embedded &&
-        not(state.modal_open.get())
+        !state.modal_open.get()
       let base_font_size = match edit_state.font_size {
         Some(size) => size
         None => 16.0
@@ -3021,7 +3021,7 @@ fn render_svg_canvas_node(
       @element.Dynamic(fn() {
         // Embedモードではドキュメント全体を表示（0, 0, doc_w, doc_h）
         // ただしモーダルが開いている場合はフルモードのviewBoxを使用
-        if state.mode is @core.Embedded && not(state.modal_open.get()) {
+        if state.mode is @core.Embedded && !state.modal_open.get() {
           let doc_w = state.doc_width.get()
           let doc_h = state.doc_height.get()
           "0 0 \{doc_w} \{doc_h}"

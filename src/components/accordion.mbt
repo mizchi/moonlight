@@ -13,7 +13,7 @@ pub fn accordion_section(
     // ヘッダー
     @element.div(
       style=accordion_header_style(theme),
-      on=@element.events().click(fn(_) { is_open.update(fn(v) { not(v) }) }),
+      on=@element.events().click(fn(_) { is_open.update(fn(v) { !v }) }),
       [
         @element.text(title),
         @element.text_dyn(fn() { if is_open.get() { "▼" } else { "▶" } }),
@@ -35,7 +35,7 @@ pub fn collapsible_section(
   @element.div(style="margin-bottom: 8px;", [
     @element.div(
       style=accordion_header_style(theme),
-      on=@element.events().click(fn(_) { is_open.update(fn(v) { not(v) }) }),
+      on=@element.events().click(fn(_) { is_open.update(fn(v) { !v }) }),
       [
         @element.text(title),
         @element.text_dyn(fn() { if is_open.get() { "▼" } else { "▶" } }),

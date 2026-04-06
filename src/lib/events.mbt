@@ -47,7 +47,7 @@ pub fn setup_event_listeners(
     let curr_ids = elements.map(fn(el) { el.id })
     // 追加された要素
     for id in curr_ids {
-      if not(prev_ids.contains(id)) {
+      if !prev_ids.contains(id) {
         for cb in callbacks.on_element_add {
           cb(id)
         }
@@ -55,7 +55,7 @@ pub fn setup_event_listeners(
     }
     // 削除された要素
     for id in prev_ids {
-      if not(curr_ids.contains(id)) {
+      if !curr_ids.contains(id) {
         for cb in callbacks.on_element_delete {
           cb(id)
         }
@@ -89,11 +89,11 @@ pub fn setup_event_listeners(
   let prev_focus : Ref[Bool] = { val: false }
   let _ = @luna.effect(fn() {
     let focused = state.has_focus.get()
-    if focused && not(prev_focus.val) {
+    if focused && !prev_focus.val {
       for cb in callbacks.on_focus {
         cb()
       }
-    } else if not(focused) && prev_focus.val {
+    } else if !focused && prev_focus.val {
       for cb in callbacks.on_blur {
         cb()
       }

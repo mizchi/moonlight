@@ -19,9 +19,9 @@ pub fn import_svg_validated(
     return { elements: [], is_moonlight: false, plain_svg_ids: [] }
   }
   // Moonlight形式かチェック
-  let is_moonlight = not(
-    @js.is_nullish(get_attribute(svg_el, "data-moonlight")),
-  )
+  let is_moonlight =
+    !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+
   let children = get_svg_children(svg_el)
   let elements : Array[@model.Element] = []
   let plain_svg_ids : Array[String] = []
@@ -42,7 +42,7 @@ pub fn import_svg_validated(
     if el_opt is Some(el) {
       elements.push(el)
       // プレーンSVG要素はIDを記録
-      if not(is_moonlight) {
+      if !is_moonlight {
         plain_svg_ids.push(el.id)
       }
     }
@@ -65,9 +65,9 @@ pub fn import_svg_elements(
     return []
   }
   // Moonlight形式かチェック
-  let is_moonlight = not(
-    @js.is_nullish(get_attribute(svg_el, "data-moonlight")),
-  )
+  let is_moonlight =
+    !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+
   let children = get_svg_children(svg_el)
   let elements : Array[@model.Element] = []
   let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
@@ -190,7 +190,7 @@ fn parse_shape(
     "rect" => {
       // 背景用rect（data-idがなく、width/height が 100%）はスキップ
       let width_raw = get_attribute(el, "width")
-      if not(@js.is_nullish(width_raw)) {
+      if !@js.is_nullish(width_raw) {
         let width_str : String = width_raw.cast()
         if width_str == "100%" {
           return None
@@ -503,7 +503,7 @@ fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
             current_x.val = current_x.val + x
             current_y.val = current_y.val + y
           }
-          if not(found_start.val) {
+          if !found_start.val {
             start_x.val = current_x.val
             start_y.val = current_y.val
             found_start.val = true

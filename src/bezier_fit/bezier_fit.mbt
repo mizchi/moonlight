@@ -10,7 +10,7 @@
 pub(all) struct Point {
   x : Double
   y : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// ベジェセグメント（3次ベジェ曲線）
@@ -20,7 +20,7 @@ pub(all) struct BezierSegment {
   c1 : Point
   c2 : Point
   p3 : Point
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 近似オプション
@@ -28,7 +28,7 @@ pub(all) struct Options {
   min_resample_dist : Double // リサンプリング最小距離（デフォルト: 2.0）
   epsilon : Double // RDP 簡略化の許容誤差（デフォルト: 1.0）
   max_error : Double // ベジェフィットの最大誤差（デフォルト: 4.0）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// デフォルトオプション

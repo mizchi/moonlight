@@ -64,7 +64,7 @@ pub fn setup_focus_management(
   // focusout イベント
   add_focusout_listener_ffi(container, fn(e) {
     // related target がコンテナ外なら focus を失う
-    if not(is_focus_within_ffi(container, e)) {
+    if !is_focus_within_ffi(container, e) {
       focus_state.has_focus.set(false)
     }
   })

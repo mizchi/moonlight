@@ -20,7 +20,7 @@ pub(all) enum Command {
   RenameElement(String, String)
   /// テキスト内容を更新 (id, old_content, new_content)
   UpdateText(String, String, String)
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 履歴管理

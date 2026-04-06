@@ -25,7 +25,7 @@ pub fn sort_elements_for_render(elements : Array[Element]) -> Array[Element] {
 pub(all) struct Point {
   x : Double
   y : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// アンカー位置（図形上の接続点）
@@ -41,21 +41,21 @@ pub(all) enum Anchor {
   BottomRight
   LineStart // 線の始点
   LineEnd // 線の終点
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 接続情報（線の端点が他の要素に接続している場合）
 pub(all) struct Connection {
   element_id : String // 接続先の要素 ID
   anchor : Anchor // 接続点の位置
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 線の接続情報
 pub(all) struct LineConnections {
   start : Connection? // 始点の接続（None = 自由端点）
   end : Connection? // 終点の接続（None = 自由端点）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// デフォルトの接続情報（接続なし）
@@ -68,14 +68,14 @@ pub fn LineConnections::none() -> LineConnections {
 pub(all) enum ArrowType {
   NoArrow // 矢印なし
   Arrow // 標準の矢印
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// テーマモード
 pub(all) enum ThemeMode {
   Light
   Dark
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// テーマ設定
@@ -92,7 +92,7 @@ pub(all) struct Theme {
   ui_text : String // UIテキスト
   ui_text_muted : String // UI補助テキスト
   ui_accent : String // UIアクセント
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// CSS変数名
@@ -146,7 +146,7 @@ pub(all) struct PresetColor {
   name : String
   light : String // ライトモード用
   dark : String // ダークモード用
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// プリセットカラー一覧
@@ -174,7 +174,7 @@ pub(all) struct Style {
   marker_start : ArrowType? // 始点の矢印
   marker_end : ArrowType? // 終点の矢印
   font_family : String? // フォント (e.g., "sans-serif", "serif", "monospace")
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// デフォルトスタイル
@@ -208,7 +208,7 @@ pub(all) enum ShapeType {
   Path(String, Double, Double, Double, Double)
   /// テキスト: 内容, フォントサイズ
   Text(String, Double?)
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 図形が有効（生成可能）かどうかを判定
@@ -359,7 +359,7 @@ pub(all) struct Element {
   transform : String? // SVG transform 属性
   parent_id : String? // 親要素の ID（グループ化用）
   connections : LineConnections? // 線の接続情報（Line のみ使用）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 新しい要素を作成
@@ -600,7 +600,7 @@ pub(all) struct BoundingBox {
   y : Double
   width : Double
   height : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// ポイントがバウンディングボックス内にあるか判定
@@ -620,7 +620,7 @@ pub(all) enum HandlePosition {
   SE // 右下
   LineStart // 線の始点
   LineEnd // 線の終点
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 矩形のリサイズ計算結果
@@ -629,7 +629,7 @@ pub(all) struct RectResizeResult {
   y : Double
   width : Double
   height : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 矩形のリサイズを計算（純粋関数）
@@ -702,7 +702,7 @@ pub(all) struct EllipseResizeResult {
   cy : Double
   rx : Double
   ry : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 楕円のリサイズを計算（純粋関数）
@@ -746,7 +746,7 @@ pub(all) struct LineResizeResult {
   y1 : Double
   x2 : Double
   y2 : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// Line のリサイズを計算（純粋関数）
@@ -772,7 +772,7 @@ pub fn calc_line_resize(
 /// Text リサイズ結果
 pub(all) struct TextResizeResult {
   font_size : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// Text のリサイズを計算（純粋関数）
@@ -867,7 +867,7 @@ pub(all) struct Viewport {
   scroll_x : Double
   scroll_y : Double
   zoom : Double // 1.0 = 100%
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// デフォルトビューポート
@@ -916,7 +916,7 @@ pub(all) struct DragState {
   start_shape : ShapeType? // Line の場合、開始時の形状を保存
   start_connections : LineConnections? // Line の場合、開始時の接続情報を保存
   connected_start_positions : Array[(String, Double, Double)] // 接続要素の開始位置
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// コンテキストメニューの状態
@@ -926,7 +926,7 @@ pub(all) struct ContextMenu {
   scene_x : Double // シーン座標 X（図形挿入用）
   scene_y : Double // シーン座標 Y（図形挿入用）
   target_id : String? // 右クリック対象の要素 ID（None = 空白部分）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// リサイズ状態
@@ -938,7 +938,7 @@ pub(all) struct ResizeState {
   start_shape : ShapeType // リサイズ開始時の形状
   mouse_start_x : Double // マウス開始位置 X
   mouse_start_y : Double // マウス開始位置 Y
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 矩形選択状態
@@ -947,7 +947,7 @@ pub(all) struct BoxSelectState {
   start_y : Double // 選択開始 Y（シーン座標）
   current_x : Double // 現在の X（シーン座標）
   current_y : Double // 現在の Y（シーン座標）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 矩形選択のバウンディングボックスを取得
@@ -983,7 +983,7 @@ pub(all) struct MultiDragState {
   line_endpoints : Array[(String, Double, Double)] // Line の終点初期値 (id, x2, y2)
   mouse_start_x : Double // マウス開始位置 X
   mouse_start_y : Double // マウス開始位置 Y
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// テキスト編集状態
@@ -994,7 +994,7 @@ pub(all) struct TextEditState {
   editing_id : String? // 編集中のテキスト要素ID（None = 新規作成）
   initial_text : String // 初期テキスト（編集時は既存の内容）
   font_size : Double? // フォントサイズ（None = デフォルト16px）
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// ドラッグ位置を計算（純粋関数）
@@ -1023,12 +1023,13 @@ pub fn find_element_at(elements : Array[Element], point : Point) -> Element? {
 /// 2つのバウンディングボックスが交差するか判定
 pub fn BoundingBox::intersects(self : BoundingBox, other : BoundingBox) -> Bool {
   // 一方が他方の完全に外側にある場合は交差しない
-  not(
+  !(
     self.x + self.width < other.x ||
     other.x + other.width < self.x ||
     self.y + self.height < other.y ||
     other.y + other.height < self.y,
   )
+  
 }
 
 ///|
@@ -1058,7 +1059,7 @@ pub fn snap_to_grid(
   grid_size : Int,
   enabled : Bool,
 ) -> (Double, Double) {
-  if not(enabled) {
+  if !enabled {
     return (x, y)
   }
   let size = grid_size.to_double()
@@ -1158,14 +1159,14 @@ pub fn LineConnections::get_connected_ids(
   let ids : Array[String] = []
   match self.start {
     Some(conn) =>
-      if not(ids.contains(conn.element_id)) {
+      if !ids.contains(conn.element_id) {
         ids.push(conn.element_id)
       }
     None => ()
   }
   match self.end {
     Some(conn) =>
-      if not(ids.contains(conn.element_id)) {
+      if !ids.contains(conn.element_id) {
         ids.push(conn.element_id)
       }
     None => ()
@@ -1181,7 +1182,7 @@ pub(all) struct ConnectedLineUpdate {
   new_y : Double
   new_x2 : Double
   new_y2 : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 要素移動後の接続ラインの新座標を計算（純粋関数）
@@ -1249,7 +1250,7 @@ pub(all) struct ChildMoveResult {
   child_id : String
   new_x : Double
   new_y : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 親要素移動時の子要素の新座標を計算
@@ -1340,7 +1341,7 @@ pub(all) struct NearestConnectionResult {
   element : Element
   anchor : Anchor
   point : Point
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// 指定座標から最も近い接続ポイントを探す（純粋関数）
@@ -1355,7 +1356,7 @@ pub fn find_nearest_connection(
   let mut nearest : (Element, Anchor, Point, Double)? = None
   for el in elements {
     // 除外リストに含まれる要素はスキップ
-    guard not(exclude_ids.contains(el.id)) else { continue }
+    guard !exclude_ids.contains(el.id) else { continue }
     // 子要素はスキップ
     guard el.parent_id is None else { continue }
     // 最寄りのアンカーを探す
@@ -1441,7 +1442,7 @@ pub(all) struct LineCoords {
   y : Double
   x2 : Double
   y2 : Double
-} derive(Show, Eq)
+} derive(Show, Debug, Eq)
 
 ///|
 /// LineCoords からアンカーポイントを計算
@@ -1551,7 +1552,7 @@ pub fn compute_line_move_topology(
           x2: new_x2,
           y2: new_y2,
         }
-        if not(in_queue.contains(e.id)) {
+        if !in_queue.contains(e.id) {
           in_queue.push(e.id)
           queue.push(e.id)
         }

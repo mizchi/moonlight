@@ -5,5 +5,7 @@ node_modules
 tmp
 test-results
 playwright-report
+e2e/snapshots/current
+e2e/snapshots/diff
 .wrangler_build
 _build
