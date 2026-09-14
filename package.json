@@ -2,6 +2,7 @@
   "name": "@mizchi/moonlight",
   "version": "0.1.0",
   "description": "Lightweight SVG editor like Excalidraw",
+  "type": "module",
   "exports": {
     ".": {
       "import": "./js/api.js",

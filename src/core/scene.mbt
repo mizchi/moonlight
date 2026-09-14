@@ -5,16 +5,8 @@
 // =============================================================================
 
 ///|
-/// 要素の最小サイズ（リサイズ時の下限）
-let min_element_size : Double = 10.0
-
-///|
 /// 配置オフセット（同一座標への連続配置時）
 let placement_offset : Double = 15.0
-
-///|
-/// アンカースナップ距離（Line端点のアンカースナップ判定）
-let anchor_snap_threshold : Double = 20.0
 
 // =============================================================================
 // 型定義
@@ -1307,378 +1299,137 @@ pub fn EditorState::start_resize(
 }
 
 ///|
+/// Signal 上の状態を、セマンティックモデルが読む純粋なシーンに写す。
+/// ジェスチャの幾何計算はすべてこのシーンを入力にして行う。
+pub fn EditorState::to_interaction_scene(
+  self : EditorState,
+) -> @interaction.Scene {
+  {
+    elements: self.elements.get(),
+    selection: self.selected_ids.get(),
+    grid: if self.grid_enabled.get() {
+      @interaction.Grid::of(self.grid_size.get().to_double())
+    } else {
+      @interaction.Grid::off()
+    },
+  }
+}
+
+///|
 /// リサイズ中の移動
+///
+/// 図形 × ハンドルごとの幾何計算は @interaction に一本化してある。
+/// ここは結果を Signal に載せ替えるだけ。
 pub fn EditorState::resize_move(
   self : EditorState,
   mouse_x : Double,
   mouse_y : Double,
 ) -> Unit {
   guard self.resize_state.get() is Some(state) else { return }
-  let dx = mouse_x - state.mouse_start_x
-  let dy = mouse_y - state.mouse_start_y
-  // 単一値のグリッドスナップ（グリッド有効時のみ丸める）
-  let snap = fn(v : Double) -> Double {
-    if self.grid_enabled.get() {
-      let size = self.grid_size.get().to_double()
-      (v / size).round() * size
-    } else {
-      v // グリッド無効時はそのまま
-    }
+  let gesture : @interaction.ResizeGesture = {
+    element_id: state.element_id,
+    handle: state.handle,
+    start_x: state.start_x,
+    start_y: state.start_y,
+    start_shape: state.start_shape,
+    mouse_start: { x: state.mouse_start_x, y: state.mouse_start_y, },
   }
-  // ハンドル位置に応じて新しい位置と形状を計算
-  match state.start_shape {
-    @model.Rect(w, h, rx, ry) => {
-      // 矩形の4隅を計算
-      let x1 = state.start_x // 左
-      let y1 = state.start_y // 上
-      let x2 = state.start_x + w // 右
-      let y2 = state.start_y + h // 下
-      // ドラッグ中のハンドルに応じて、動かす点をスナップ、固定点は維持
-      let (new_x1, new_y1, new_x2, new_y2) = match state.handle {
-        @model.SE => {
-          // SE（右下）をドラッグ：左上固定、右下をスナップ
-          let dragged_x = snap(x2 + dx)
-          let dragged_y = snap(y2 + dy)
-          (x1, y1, dragged_x, dragged_y)
-        }
-        @model.NW => {
-          // NW（左上）をドラッグ：右下固定、左上をスナップ
-          let dragged_x = snap(x1 + dx)
-          let dragged_y = snap(y1 + dy)
-          (dragged_x, dragged_y, x2, y2)
-        }
-        @model.NE => {
-          // NE（右上）をドラッグ：左下固定、右上をスナップ
-          let dragged_x = snap(x2 + dx)
-          let dragged_y = snap(y1 + dy)
-          (x1, dragged_y, dragged_x, y2)
-        }
-        @model.SW => {
-          // SW（左下）をドラッグ：右上固定、左下をスナップ
-          let dragged_x = snap(x1 + dx)
-          let dragged_y = snap(y2 + dy)
-          (dragged_x, y1, x2, dragged_y)
-        }
-        _ => (x1, y1, x2 + dx, y2 + dy)
-      }
-      // 最小サイズを保証（幅・高さが負にならないように）
-      let min_size = min_element_size
-      let (final_x1, final_x2) = if new_x2 - new_x1 < min_size {
-        match state.handle {
-          @model.NW | @model.SW => (new_x2 - min_size, new_x2)
-          _ => (new_x1, new_x1 + min_size)
+  guard @interaction.resize(self.to_interaction_scene(), gesture, {
+      x: mouse_x,
+      y: mouse_y,
+    })
+    is Some(outcome) else {
+    return
+  }
+  self.elements.update(fn(els) {
+    els.map(fn(el) {
+      if el.id == state.element_id {
+        outcome.element
+      } else if el.parent_id == Some(state.element_id) {
+        // 子要素は親の中央に置き直す
+        match outcome.child_center {
+          Some(center) => { ..el, x: center.x, y: center.y, }
+          None => el
         }
       } else {
-        (new_x1, new_x2)
+        el
       }
-      let (final_y1, final_y2) = if new_y2 - new_y1 < min_size {
-        match state.handle {
-          @model.NW | @model.NE => (new_y2 - min_size, new_y2)
-          _ => (new_y1, new_y1 + min_size)
-        }
-      } else {
-        (new_y1, new_y2)
-      }
-      let final_x = final_x1
-      let final_y = final_y1
-      let final_w = final_x2 - final_x1
-      let final_h = final_y2 - final_y1
-      // 子要素の新しい中央位置
-      let child_center_x = final_x + final_w / 2.0
-      let child_center_y = final_y + final_h / 2.0
-      self.elements.update(fn(els) {
-        els.map(fn(el) {
-          if el.id == state.element_id {
-            {
-              ..el,
-              x: final_x,
-              y: final_y,
-              shape: @model.Rect(final_w, final_h, rx, ry),
-            }
-          } else if el.parent_id == Some(state.element_id) {
-            // 子要素を親の中央に配置
-            { ..el, x: child_center_x, y: child_center_y, }
-          } else {
-            el
-          }
-        })
-      })
-      // 接続されているラインを更新
-      self.update_connected_lines(state.element_id)
-    }
-    @model.Circle(r) => {
-      // 円の場合：中心は固定、ドラッグ点（辺）をスナップして半径を計算
-      let cx = state.start_x
-      let cy = state.start_y
-      // ドラッグ中の辺の位置を計算
-      let (edge_x, edge_y) = match state.handle {
-        @model.SE => (cx + r + dx, cy + r + dy)
-        @model.NW => (cx - r + dx, cy - r + dy)
-        @model.NE => (cx + r + dx, cy - r + dy)
-        @model.SW => (cx - r + dx, cy + r + dy)
-        _ => (cx + r + dx, cy + r + dy)
-      }
-      // スナップ
-      let snapped_edge_x = snap(edge_x)
-      let snapped_edge_y = snap(edge_y)
-      // 中心からの距離で半径を計算（x, y の平均を使用）
-      let dist_x = (snapped_edge_x - cx).abs()
-      let dist_y = (snapped_edge_y - cy).abs()
-      let new_r = (dist_x + dist_y) / 2.0
-      let final_r = if new_r < 5.0 { 5.0 } else { new_r }
-      self.elements.update(fn(els) {
-        els.map(fn(el) {
-          if el.id == state.element_id {
-            { ..el, shape: @model.Circle(final_r), }
-          } else if el.parent_id == Some(state.element_id) {
-            // 子要素を親の中央に配置（円の中心）
-            { ..el, x: cx, y: cy, }
-          } else {
-            el
-          }
-        })
-      })
-      // 接続されているラインを更新
-      self.update_connected_lines(state.element_id)
-    }
-    @model.Ellipse(rx, ry) => {
-      // 楕円の場合：中心は固定、ドラッグ点をスナップして rx, ry を計算
-      let cx = state.start_x
-      let cy = state.start_y
-      // 楕円のバウンディングボックスの4隅
-      let x1 = cx - rx
-      let y1 = cy - ry
-      let x2 = cx + rx
-      let y2 = cy + ry
-      // ドラッグ中のハンドルに応じて、動かす点をスナップ
-      let (new_x1, new_y1, new_x2, new_y2) = match state.handle {
-        @model.SE => {
-          let dragged_x = snap(x2 + dx)
-          let dragged_y = snap(y2 + dy)
-          (x1, y1, dragged_x, dragged_y)
-        }
-        @model.NW => {
-          let dragged_x = snap(x1 + dx)
-          let dragged_y = snap(y1 + dy)
-          (dragged_x, dragged_y, x2, y2)
-        }
-        @model.NE => {
-          let dragged_x = snap(x2 + dx)
-          let dragged_y = snap(y1 + dy)
-          (x1, dragged_y, dragged_x, y2)
-        }
-        @model.SW => {
-          let dragged_x = snap(x1 + dx)
-          let dragged_y = snap(y2 + dy)
-          (dragged_x, y1, x2, dragged_y)
-        }
-        _ => (x1, y1, x2 + dx, y2 + dy)
-      }
-      // 新しい中心と半径を計算
-      let new_cx = (new_x1 + new_x2) / 2.0
-      let new_cy = (new_y1 + new_y2) / 2.0
-      let new_rx = (new_x2 - new_x1) / 2.0
-      let new_ry = (new_y2 - new_y1) / 2.0
-      // 最小サイズを保証
-      let final_rx = if new_rx < 5.0 { 5.0 } else { new_rx }
-      let final_ry = if new_ry < 5.0 { 5.0 } else { new_ry }
-      self.elements.update(fn(els) {
-        els.map(fn(el) {
-          if el.id == state.element_id {
-            {
-              ..el,
-              x: new_cx,
-              y: new_cy,
-              shape: @model.Ellipse(final_rx, final_ry),
-            }
-          } else if el.parent_id == Some(state.element_id) {
-            // 子要素を親の中央に配置（楕円の中心）
-            { ..el, x: new_cx, y: new_cy, }
-          } else {
-            el
-          }
-        })
-      })
-      // 接続されているラインを更新
-      self.update_connected_lines(state.element_id)
-    }
-    @model.Line(x2, y2) => {
-      // 線の端点をドラッグ（アンカースナップ判定用）
-      let snap_threshold = anchor_snap_threshold
-      match state.handle {
-        @model.LineStart => {
-          // 始点を移動
-          let raw_x = state.start_x + dx
-          let raw_y = state.start_y + dy
-          // 近くのアンカーポイントを探す（アンカースナップが優先）
-          let snap_result = self.find_nearest_connection_point(
-            { x: raw_x, y: raw_y, },
-            [state.element_id],
-            snap_threshold,
-          )
-          let (new_x, new_y) = match snap_result {
-            Some((_, _, snap_point)) =>
-              // アンカースナップが優先
-              (snap_point.x, snap_point.y)
-            None =>
-              // アンカーがなければグリッドスナップ
-              (snap(raw_x), snap(raw_y))
-          }
-          // pending_connection を更新
-          match snap_result {
-            Some((target_el, anchor, snap_point)) =>
-              self.pending_connection.set(
-                Some({ target_id: target_el.id, anchor, point: snap_point, }),
-              )
-            None => self.pending_connection.set(None)
-          }
-          self.elements.update(fn(els) {
-            els.map(fn(el) {
-              if el.id == state.element_id {
-                { ..el, x: new_x, y: new_y, }
-              } else {
-                el
-              }
-            })
+    })
+  })
+  // 線の端点ドラッグ中はスナップ先をプレビューに反映する
+  if @interaction.endpoint_of_handle(state.handle) is Some(_) {
+    self.pending_connection.set(
+      match outcome.joint {
+        Some(joint) =>
+          Some({
+            target_id: joint.target_id,
+            anchor: joint.anchor,
+            point: joint.point,
           })
-          // この Line に接続されているラインを更新
-          self.update_connected_lines(state.element_id)
-        }
-        @model.LineEnd => {
-          // 終点を移動（Line の x2, y2 は絶対座標）
-          // 新しい終点の絶対座標を計算
-          let raw_end_x = x2 + dx
-          let raw_end_y = y2 + dy
-          // 近くのアンカーポイントを探す（アンカースナップが優先）
-          let snap_result = self.find_nearest_connection_point(
-            { x: raw_end_x, y: raw_end_y, },
-            [state.element_id],
-            snap_threshold,
-          )
-          let (final_x2, final_y2) = match snap_result {
-            Some((_, _, snap_point)) => (snap_point.x, snap_point.y)
-            None =>
-              // アンカーがなければグリッドスナップ
-              (snap(raw_end_x), snap(raw_end_y))
-          }
-          // pending_connection を更新
-          match snap_result {
-            Some((target_el, anchor, snap_point)) =>
-              self.pending_connection.set(
-                Some({ target_id: target_el.id, anchor, point: snap_point, }),
-              )
-            None => self.pending_connection.set(None)
-          }
-          self.elements.update(fn(els) {
-            els.map(fn(el) {
-              if el.id == state.element_id {
-                { ..el, shape: @model.Line(final_x2, final_y2), }
-              } else {
-                el
-              }
-            })
-          })
-          // この Line に接続されているラインを更新
-          self.update_connected_lines(state.element_id)
-        }
-        _ => () // Line に対して NW/NE/SW/SE ハンドルは無効
-      }
-    }
-    _ => () // 他の形状は未対応
+        None => None
+      },
+    )
   }
+  self.update_connected_lines(state.element_id)
 }
 
 ///|
 /// リサイズ終了
+///
+/// 線の端点を離したときは、スナップ先の有無でジョイントを張り替える。
+/// 張り替え自体は @interaction.Scene の操作として定義されている。
 pub fn EditorState::end_resize(self : EditorState) -> Unit {
-  // Line の場合、pending_connection があれば接続情報を保存
-  if self.resize_state.get() is Some(resize) {
-    if self.find_element(resize.element_id) is Some(el) {
-      if el.shape is @model.Line(_, _) {
-        if self.pending_connection.get() is Some(pending) {
-          // 現在の接続情報を取得または新規作成
-          let current_conns = el.connections.unwrap_or(
-            @model.LineConnections::none(),
+  guard self.resize_state.get() is Some(resize) else {
+    self.pending_connection.set(None)
+    return
+  }
+  guard self.find_element(resize.element_id) is Some(el) else {
+    self.pending_connection.set(None)
+    self.resize_state.set(None)
+    return
+  }
+  let is_line = el.shape is @model.Line(_, _)
+  match (is_line, @interaction.endpoint_of_handle(resize.handle)) {
+    (true, Some(endpoint)) => {
+      let scene = self.to_interaction_scene()
+      let jointed = match self.pending_connection.get() {
+        Some(pending) =>
+          scene.connect(
+            resize.element_id,
+            endpoint,
+            pending.target_id,
+            pending.anchor,
           )
-          // ハンドル位置に応じて始点または終点の接続を更新
-          let new_conns = match resize.handle {
-            @model.LineStart => {
-              let conn : @model.Connection = {
-                element_id: pending.target_id,
-                anchor: pending.anchor,
-              }
-              { ..current_conns, start: Some(conn), }
-            }
-            @model.LineEnd => {
-              let conn : @model.Connection = {
-                element_id: pending.target_id,
-                anchor: pending.anchor,
-              }
-              { ..current_conns, end: Some(conn), }
-            }
-            _ => current_conns
-          }
-          self.update_line_connection(resize.element_id, new_conns)
-        } else {
-          // スナップしていない場合は接続を解除
-          let current_conns = el.connections.unwrap_or(
-            @model.LineConnections::none(),
-          )
-          let new_conns = match resize.handle {
-            @model.LineStart => { ..current_conns, start: None, }
-            @model.LineEnd => { ..current_conns, end: None, }
-            _ => current_conns
-          }
-          // 接続が両方なくなった場合は connections を None に
-          if new_conns.start is None && new_conns.end is None {
-            self.elements.update(fn(els) {
-              els.map(fn(e) {
-                if e.id == resize.element_id {
-                  { ..e, connections: None, }
-                } else {
-                  e
-                }
-              })
-            })
-          } else {
-            self.update_line_connection(resize.element_id, new_conns)
-          }
-        }
-      } else {
-        // 親要素がリサイズされた場合、子テキストの位置を中央に調整
-        self.center_child_elements(resize.element_id)
+        None => scene.disconnect(resize.element_id, endpoint)
       }
-      // 長さゼロの線は削除
-      if el.shape is @model.Line(x2, y2) {
-        let dx = x2 - el.x
-        let dy = y2 - el.y
-        let length = (dx * dx + dy * dy).sqrt()
-        if length < 5.0 {
-          self.remove_element(resize.element_id)
-          self.pending_connection.set(None)
-          self.resize_state.set(None)
-          self.select(None)
-          return
-        }
-      }
+      self.elements.set(jointed.elements)
+    }
+    // 図形をリサイズした場合は子テキストを中央に置き直す
+    _ => if !is_line { self.center_child_elements(resize.element_id) }
+  }
+  // 潰れた線は残さずに捨てる
+  if self.find_element(resize.element_id) is Some(current) {
+    if @interaction.line_length(current) is Some(length) &&
+      length < @interaction.min_line_length {
+      self.remove_element(resize.element_id)
+      self.pending_connection.set(None)
+      self.resize_state.set(None)
+      self.select(None)
+      return
     }
   }
-  // リサイズ完了後、座標を整数に丸める（SVG の可読性向上）
-  if self.resize_state.get() is Some(resize) {
-    self.elements.update(fn(els) {
-      els.map(fn(el) {
-        if el.id == resize.element_id {
-          @model.round_element_coords(el)
-        } else {
-          el
-        }
-      })
+  // 座標を整数に丸める（SVG の可読性向上）
+  self.elements.update(fn(els) {
+    els.map(fn(e) {
+      if e.id == resize.element_id {
+        @model.round_element_coords(e)
+      } else {
+        e
+      }
     })
-  }
-  // リサイズ完了後、要素を選択状態にする（ハンドルを表示するため）
-  if self.resize_state.get() is Some(resize) {
-    self.select(Some(resize.element_id))
-  }
+  })
+  // ハンドルを出しておきたいので選択状態にする
+  self.select(Some(resize.element_id))
   self.pending_connection.set(None)
   self.resize_state.set(None)
 }
