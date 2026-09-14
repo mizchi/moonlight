@@ -1,3 +1,3 @@
 // MoonBit Full Editor entry point
-import 'mbt:mizchi/moonlight';
+import 'mbt:mizchi/moonlight/entries/app';
 

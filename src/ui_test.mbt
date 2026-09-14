@@ -58,7 +58,13 @@ test "render_context_menu - creates menu with items" {
   let history = @model.History::new()
   // コンテキストメニューを表示状態に設定
   state.context_menu.set(
-    Some({ x: 100.0, y: 100.0, scene_x: 100.0, scene_y: 100.0, target_id: None }),
+    Some({
+      x: 100.0,
+      y: 100.0,
+      scene_x: 100.0,
+      scene_y: 100.0,
+      target_id: None,
+    }),
   )
   let menu = render_context_menu(state, history, fn() { "el-1" })
   let container = doc.createElement("div")

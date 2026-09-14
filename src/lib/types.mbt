@@ -155,5 +155,5 @@ pub fn anchor_type_to_string(anchor : @core.AnchorType) -> String {
 ///|
 /// デフォルトプレビューオプション
 pub fn PreviewOptions::default() -> PreviewOptions {
-  { width: None, height: None, click_to_edit: true, modal_fullscreen: false }
+  { width: None, height: None, click_to_edit: true, modal_fullscreen: false, }
 }

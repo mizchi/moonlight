@@ -1,5 +1,5 @@
 import {
-  "mizchi/moonlight/entries/viewer",
+  "mizchi/moonlight" @editor,
 }
 
 supported_targets = "js"

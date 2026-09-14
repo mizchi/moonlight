@@ -426,7 +426,7 @@ fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
               }
               if state.get_selected_id() is Some(id) {
                 state.update_element(id, fn(el) {
-                  { ..el, style: { ..el.style, stroke: Some(color) } }
+                  { ..el, style: { ..el.style, stroke: Some(color), }, }
                 })
               }
             }),
@@ -576,9 +576,9 @@ fn render_color_editor(
           let value = get_event_target_value(e.as_any())
           let old_style = el.style
           let new_style = if is_fill {
-            { ..old_style, fill: Some(value) }
+            { ..old_style, fill: Some(value), }
           } else {
-            { ..old_style, stroke: Some(value) }
+            { ..old_style, stroke: Some(value), }
           }
           @core.execute_command(
             history,
@@ -642,9 +642,9 @@ fn render_color_button(
               Some(color)
             }
             let new_style = if is_fill {
-              { ..old_style, fill: new_value }
+              { ..old_style, fill: new_value, }
             } else {
-              { ..old_style, stroke: new_value }
+              { ..old_style, stroke: new_value, }
             }
             @core.execute_command(
               history,
@@ -740,7 +740,7 @@ fn render_font_buttons_shared(
           if get_font_target_id(state) is Some(target_id) {
             if state.find_element(target_id) is Some(el) {
               let old_style = el.style
-              let new_style = { ..old_style, font_family: font_value }
+              let new_style = { ..old_style, font_family: font_value, }
               @core.execute_command(
                 history,
                 state,
@@ -799,7 +799,7 @@ fn render_line_style_editor(
               } else {
                 Some(@model.Arrow)
               }
-              let new_style = { ..old_style, marker_start: new_marker }
+              let new_style = { ..old_style, marker_start: new_marker, }
               @core.execute_command(
                 history,
                 state,
@@ -832,7 +832,7 @@ fn render_line_style_editor(
               } else {
                 Some(@model.Arrow)
               }
-              let new_style = { ..old_style, marker_end: new_marker }
+              let new_style = { ..old_style, marker_end: new_marker, }
               @core.execute_command(
                 history,
                 state,
@@ -881,7 +881,7 @@ fn render_dasharray_buttons_shared(
       on=events().click(fn(_) {
         if state.find_element(element_id) is Some(el) {
           let old_style = el.style
-          let new_style = { ..old_style, stroke_dasharray: pattern }
+          let new_style = { ..old_style, stroke_dasharray: pattern, }
           @core.execute_command(
             history,
             state,
@@ -1250,7 +1250,7 @@ fn render_element_details(
                       let value = get_event_target_value(e.as_any())
                       if parse_double(value) is Some(w) {
                         let old_style = el.style
-                        let new_style = { ..old_style, stroke_width: Some(w) }
+                        let new_style = { ..old_style, stroke_width: Some(w), }
                         @core.execute_command(
                           history,
                           state,
@@ -1300,7 +1300,9 @@ pub fn render_text_input(
   commit : (String) -> Unit,
   cancel : () -> Unit,
 ) -> @element.DomNode {
-  guard state.text_edit.get() is Some(edit_state)
+  guard state.text_edit.get() is Some(edit_state) else {
+    return @element.fragment([])
+  }
   let vp = state.viewport.get()
   // 親要素がある場合は親の中央座標を使用
   let (text_x, text_y, max_width) : (Double, Double, Double) = match
@@ -1354,7 +1356,9 @@ pub fn render_context_menu(
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
-  guard state.context_menu.get() is Some(menu)
+  guard state.context_menu.get() is Some(menu) else {
+    return @element.fragment([])
+  }
   let theme = state.get_theme()
   let is_dark = state.theme_mode.get() == @model.Dark
   let shadow = if is_dark { "rgba(0,0,0,0.4)" } else { "rgba(0,0,0,0.1)" }

@@ -25,7 +25,7 @@ pub fn[T : Eq] track_signal(sig : @resource.Signal[T]) -> SignalTracker[T] {
       values.push(v)
     }
   })
-  { values, cleanup }
+  { values, cleanup, }
 }
 
 ///|
@@ -70,12 +70,12 @@ pub struct EffectCounter {
 ///|
 /// Effect の実行をカウント開始
 pub fn count_effect(effect_fn : () -> Unit) -> EffectCounter {
-  let counter : Ref[Int] = Ref::new(0)
+  let counter : Ref[Int] = Ref(0)
   let cleanup = @resource.effect(fn() {
     effect_fn()
     counter.val = counter.val + 1
   })
-  { count: counter.val, cleanup }
+  { count: counter.val, cleanup, }
 }
 
 ///|

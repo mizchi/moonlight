@@ -2,9 +2,7 @@ import {
 }
 
 import {
-  "moonbitlang/core/math" @math,
+  "moonbitlang/core/math",
 } for "test"
 
-options(
-  "supported-targets": [ "wasm", "wasm-gc", "js" ],
-)
+supported_targets = "js+wasm+wasm-gc"

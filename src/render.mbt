@@ -29,7 +29,7 @@ fn create_svg_element(
   handlers : Array[(String, (@js.Any) -> Unit)],
 ) -> @js.Any {
   // class 属性を分離（luna の setClassName はSVG要素で動作しないため）
-  let class_value : Ref[String?] = { val: None }
+  let class_value : Ref[String?] = { val: None, }
   // 属性を AttrValue に変換
   let luna_attrs : Array[(String, @element.AttrValue)] = []
   for attr in attrs {
@@ -404,7 +404,7 @@ pub fn svg_to_dom_node(svg : @js.Any) -> @element.DomNode {
 /// 要素を SVG 文字列に変換（エクスポート用）
 pub fn element_to_svg_string(el : @model.Element) -> String {
   let style = el.style
-  let style_attrs = StringBuilder::new()
+  let style_attrs = StringBuilder()
   if style.fill is Some(v) {
     style_attrs.write_string(" fill=\"\{v}\"")
   } else {
@@ -444,7 +444,7 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
         // 複数行テキストは tspan で出力
         let lines : Array[String] = content
           .split("\n")
-          .map(fn(sv) { sv.to_string() })
+          .map(fn(sv) { sv.to_owned() })
           .collect()
         let line_height = size * 1.2
         let total_height = (lines.length() - 1).to_double() * line_height
@@ -473,7 +473,7 @@ pub fn elements_to_svg(
   width : Int,
   height : Int,
 ) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string(
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\{width}\" height=\"\{height}\" viewBox=\"0 0 \{width} \{height}\">\n",
   )
@@ -499,7 +499,7 @@ fn connection_to_string(conn : @model.Connection) -> String {
 /// 要素を Moonlight SVG 文字列に変換（メタデータ付き）
 pub fn element_to_moonlight_svg(el : @model.Element) -> String {
   let style = el.style
-  let attrs = StringBuilder::new()
+  let attrs = StringBuilder()
   // メタデータ属性
   attrs.write_string(" data-id=\"\{el.id}\"")
   if el.parent_id is Some(pid) {
@@ -571,7 +571,7 @@ pub fn element_to_moonlight_svg(el : @model.Element) -> String {
       if content.contains("\n") {
         let lines : Array[String] = content
           .split("\n")
-          .map(fn(sv) { sv.to_string() })
+          .map(fn(sv) { sv.to_owned() })
           .collect()
         let line_height = size * 1.2
         let total_height = (lines.length() - 1).to_double() * line_height
@@ -596,7 +596,7 @@ pub fn element_to_moonlight_svg(el : @model.Element) -> String {
 ///|
 /// 矢印マーカー定義を生成
 fn generate_arrow_defs() -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string("  <defs>\n")
   // 始点矢印
   sb.write_string(
@@ -626,7 +626,7 @@ pub fn elements_to_moonlight_svg(
   height : Int,
   bg_color : String,
 ) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string(
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\{width}\" height=\"\{height}\" viewBox=\"0 0 \{width} \{height}\" data-moonlight=\"1.0\">\n",
   )
@@ -658,7 +658,7 @@ fn element_to_moonlight_svg_with_parent(
   parent_stroke : String?,
 ) -> String {
   let style = el.style
-  let attrs = StringBuilder::new()
+  let attrs = StringBuilder()
   // メタデータ属性
   attrs.write_string(" data-id=\"\{el.id}\"")
   if el.parent_id is Some(pid) {
@@ -735,7 +735,7 @@ fn element_to_moonlight_svg_with_parent(
       if content.contains("\n") {
         let lines : Array[String] = content
           .split("\n")
-          .map(fn(sv) { sv.to_string() })
+          .map(fn(sv) { sv.to_owned() })
           .collect()
         let line_height = size * 1.2
         let total_height = (lines.length() - 1).to_double() * line_height
@@ -1218,7 +1218,7 @@ fn create_svg_node(
   children : Array[@element.DomNode],
 ) -> @element.DomNode {
   // class 属性を分離
-  let class_value : Ref[String?] = { val: None }
+  let class_value : Ref[String?] = { val: None, }
   let luna_attrs : Array[(String, @element.AttrValue)] = []
   for attr in attrs {
     if attr.0 == "class" {
@@ -1382,7 +1382,7 @@ pub fn render_element_node(
       let (hit_width, hit_height) = if content.contains("\n") {
         let lines : Array[String] = content
           .split("\n")
-          .map(fn(sv) { sv.to_string() })
+          .map(fn(sv) { sv.to_owned() })
           .collect()
         let line_count = lines.length()
         let line_height = size * 1.2
@@ -1836,7 +1836,7 @@ fn render_element_with_effect(
   initial_el : @model.Element,
 ) -> @element.DomNode {
   // DOM 要素への参照
-  let el_ref : Ref[@js.Any?] = { val: None }
+  let el_ref : Ref[@js.Any?] = { val: None, }
 
   // 初期レンダリング時の親要素ストローク色を取得
   let initial_parent_stroke = @model.get_parent_stroke(
@@ -2313,7 +2313,7 @@ fn create_text_vnode_with_ref(
   let (hit_width, hit_height) = if content.contains("\n") {
     let lines : Array[String] = content
       .split("\n")
-      .map(fn(sv) { sv.to_string() })
+      .map(fn(sv) { sv.to_owned() })
       .collect()
     let line_count = lines.length()
     let line_height = size * 1.2
@@ -2429,7 +2429,7 @@ fn create_svg_node_with_ref(
 /// 選択オーバーレイ（ハンドル・アンカー）を描画（Effect ベース）
 pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
   // コンテナへの参照
-  let container_ref : Ref[@js.Any?] = { val: None }
+  let container_ref : Ref[@js.Any?] = { val: None, }
 
   // render_effect で選択要素の変更を監視して再描画（同期的）
   let _ = @signal.render_effect(fn() {
@@ -2494,7 +2494,7 @@ pub fn render_selection_overlay(state : @core.EditorState) -> @element.DomNode {
 ///|
 /// 矩形選択ボックスを VNode として描画（Effect ベース）
 pub fn render_box_select_vnode(state : @core.EditorState) -> @element.DomNode {
-  let rect_ref : Ref[@js.Any?] = { val: None }
+  let rect_ref : Ref[@js.Any?] = { val: None, }
   let _ = @signal.render_effect(fn() {
     let box_state = state.box_select.get()
     guard rect_ref.val is Some(rect) else { return }
@@ -2533,7 +2533,7 @@ pub fn render_box_select_vnode(state : @core.EditorState) -> @element.DomNode {
 ///|
 /// 全アンカーポイントを VNode として描画（ライン編集中、Effect ベース）
 pub fn render_all_anchors_vnode(state : @core.EditorState) -> @element.DomNode {
-  let container_ref : Ref[@js.Any?] = { val: None }
+  let container_ref : Ref[@js.Any?] = { val: None, }
   let _ = @signal.render_effect(fn() {
     let elements = state.elements.get()
     let resize_state = state.resize_state.get()
@@ -2579,7 +2579,7 @@ pub fn render_all_anchors_vnode(state : @core.EditorState) -> @element.DomNode {
 pub fn render_connection_highlight_vnode(
   state : @core.EditorState,
 ) -> @element.DomNode {
-  let circle_ref : Ref[@js.Any?] = { val: None }
+  let circle_ref : Ref[@js.Any?] = { val: None, }
   let _ = @signal.render_effect(fn() {
     let pending = state.pending_connection.get()
     guard circle_ref.val is Some(circle) else { return }
@@ -2614,7 +2614,7 @@ pub fn render_connection_highlight_vnode(
 pub fn render_canvas_background_vnode(
   state : @core.EditorState,
 ) -> @element.DomNode {
-  let container_ref : Ref[@js.Any?] = { val: None }
+  let container_ref : Ref[@js.Any?] = { val: None, }
 
   // render_effect で viewport / canvas サイズ変更を監視して再描画（同期的）
   let _ = @signal.render_effect(fn() {

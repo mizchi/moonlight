@@ -1,20 +1,17 @@
 import {
   "mizchi/moonlight/model",
-  "mizchi/moonlight/core" @core,
+  "mizchi/moonlight/core",
   "mizchi/luna",
   "mizchi/signals" @signal,
   "mizchi/luna/dom" @element,
-  "mizchi/js/browser/dom" @js_dom,
+  "mizchi/js_browser/dom" @js_dom,
   "mizchi/js/core" @js,
-  "mizchi/moonlight/components" @components,
-  "mizchi/moonlight/lib" @lib,
+  "mizchi/moonlight/components",
+  "mizchi/moonlight/lib",
 }
 
 import {
-  "mizchi/js/browser/dom" @dom,
+  "mizchi/js_browser/dom",
 } for "test"
 
-options(
-  "is-main": true,
-  "supported-targets": [ "js" ],
-)
+supported_targets = "js"

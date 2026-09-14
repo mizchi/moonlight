@@ -35,8 +35,8 @@ test "build_connection_graph: single connection" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -57,8 +57,8 @@ test "build_connection_graph: multiple connections" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -66,8 +66,8 @@ test "build_connection_graph: multiple connections" {
       50.0,
       400.0,
       50.0,
-      Some({ element_id: "rect2", anchor: Right }),
-      Some({ element_id: "rect3", anchor: Left }),
+      Some({ element_id: "rect2", anchor: Right, }),
+      Some({ element_id: "rect3", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -89,8 +89,8 @@ test "get_neighbors: connected nodes" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -118,8 +118,8 @@ test "are_directly_connected: true" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -148,8 +148,8 @@ test "get_connected_lines" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -175,8 +175,8 @@ test "get_connected_component: single component" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -184,8 +184,8 @@ test "get_connected_component: single component" {
       50.0,
       400.0,
       50.0,
-      Some({ element_id: "rect2", anchor: Right }),
-      Some({ element_id: "rect3", anchor: Left }),
+      Some({ element_id: "rect2", anchor: Right, }),
+      Some({ element_id: "rect3", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -210,8 +210,8 @@ test "get_all_components: two components" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -219,8 +219,8 @@ test "get_all_components: two components" {
       250.0,
       200.0,
       250.0,
-      Some({ element_id: "rect3", anchor: Right }),
-      Some({ element_id: "rect4", anchor: Left }),
+      Some({ element_id: "rect3", anchor: Right, }),
+      Some({ element_id: "rect4", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -250,8 +250,8 @@ test "connection_distance: directly connected" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -271,8 +271,8 @@ test "connection_distance: two hops" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -280,8 +280,8 @@ test "connection_distance: two hops" {
       50.0,
       400.0,
       50.0,
-      Some({ element_id: "rect2", anchor: Right }),
-      Some({ element_id: "rect3", anchor: Left }),
+      Some({ element_id: "rect2", anchor: Right, }),
+      Some({ element_id: "rect3", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -311,8 +311,8 @@ test "distance_map_from" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -320,15 +320,15 @@ test "distance_map_from" {
       50.0,
       400.0,
       50.0,
-      Some({ element_id: "rect2", anchor: Right }),
-      Some({ element_id: "rect3", anchor: Left }),
+      Some({ element_id: "rect2", anchor: Right, }),
+      Some({ element_id: "rect3", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
   let dist_map = graph.distance_map_from("rect1")
-  inspect(dist_map.get("rect1"), content="Some(0)")
-  inspect(dist_map.get("rect2"), content="Some(1)")
-  inspect(dist_map.get("rect3"), content="Some(2)")
+  @debug.debug_inspect(dist_map.get("rect1"), content="Some(0)")
+  @debug.debug_inspect(dist_map.get("rect2"), content="Some(1)")
+  @debug.debug_inspect(dist_map.get("rect3"), content="Some(2)")
 }
 
 // ============================================================
@@ -361,8 +361,8 @@ test "find_shortest_path: direct connection" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -406,8 +406,8 @@ test "is_hub: true for 3+ connections" {
       250.0,
       200.0,
       250.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "center", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "center", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -415,8 +415,8 @@ test "is_hub: true for 3+ connections" {
       250.0,
       400.0,
       250.0,
-      Some({ element_id: "center", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "center", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line3",
@@ -424,8 +424,8 @@ test "is_hub: true for 3+ connections" {
       100.0,
       250.0,
       200.0,
-      Some({ element_id: "rect3", anchor: Bottom }),
-      Some({ element_id: "center", anchor: Top }),
+      Some({ element_id: "rect3", anchor: Bottom, }),
+      Some({ element_id: "center", anchor: Top, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -457,8 +457,8 @@ test "has_cycle: linear graph" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -466,8 +466,8 @@ test "has_cycle: linear graph" {
       50.0,
       400.0,
       50.0,
-      Some({ element_id: "rect2", anchor: Right }),
-      Some({ element_id: "rect3", anchor: Left }),
+      Some({ element_id: "rect2", anchor: Right, }),
+      Some({ element_id: "rect3", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -489,8 +489,8 @@ test "has_cycle: triangle" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -498,8 +498,8 @@ test "has_cycle: triangle" {
       100.0,
       200.0,
       200.0,
-      Some({ element_id: "rect2", anchor: Bottom }),
-      Some({ element_id: "rect3", anchor: TopRight }),
+      Some({ element_id: "rect2", anchor: Bottom, }),
+      Some({ element_id: "rect3", anchor: TopRight, }),
     ),
     test_make_connected_line(
       "line3",
@@ -507,8 +507,8 @@ test "has_cycle: triangle" {
       100.0,
       100.0,
       200.0,
-      Some({ element_id: "rect1", anchor: Bottom }),
-      Some({ element_id: "rect3", anchor: TopLeft }),
+      Some({ element_id: "rect1", anchor: Bottom, }),
+      Some({ element_id: "rect3", anchor: TopLeft, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -530,14 +530,14 @@ test "recalculate_on_partial_move: line update" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
 
   // rect1 を (0, 100) に移動
   let moved_targets : Array[@model.MoveTarget] = [
-    { id: "rect1", new_x: 0.0, new_y: 100.0 },
+    { id: "rect1", new_x: 0.0, new_y: 100.0, },
   ]
   let result = recalculate_on_partial_move(moved_targets, elements)
 
@@ -564,7 +564,7 @@ test "recalculate_on_partial_move: child element update" {
 
   // rect1 を (200, 200) に移動
   let moved_targets : Array[@model.MoveTarget] = [
-    { id: "rect1", new_x: 200.0, new_y: 200.0 },
+    { id: "rect1", new_x: 200.0, new_y: 200.0, },
   ]
   let result = recalculate_on_partial_move(moved_targets, elements)
 
@@ -599,8 +599,8 @@ test "get_stats" {
       250.0,
       200.0,
       250.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "center", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "center", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -608,8 +608,8 @@ test "get_stats" {
       250.0,
       400.0,
       250.0,
-      Some({ element_id: "center", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "center", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line3",
@@ -617,8 +617,8 @@ test "get_stats" {
       100.0,
       250.0,
       200.0,
-      Some({ element_id: "rect3", anchor: Bottom }),
-      Some({ element_id: "center", anchor: Top }),
+      Some({ element_id: "rect3", anchor: Bottom, }),
+      Some({ element_id: "center", anchor: Top, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -646,8 +646,8 @@ test "find_all_paths: single path" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
   ]
   let graph = build_connection_graph(elements)
@@ -670,8 +670,8 @@ test "find_all_paths: multiple paths" {
       50.0,
       200.0,
       50.0,
-      Some({ element_id: "rect1", anchor: Right }),
-      Some({ element_id: "rect2", anchor: Left }),
+      Some({ element_id: "rect1", anchor: Right, }),
+      Some({ element_id: "rect2", anchor: Left, }),
     ),
     test_make_connected_line(
       "line2",
@@ -679,8 +679,8 @@ test "find_all_paths: multiple paths" {
       100.0,
       200.0,
       200.0,
-      Some({ element_id: "rect2", anchor: Bottom }),
-      Some({ element_id: "rect3", anchor: TopRight }),
+      Some({ element_id: "rect2", anchor: Bottom, }),
+      Some({ element_id: "rect3", anchor: TopRight, }),
     ),
     test_make_connected_line(
       "line3",
@@ -688,8 +688,8 @@ test "find_all_paths: multiple paths" {
       100.0,
       100.0,
       200.0,
-      Some({ element_id: "rect1", anchor: Bottom }),
-      Some({ element_id: "rect3", anchor: TopLeft }),
+      Some({ element_id: "rect1", anchor: Bottom, }),
+      Some({ element_id: "rect3", anchor: TopLeft, }),
     ),
   ]
   let graph = build_connection_graph(elements)

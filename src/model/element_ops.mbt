@@ -21,7 +21,7 @@ pub fn propagate_line_connections_bfs(
   except_ids? : Array[String] = [],
 ) -> Array[Element] {
   // 座標を管理する Map（id -> (x, y, x2, y2)）
-  let coords_map : Map[String, (Double, Double, Double, Double)] = {}
+  let coords_map : Map[String, (Double, Double, Double, Double)] = Map([])
   // 初期状態を設定
   for e in elements {
     if e.shape is Line(x2, y2) {
@@ -115,7 +115,7 @@ pub fn propagate_line_connections_bfs(
         if x != el.x ||
           y != el.y ||
           (el.shape is Line(ox2, oy2) && (x2 != ox2 || y2 != oy2)) {
-          { ..el, x, y, shape: Line(x2, y2) }
+          { ..el, x, y, shape: Line(x2, y2), }
         } else {
           el
         }
@@ -176,9 +176,9 @@ fn move_shape_with_relations(
   // まず対象要素と子要素を移動
   let updated = elements.map(fn(e) {
     if e.id == id {
-      { ..e, x: new_x, y: new_y }
+      { ..e, x: new_x, y: new_y, }
     } else if child_ids.contains(e.id) {
-      { ..e, x: e.x + dx, y: e.y + dy }
+      { ..e, x: e.x + dx, y: e.y + dy, }
     } else {
       e
     }
@@ -211,8 +211,7 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if !is_line &&
-            !connected_non_line_ids.contains(conn.element_id) {
+          if !is_line && !connected_non_line_ids.contains(conn.element_id) {
             connected_non_line_ids.push(conn.element_id)
           }
         }
@@ -223,8 +222,7 @@ fn move_line_with_topology(
           let is_line = elements
             .iter()
             .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if !is_line &&
-            !connected_non_line_ids.contains(conn.element_id) {
+          if !is_line && !connected_non_line_ids.contains(conn.element_id) {
             connected_non_line_ids.push(conn.element_id)
           }
         }
@@ -257,11 +255,11 @@ fn move_line_with_topology(
     }
     // 接続された非 Line 要素を移動
     if connected_non_line_ids.contains(e.id) {
-      return { ..e, x: e.x + dx, y: e.y + dy }
+      return { ..e, x: e.x + dx, y: e.y + dy, }
     }
     // 接続要素の子要素を移動
     if connected_children_ids.contains(e.id) {
-      return { ..e, x: e.x + dx, y: e.y + dy }
+      return { ..e, x: e.x + dx, y: e.y + dy, }
     }
     e
   })
@@ -286,7 +284,7 @@ pub fn resize_element_with_relations(
   }
   guard target_el is Some(el) else { return elements }
   // 新しい形状で要素を更新
-  let updated_el = { ..el, shape: new_shape }
+  let updated_el = { ..el, shape: new_shape, }
   // 新しいバウンディングボックスの中央を計算
   let bbox = updated_el.bounding_box()
   let center_x = bbox.x + bbox.width / 2.0
@@ -294,9 +292,9 @@ pub fn resize_element_with_relations(
   // まず対象要素と子要素を更新
   let updated = elements.map(fn(e) {
     if e.id == id {
-      { ..e, shape: new_shape }
+      { ..e, shape: new_shape, }
     } else if e.parent_id == Some(id) {
-      { ..e, x: center_x, y: center_y }
+      { ..e, x: center_x, y: center_y, }
     } else {
       e
     }

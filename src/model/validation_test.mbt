@@ -130,7 +130,7 @@ test "validate_elements: orphan connection is warning" {
     0.0,
     100.0,
     100.0,
-    Some({ element_id: "nonexistent", anchor: Right }),
+    Some({ element_id: "nonexistent", anchor: Right, }),
     None,
   )
   let elements = [line]
@@ -152,7 +152,7 @@ test "validate_elements: valid connection" {
     50.0,
     200.0,
     50.0,
-    Some({ element_id: "rect1", anchor: Right }),
+    Some({ element_id: "rect1", anchor: Right, }),
     None,
   )
   let elements = [rect, line]
@@ -173,8 +173,8 @@ test "validate_elements: self connection is warning" {
     50.0,
     0.0,
     50.0,
-    Some({ element_id: "rect1", anchor: Right }),
-    Some({ element_id: "rect1", anchor: Left }),
+    Some({ element_id: "rect1", anchor: Right, }),
+    Some({ element_id: "rect1", anchor: Left, }),
   )
   let elements = [rect, line]
   let result = validate_elements(elements)
@@ -386,7 +386,7 @@ test "can_delete_element: warning with connections" {
     50.0,
     200.0,
     50.0,
-    Some({ element_id: "rect1", anchor: Right }),
+    Some({ element_id: "rect1", anchor: Right, }),
     None,
   )
   let elements = [rect, line]

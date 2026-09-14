@@ -10,7 +10,7 @@
 pub(all) struct Point {
   x : Double
   y : Double
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// ベジェセグメント（3次ベジェ曲線）
@@ -20,7 +20,7 @@ pub(all) struct BezierSegment {
   c1 : Point
   c2 : Point
   p3 : Point
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 近似オプション
@@ -28,12 +28,12 @@ pub(all) struct Options {
   min_resample_dist : Double // リサンプリング最小距離（デフォルト: 2.0）
   epsilon : Double // RDP 簡略化の許容誤差（デフォルト: 1.0）
   max_error : Double // ベジェフィットの最大誤差（デフォルト: 4.0）
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// デフォルトオプション
 pub fn Options::default() -> Options {
-  { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0 }
+  { min_resample_dist: 2.0, epsilon: 1.0, max_error: 4.0, }
 }
 
 // ============================================================
@@ -42,27 +42,27 @@ pub fn Options::default() -> Options {
 
 ///|
 pub fn Point::new(x : Double, y : Double) -> Point {
-  { x, y }
+  { x, y, }
 }
 
 ///|
 fn zero() -> Point {
-  { x: 0.0, y: 0.0 }
+  { x: 0.0, y: 0.0, }
 }
 
 ///|
 fn Point::add(self : Point, other : Point) -> Point {
-  { x: self.x + other.x, y: self.y + other.y }
+  { x: self.x + other.x, y: self.y + other.y, }
 }
 
 ///|
 fn Point::sub(self : Point, other : Point) -> Point {
-  { x: self.x - other.x, y: self.y - other.y }
+  { x: self.x - other.x, y: self.y - other.y, }
 }
 
 ///|
 fn Point::scale(self : Point, s : Double) -> Point {
-  { x: self.x * s, y: self.y * s }
+  { x: self.x * s, y: self.y * s, }
 }
 
 ///|
@@ -97,7 +97,7 @@ pub fn Point::distance(self : Point, other : Point) -> Double {
 
 ///|
 fn Point::negate(self : Point) -> Point {
-  { x: -self.x, y: -self.y }
+  { x: -self.x, y: -self.y, }
 }
 
 // ============================================================
@@ -225,7 +225,7 @@ pub fn fit_bezier(
 ///|
 fn create_line_segment(p0 : Point, p3 : Point) -> BezierSegment {
   let d = p3.sub(p0)
-  { p0, c1: p0.add(d.scale(1.0 / 3.0)), c2: p0.add(d.scale(2.0 / 3.0)), p3 }
+  { p0, c1: p0.add(d.scale(1.0 / 3.0)), c2: p0.add(d.scale(2.0 / 3.0)), p3, }
 }
 
 ///|
@@ -627,10 +627,10 @@ pub fn split_segment(
   let p0123 = p012.add(p123.sub(p012).scale(t))
 
   // 左側セグメント: p0 -> p01 -> p012 -> p0123
-  let left : BezierSegment = { p0: seg.p0, c1: p01, c2: p012, p3: p0123 }
+  let left : BezierSegment = { p0: seg.p0, c1: p01, c2: p012, p3: p0123, }
 
   // 右側セグメント: p0123 -> p123 -> p23 -> p3
-  let right : BezierSegment = { p0: p0123, c1: p123, c2: p23, p3: seg.p3 }
+  let right : BezierSegment = { p0: p0123, c1: p123, c2: p23, p3: seg.p3, }
   (left, right)
 }
 

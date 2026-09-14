@@ -9,7 +9,7 @@ let canvas_width : Int = 400
 
 ///|
 /// クリップボード（コピーした要素を保持）
-let clipboard : Ref[Array[@model.Element]] = { val: [] }
+let clipboard : Ref[Array[@model.Element]] = { val: [], }
 
 ///|
 let canvas_height : Int = 300
@@ -167,7 +167,7 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
 
   // ズームを設定（プレビューと同じスケールを維持）
   let viewport = state.viewport.get()
-  state.viewport.set({ ..viewport, zoom: options.zoom })
+  state.viewport.set({ ..viewport, zoom: options.zoom, })
 
   // テーマを設定
   let theme = if options.theme == "dark" { @model.Dark } else { @model.Light }
@@ -409,7 +409,7 @@ extern "js" fn create_editor_handle_ffi(
 /// ハンドルにイベントリスナーをセットアップ
 fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
   // 要素変更イベント
-  let prev_elements : Ref[Array[@model.Element]] = { val: [] }
+  let prev_elements : Ref[Array[@model.Element]] = { val: [], }
   let _ = @luna.effect(fn() {
     let elements = state.elements.get()
     // onChange を発火
@@ -432,23 +432,23 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     prev_elements.val = elements
   })
   // 選択変更イベント
-  let prev_selected : Ref[Array[String]] = { val: [] }
+  let prev_selected : Ref[Array[String]] = { val: [], }
   let _ = @luna.effect(fn() {
     let selected = state.selected_ids.get()
     if selected.length() > 0 && prev_selected.val.length() == 0 {
       // 選択開始
-      fire_select(handle, selected)
+      fire_select(handle, to_fixed_strings(selected))
     } else if selected.length() == 0 && prev_selected.val.length() > 0 {
       // 選択解除
       fire_deselect(handle)
     } else if selected.length() > 0 {
       // 選択変更
-      fire_select(handle, selected)
+      fire_select(handle, to_fixed_strings(selected))
     }
     prev_selected.val = selected
   })
   // フォーカス変更イベント
-  let prev_focus : Ref[Bool] = { val: false }
+  let prev_focus : Ref[Bool] = { val: false, }
   let _ = @luna.effect(fn() {
     let focused = state.has_focus.get()
     if focused && !prev_focus.val {
@@ -459,7 +459,7 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     prev_focus.val = focused
   })
   // モード変更イベント
-  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select }
+  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select, }
   let _ = @luna.effect(fn() {
     let mode = state.tool_mode.get()
     if mode != prev_mode.val {
@@ -479,7 +479,17 @@ extern "js" fn fire_change(handle : @js.Any) =
   #| (h) => h._fireChange()
 
 ///|
-extern "js" fn fire_select(handle : @js.Any, ids : Array[String]) =
+/// JS FFI 境界では `Array` が非推奨なため `FixedArray` に詰め替える
+fn to_fixed_strings(xs : Array[String]) -> FixedArray[String] {
+  let out : FixedArray[String] = FixedArray::make(xs.length(), "")
+  for i, x in xs {
+    out[i] = x
+  }
+  out
+}
+
+///|
+extern "js" fn fire_select(handle : @js.Any, ids : FixedArray[String]) =
   #| (h, ids) => h._fireSelect(ids)
 
 ///|
@@ -579,7 +589,7 @@ fn get_mode_from_url() -> @core.EditorMode {
 ///|
 /// アプリケーションのエントリポイント（外部から呼び出し可能）
 pub fn app_main() -> Unit {
-  guard @js_dom.document().getElementById("app") is Some(el)
+  guard @js_dom.document().getElementById("app") is Some(el) else { return }
   let mode = get_mode_from_url()
   match mode {
     @core.Full =>
@@ -643,7 +653,7 @@ fn editor_app() -> @element.DomNode {
   })
 
   // Space キーが押されているか
-  let space_pressed : Ref[Bool] = { val: false }
+  let space_pressed : Ref[Bool] = { val: false, }
 
   // Space キーの監視を設定
   setup_keyboard_listener(state, history, space_pressed)
@@ -665,12 +675,12 @@ fn editor_app() -> @element.DomNode {
   }
 
   // ダブルクリック検出用の状態
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
 
   // アクティブポインター追跡（ピンチズーム用）
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
 
   // テキスト入力を確定するコールバック
   let commit_text_input = fn(text_content : String) {
@@ -809,7 +819,7 @@ fn resize_selected_by_arrow(
   step : Double,
 ) -> Unit {
   for id in selected_ids {
-    guard state.find_element(id) is Some(el)
+    guard state.find_element(id) is Some(el) else { continue }
     let old_shape = el.shape
     let (new_shape, new_x, new_y) = resize_shape_by_arrow(
       el.shape,
@@ -826,7 +836,7 @@ fn resize_selected_by_arrow(
     }
     // 要素をリサイズ
     state.update_element(id, fn(e) {
-      { ..e, shape: new_shape, x: new_x, y: new_y }
+      { ..e, shape: new_shape, x: new_x, y: new_y, }
     })
     // 位置も変わった場合は移動も記録
     if new_x != el.x || new_y != el.y {
@@ -867,14 +877,14 @@ fn move_selected_by_arrow(
     _ => (0.0, 0.0)
   }
   for id in selected_ids {
-    guard state.find_element(id) is Some(el)
+    guard state.find_element(id) is Some(el) else { continue }
     let (old_x, old_y) = (el.x, el.y)
     let (new_x, new_y) = (old_x + dx, old_y + dy)
-    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y, } })
     // 子要素（テキストなど）も一緒に移動
     for child in state.get_children(id) {
       let (cx, cy) = (child.x, child.y)
-      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy } })
+      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy, } })
       history.undo_stack.push(
         @model.MoveElement(child.id, cx, cy, cx + dx, cy + dy),
       )
@@ -1000,7 +1010,7 @@ fn create_pointerdown_handler(
     // ポインターを追跡（ピンチズーム用）
     let pointer_id = get_pointer_id(e)
     let (screen_x, screen_y) = get_screen_coords(e)
-    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y, }
 
     // 2本指でピンチズーム開始
     if active_pointers.val.length() == 2 {
@@ -1120,7 +1130,7 @@ fn handle_anchor_click(
   let line_with_conn = {
     ..new_line,
     connections: Some({
-      start: Some({ element_id: source_id, anchor }),
+      start: Some({ element_id: source_id, anchor, }),
       end: None,
     }),
   }
@@ -1235,7 +1245,7 @@ fn handle_element_click(
 ///|
 /// ダブルクリック時のテキスト編集開始
 fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
-  guard state.find_element(element_id) is Some(el)
+  guard state.find_element(element_id) is Some(el) else { return }
   // Path 要素はテキスト編集不可（位置計算が困難なため）
   if el.shape is @model.Path(_, _, _, _, _) {
     return
@@ -1284,8 +1294,8 @@ fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
 ///|
 /// テキスト要素の編集開始
 fn handle_text_edit(state : @core.EditorState, text_id : String) -> Unit {
-  guard state.find_element(text_id) is Some(el)
-  guard el.shape is @model.Text(content, font_size)
+  guard state.find_element(text_id) is Some(el) else { return }
+  guard el.shape is @model.Text(content, font_size) else { return }
   // parent_id がない場合は自分自身を親として扱う
   let parent_id = el.parent_id.unwrap_or(text_id)
   // テキストの表示位置を計算
@@ -1314,7 +1324,7 @@ fn commit_text_edit(
   new_id : () -> String,
   text_content : String,
 ) -> Unit {
-  guard state.text_edit.get() is Some(edit_state)
+  guard state.text_edit.get() is Some(edit_state) else { return }
   match edit_state.editing_id {
     Some(text_id) =>
       if text_content == "" {
@@ -1336,7 +1346,7 @@ fn commit_text_edit(
           match state.find_element(edit_state.parent_id) {
             Some(parent_el) =>
               match parent_el.style.stroke {
-                Some(color) => { ..state.get_text_style(), fill: Some(color) }
+                Some(color) => { ..state.get_text_style(), fill: Some(color), }
                 None => state.get_text_style()
               }
             None => state.get_text_style()
@@ -1384,11 +1394,11 @@ fn create_pointermove_handler(
     // ポインター位置を更新
     let pointer_id = get_pointer_id(e)
     let (screen_x, screen_y) = get_screen_coords(e)
-    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y, }
 
     // ピンチズーム中の場合
     if state.is_pinching() {
-      state.update_pinch(pointer_id, { x: screen_x, y: screen_y })
+      state.update_pinch(pointer_id, { x: screen_x, y: screen_y, })
       return
     }
 
@@ -1399,7 +1409,7 @@ fn create_pointermove_handler(
 
     // マウス位置を更新（キーバインドでの挿入用）
     let (scene_x, scene_y) = get_scene_coords(e)
-    state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
+    state.mouse_scene_pos.set({ x: scene_x, y: scene_y, })
     state.mouse_in_canvas.set(true)
 
     // フリードロー中の場合
@@ -1420,7 +1430,7 @@ fn create_pointermove_handler(
     }
     if state.is_placing() {
       // 配置モード中は要素をマウス位置に追従
-      state.update_placement({ x: scene_x, y: scene_y })
+      state.update_placement({ x: scene_x, y: scene_y, })
     } else if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
     } else if state.is_multi_dragging() {
@@ -1903,7 +1913,7 @@ fn setup_keyboard_shortcuts(
               // Line の場合は終点も移動
               let final_el = match new_el.shape {
                 @model.Line(x2, y2) =>
-                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0) }
+                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0), }
                 _ => new_el
               }
               @core.execute_command(history, state, @model.AddElement(final_el))
@@ -1926,7 +1936,7 @@ fn setup_keyboard_shortcuts(
           for id in selected_ids {
             if state.find_element(id) is Some(el) {
               let dup_id = new_id()
-              let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0 }
+              let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
               @core.execute_command(history, state, @model.AddElement(new_el))
               new_ids.push(dup_id)
             }
@@ -2144,11 +2154,11 @@ pub fn render_editor_modal(
     let scene = vp.screen_to_scene(screen_x, screen_y)
     (scene.x, scene.y)
   }
-  let space_pressed : Ref[Bool] = { val: false }
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let space_pressed : Ref[Bool] = { val: false, }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
@@ -2298,11 +2308,11 @@ fn embedded_editor_app(
     let scene = vp.screen_to_scene(screen_x, screen_y)
     (scene.x, scene.y)
   }
-  let space_pressed : Ref[Bool] = { val: false }
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let space_pressed : Ref[Bool] = { val: false, }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
@@ -2413,8 +2423,8 @@ fn render_text_input_container(
   state : @core.EditorState,
   commit : (String) -> Unit,
 ) -> @element.DomNode {
-  let container_ref : Ref[@js.Any?] = { val: None }
-  let current_textarea : Ref[@js.Any?] = { val: None }
+  let container_ref : Ref[@js.Any?] = { val: None, }
+  let current_textarea : Ref[@js.Any?] = { val: None, }
 
   // Effect で text_edit の変更を監視
   let _ = @luna.effect(fn() {
@@ -3065,7 +3075,7 @@ fn render_svg_canvas_node(
       @element.Handler(fn(svg_el) {
         // SVG 要素への参照を保存（フリードロープレビュー用）
         state.svg_el.set(svg_el)
-        let is_first_resize : Ref[Bool] = { val: true }
+        let is_first_resize : Ref[Bool] = { val: true, }
         observe_resize_ffi(svg_el, fn(width : Double, height : Double) {
           let w = width.to_int()
           let h = height.to_int()
@@ -3086,10 +3096,4 @@ fn render_svg_canvas_node(
     ),
   ]
   @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, children)
-}
-
-///|
-/// メインエントリポイント
-fn main {
-  app_main()
 }

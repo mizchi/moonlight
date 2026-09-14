@@ -30,7 +30,7 @@ pub fn test_make_line(
   x2 : Double,
   y2 : Double,
 ) -> Element {
-  { ..Element::new(id, x1, y1, Line(x2, y2)), connections: None }
+  { ..Element::new(id, x1, y1, Line(x2, y2)), connections: None, }
 }
 
 ///|
@@ -45,7 +45,7 @@ pub fn test_make_connected_line(
 ) -> Element {
   {
     ..Element::new(id, x1, y1, Line(x2, y2)),
-    connections: Some({ start: start_conn, end: end_conn }),
+    connections: Some({ start: start_conn, end: end_conn, }),
   }
 }
 

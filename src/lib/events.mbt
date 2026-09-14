@@ -35,7 +35,7 @@ pub fn setup_event_listeners(
   callbacks : EventCallbacks,
 ) -> Unit {
   // 要素変更イベント
-  let prev_elements : Ref[Array[@model.Element]] = { val: [] }
+  let prev_elements : Ref[Array[@model.Element]] = { val: [], }
   let _ = @luna.effect(fn() {
     let elements = state.elements.get()
     // onChange を発火
@@ -64,7 +64,7 @@ pub fn setup_event_listeners(
     prev_elements.val = elements
   })
   // 選択変更イベント
-  let prev_selected : Ref[Array[String]] = { val: [] }
+  let prev_selected : Ref[Array[String]] = { val: [], }
   let _ = @luna.effect(fn() {
     let selected = state.selected_ids.get()
     if selected.length() > 0 && prev_selected.val.length() == 0 {
@@ -86,7 +86,7 @@ pub fn setup_event_listeners(
     prev_selected.val = selected
   })
   // フォーカス変更イベント
-  let prev_focus : Ref[Bool] = { val: false }
+  let prev_focus : Ref[Bool] = { val: false, }
   let _ = @luna.effect(fn() {
     let focused = state.has_focus.get()
     if focused && !prev_focus.val {
@@ -101,7 +101,7 @@ pub fn setup_event_listeners(
     prev_focus.val = focused
   })
   // モード変更イベント
-  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select }
+  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select, }
   let _ = @luna.effect(fn() {
     let mode = state.tool_mode.get()
     if mode != prev_mode.val {

@@ -11,7 +11,7 @@ pub(all) enum ValidationLevel {
   Error // 致命的な問題（操作不可）
   Warning // 警告（操作可能だが注意が必要）
   Info // 情報（参考）
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 検証で見つかった問題
@@ -20,7 +20,7 @@ pub(all) struct ValidationIssue {
   element_id : String? // 問題のある要素ID（None = 全体的な問題）
   code : String // 問題コード（例: "INVALID_PARENT", "ORPHAN_CONNECTION"）
   message : String // 人間が読めるメッセージ
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 要素の操作権限
@@ -31,7 +31,7 @@ pub(all) struct ElementCapability {
   can_delete : Bool // 削除可能
   can_connect : Bool // 接続可能（Line要素）
   can_add_child : Bool // 子要素追加可能
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 全操作可能
@@ -91,12 +91,12 @@ pub(all) struct ValidationResult {
   is_valid : Bool // 全体として有効か
   issues : Array[ValidationIssue] // 見つかった問題
   capabilities : Map[String, ElementCapability] // 要素ごとの操作権限
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// 空の検証結果（有効）
 pub fn ValidationResult::valid() -> ValidationResult {
-  { is_valid: true, issues: [], capabilities: {} }
+  { is_valid: true, issues: [], capabilities: {}, }
 }
 
 // ============================================================
@@ -172,7 +172,7 @@ fn add_issue(
   code : String,
   message : String,
 ) -> Unit {
-  issues.push({ level, element_id: Some(element_id), code, message })
+  issues.push({ level, element_id: Some(element_id), code, message, })
 }
 
 ///|
@@ -200,10 +200,10 @@ fn find_element(elements : Array[Element], id : String) -> Element? {
 /// 要素配列を検証し、結果を返す
 pub fn validate_elements(elements : Array[Element]) -> ValidationResult {
   let issues : Array[ValidationIssue] = []
-  let capabilities : Map[String, ElementCapability] = {}
+  let capabilities : Map[String, ElementCapability] = Map([])
 
   // ID の収集と重複チェック
-  let id_set : Map[String, Int] = {} // id -> count
+  let id_set : Map[String, Int] = Map([]) // id -> count
   for el in elements {
     match id_set.get(el.id) {
       Some(count) => id_set[el.id] = count + 1
@@ -225,7 +225,7 @@ pub fn validate_elements(elements : Array[Element]) -> ValidationResult {
 
   // 全体の有効性を判定（Errorがなければ有効）
   let has_errors = issues.iter().any(fn(i) { i.level == Error })
-  { is_valid: !has_errors, issues, capabilities }
+  { is_valid: !has_errors, issues, capabilities, }
 }
 
 ///|
@@ -543,7 +543,7 @@ pub fn validate_single_element(
   all_elements : Array[Element],
 ) -> Array[ValidationIssue] {
   // ID カウントを作成
-  let id_counts : Map[String, Int] = {}
+  let id_counts : Map[String, Int] = Map([])
   for e in all_elements {
     match id_counts.get(e.id) {
       Some(count) => id_counts[e.id] = count + 1
@@ -648,7 +648,7 @@ pub(all) enum RepairAction {
   RemoveParent(String) // element_id
   DeleteElement(String) // element_id
   RegenerateId(String, String) // (old_id, new_id)
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 問題に対する修復アクションを提案

@@ -23,13 +23,13 @@ fn test_make_line(
   x2 : Double,
   y2 : Double,
 ) -> @model.Element {
-  { ..@model.Element::new(id, x1, y1, @model.Line(x2, y2)), connections: None }
+  { ..@model.Element::new(id, x1, y1, @model.Line(x2, y2)), connections: None, }
 }
 
 ///|
 fn test_make_zero_line(id : String, x : Double, y : Double) -> @model.Element {
   // 始点と終点が同じ（長さ0）のLine
-  { ..@model.Element::new(id, x, y, @model.Line(x, y)), connections: None }
+  { ..@model.Element::new(id, x, y, @model.Line(x, y)), connections: None, }
 }
 
 ///|

@@ -13,7 +13,7 @@ pub(all) struct Edge {
   line_id : String // この接続を表す Line 要素の ID
   from_anchor : Anchor // 接続元のアンカー
   to_anchor : Anchor // 接続先のアンカー
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 接続グラフ（隣接リスト形式）
@@ -24,12 +24,12 @@ pub(all) struct ConnectionGraph {
   edges : Array[Edge]
   // Line 要素 ID -> その Line が表すエッジ
   line_to_edge : Map[String, Edge]
-} derive(Show, Debug)
+} derive(Debug)
 
 ///|
 /// 空のグラフを作成
 pub fn ConnectionGraph::new() -> ConnectionGraph {
-  { adjacency: {}, edges: [], line_to_edge: {} }
+  { adjacency: {}, edges: [], line_to_edge: {}, }
 }
 
 ///|
@@ -200,7 +200,7 @@ pub(all) struct Path {
   nodes : Array[String] // 経路上のノード ID（開始から終了まで）
   edges : Array[Edge] // 経路上のエッジ
   total_distance : Double // 合計距離
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 2点間の最短パスを探索（BFS）
@@ -212,12 +212,12 @@ pub fn ConnectionGraph::find_shortest_path(
   elements : Array[Element],
 ) -> Path? {
   if from_id == to_id {
-    return Some({ nodes: [from_id], edges: [], total_distance: 0.0 })
+    return Some({ nodes: [from_id], edges: [], total_distance: 0.0, })
   }
 
   // BFS で探索
   // 各ノードへの親情報を記録
-  let parent : Map[String, (String, Edge)] = {} // node_id -> (parent_id, edge)
+  let parent : Map[String, (String, Edge)] = Map([]) // node_id -> (parent_id, edge)
   let visited : Array[String] = []
   let queue : Array[String] = [from_id]
   visited.push(from_id)
@@ -272,7 +272,7 @@ fn reconstruct_path(
 
   // 距離を計算
   let total_distance = calc_path_distance(nodes, elements)
-  { nodes, edges, total_distance }
+  { nodes, edges, total_distance, }
 }
 
 ///|
@@ -331,7 +331,7 @@ pub fn ConnectionGraph::connection_distance(
   }
 
   // BFS でホップ数をカウント
-  let distance : Map[String, Int] = {}
+  let distance : Map[String, Int] = Map([])
   distance[from_id] = 0
   let queue : Array[String] = [from_id]
   while queue.length() > 0 {
@@ -356,7 +356,7 @@ pub fn ConnectionGraph::distance_map_from(
   self : ConnectionGraph,
   start_id : String,
 ) -> Map[String, Int] {
-  let distances : Map[String, Int] = {}
+  let distances : Map[String, Int] = Map([])
   distances[start_id] = 0
   let queue : Array[String] = [start_id]
   while queue.length() > 0 {
@@ -382,7 +382,7 @@ pub(all) struct MoveTarget {
   id : String
   new_x : Double
   new_y : Double
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 再計算結果
@@ -391,7 +391,7 @@ pub(all) struct RecalculationResult {
   element_updates : Array[MoveTarget]
   // 更新が必要な Line の新座標
   line_updates : Array[LineCoords]
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 部分移動時の全体再計算
@@ -409,7 +409,7 @@ pub fn recalculate_on_partial_move(
   let moved_ids : Array[String] = moved_targets.map(fn(t) { t.id })
 
   // 移動後の座標マップを作成
-  let new_positions : Map[String, (Double, Double)] = {}
+  let new_positions : Map[String, (Double, Double)] = Map([])
   for target in moved_targets {
     new_positions[target.id] = (target.new_x, target.new_y)
   }
@@ -417,7 +417,7 @@ pub fn recalculate_on_partial_move(
   // 仮想的な更新後要素を作成
   let updated_elements = elements.map(fn(el) {
     match new_positions.get(el.id) {
-      Some((nx, ny)) => { ..el, x: nx, y: ny }
+      Some((nx, ny)) => { ..el, x: nx, y: ny, }
       None => el
     }
   })
@@ -502,11 +502,11 @@ pub fn recalculate_on_partial_move(
 
       // 子要素自体が移動対象でない場合のみ更新
       if !moved_ids.contains(el.id) {
-        element_updates.push({ id: el.id, new_x: el.x + dx, new_y: el.y + dy })
+        element_updates.push({ id: el.id, new_x: el.x + dx, new_y: el.y + dy, })
       }
     }
   }
-  { element_updates, line_updates }
+  { element_updates, line_updates, }
 }
 
 // ============================================================
@@ -549,7 +549,7 @@ pub(all) struct GraphStats {
   hub_count : Int // ハブノード数
   leaf_count : Int // リーフノード数
   isolated_count : Int // 孤立ノード数
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// グラフの統計を取得
@@ -627,7 +627,7 @@ pub fn ConnectionGraph::find_all_paths(
 ) -> Array[Path] {
   let paths : Array[Path] = []
   if from_id == to_id {
-    paths.push({ nodes: [from_id], edges: [], total_distance: 0.0 })
+    paths.push({ nodes: [from_id], edges: [], total_distance: 0.0, })
     return paths
   }
 
