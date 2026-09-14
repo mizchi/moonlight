@@ -21,10 +21,14 @@
       "mbt:internal/app/preview": [
         "./_build/js/release/build/preview/preview.js"
       ]
-    }
+    },
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "*.ts",
+    "e2e/**/*.ts",
     "types/**/*.d.ts"
   ]
 }

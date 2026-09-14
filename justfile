@@ -24,9 +24,13 @@ vrt-update:
 test-unit:
   pnpm test:unit
 
-# Type check
+# Type check (MoonBit)
 check:
   moon check
+
+# Type check (TypeScript: entry points, e2e tests, config)
+check-ts:
+  pnpm typecheck
 
 # Format
 fmt:

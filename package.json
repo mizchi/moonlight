@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "moon:build:compat": "moon build --target js --release && (test -e _build || ln -s target _build) && (test -e target || ln -s _build target)",
     "build:component": "pnpm moon:build:compat && rolldown -c rolldown.config.mjs",
     "build:all": "pnpm moon:build:compat && vite build && rolldown -c rolldown.config.mjs",
@@ -34,6 +35,7 @@
     "@mizchi/vlmkit": "^0.22.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.1",
+    "@types/pngjs": "^6.0.5",
     "happy-dom": "^20.14.5",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.63.0",
