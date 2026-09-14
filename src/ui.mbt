@@ -1000,50 +1000,66 @@ pub fn render_delete_button(
 
 ///|
 /// 要素ツリーをレンダリング
+///
+/// 中身を一度組み立てて終わりにすると、パネルが作られた時点の要素リストが
+/// そのまま貼り付いてしまう（実際、初回表示では要素があるのに「No elements」に
+/// なっていた）。for_each と show で state.elements を追うようにする。
 fn render_element_tree(state : @core.EditorState) -> @element.DomNode {
   let theme = state.get_theme()
   let tree_style = "max-height: 300px; overflow-y: auto; padding: 4px;"
-  let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
-  // 親要素のみを表示（子要素は除外）
-  let elements = state.elements.get().filter(fn(el) { el.parent_id is None })
-  let children : Array[@element.DomNode] = []
-  for el in elements {
-    let shape_icon = match el.shape {
-      @model.Rect(_, _, _, _) => "▢"
-      @model.Circle(_) => "○"
-      @model.Ellipse(_, _) => "⬭"
-      @model.Line(_, _) => "╱"
-      @model.Polyline(_) => "⟋"
-      @model.Path(_, _, _, _, _) => "✎"
-      @model.Text(_, _) => "T"
-    }
-    let el_id = el.id
-    let shape_name = @model.shape_name(el.shape)
-    children.push(
+  // 親要素のみを表示（子要素は除外）。
+  // 図形の種類が変わったら行を作り直させたいので、キーに種類を含める。
+  let keys = fn() {
+    state.elements
+    .get()
+    .filter(fn(el) { el.parent_id is None })
+    .map(fn(el) { element_key(el) })
+  }
+  div(style=tree_style, [
+    show(fn() { keys().length() == 0 }, fn() {
       div(
-        style=item_style,
-        on=events().click(fn(_) { state.select(Some(el_id)) }),
-        [
-          @element.span(style="font-size: 14px; width: 16px;", [
-            text(shape_icon),
-          ]),
-          @element.span(style="color: #666;", [text(shape_name)]),
-          @element.span(
-            style="color: \{theme.ui_text_muted}; font-family: monospace;",
-            [text("#" + el_id)],
-          ),
-        ],
+        style="padding: 8px; color: \{theme.ui_text_muted}; font-size: 11px; text-align: center;",
+        [text("No elements")],
+      )
+    }),
+    @element.for_each(keys, fn(key, _idx) {
+      render_element_tree_item(state, theme, element_id_of_key(key))
+    }),
+  ])
+}
+
+///|
+/// 要素ツリーの一行
+fn render_element_tree_item(
+  state : @core.EditorState,
+  theme : @model.Theme,
+  el_id : String,
+) -> @element.DomNode {
+  guard state.find_element(el_id) is Some(el) else {
+    return @element.fragment([])
+  }
+  let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
+  let shape_icon = match el.shape {
+    @model.Rect(_, _, _, _) => "▢"
+    @model.Circle(_) => "○"
+    @model.Ellipse(_, _) => "⬭"
+    @model.Line(_, _) => "╱"
+    @model.Polyline(_) => "⟋"
+    @model.Path(_, _, _, _, _) => "✎"
+    @model.Text(_, _) => "T"
+  }
+  div(
+    style=item_style,
+    on=events().click(fn(_) { state.select(Some(el_id)) }),
+    [
+      @element.span(style="font-size: 14px; width: 16px;", [text(shape_icon)]),
+      @element.span(style="color: #666;", [text(@model.shape_name(el.shape))]),
+      @element.span(
+        style="color: \{theme.ui_text_muted}; font-family: monospace;",
+        [text("#" + el_id)],
       ),
-    )
-  }
-  if children.length() == 0 {
-    div(
-      style="padding: 8px; color: \{theme.ui_text_muted}; font-size: 11px; text-align: center;",
-      [text("No elements")],
-    )
-  } else {
-    div(style=tree_style, [@element.fragment(children)])
-  }
+    ],
+  )
 }
 
 ///|
