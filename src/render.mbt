@@ -1815,6 +1815,31 @@ pub fn render_grid_vnode(state : @core.EditorState) -> @element.DomNode {
 }
 
 ///|
+/// for_each の差分キー。ID と図形の種類を組にする。
+///
+/// ID だけでは、同じ ID に別種の図形が入れ替わったときに DOM ノードが使い回され、
+/// 例えば rect のノードに circle の cx/cy/r が上書きされて絵が壊れる。SVG を
+/// 読み込み直すと ID は振り直されて衝突するので、これは実際に起きる。
+pub fn element_key(el : @model.Element) -> String {
+  "\{@model.shape_name(el.shape)}|\{el.id}"
+}
+
+///|
+/// 差分キーから要素 ID を取り出す
+pub fn element_id_of_key(key : String) -> String {
+  let parts : Array[String] = key
+    .split("|")
+    .map(fn(sv) { sv.to_owned() })
+    .collect()
+  if parts.length() <= 1 {
+    key
+  } else {
+    // ID 側に "|" が含まれていても失わないように、先頭の種類だけを落とす
+    parts[1:].to_owned().join("|")
+  }
+}
+
+///|
 /// 要素を VNode として描画（Effect で直接 DOM 更新）
 pub fn render_element_vnode(
   state : @core.EditorState,

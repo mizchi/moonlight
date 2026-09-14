@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moonlight - Visual Model Harness</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #fff;
+      color: #111;
+    }
+    h1 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+    #stage {
+      width: 640px;
+      border: 1px solid #d6d6d6;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+    #status {
+      margin-top: 10px;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    セマンティックモデルと実際のエディタを同じページに並べるための土台。
+
+    テストはここで
+      - シナリオテキストからモデルの初期 SVG を作り、エディタに読み込ませ
+      - 本物のマウス操作で DnD を行い
+      - エディタの出力とモデルの予測を突き合わせる
+    という流れを踏む。ページ側は道具を window に置くだけで、判定はしない。
+  -->
+  <h1>Visual model harness</h1>
+  <div id="stage"></div>
+  <div id="status">loading…</div>
+
+  <script type="module">
+    import { createEditor } from '/js/api.js';
+    import { runScenario, sceneToSvg } from '/_build/js/release/build/entries/model-js/model-js.js';
+
+    const STAGE_WIDTH = 640;
+    const STAGE_HEIGHT = 420;
+
+    const status = document.getElementById('status');
+    let editor = null;
+    let idMap = new Map();
+
+    /** シナリオを走らせたモデルの予測を返す */
+    function model(scenario, width = STAGE_WIDTH, height = STAGE_HEIGHT) {
+      return JSON.parse(runScenario(scenario, width, height));
+    }
+
+    /**
+     * シナリオの初期シーンをエディタに読み込ませる。
+     *
+     * エディタは取り込み時に ID を振り直す（取り込み先との衝突を避けるため）ので、
+     * シナリオ上の ID とエディタ上の ID の対応表も一緒に返す。
+     * 取り込み順は保たれるため、モデルの要素列と添字で対応づけられる。
+     */
+    function load(scenario) {
+      const svg = sceneToSvg(scenario, STAGE_WIDTH, STAGE_HEIGHT);
+      if (!svg) throw new Error('scenario did not parse');
+      editor.importSvg(svg);
+
+      const predicted = model(scenario).elements;
+      const actual = editor.getElements();
+      if (predicted.length !== actual.length) {
+        throw new Error(
+          `editor took ${actual.length} element(s) but the scenario declares ${predicted.length}`,
+        );
+      }
+      idMap = new Map(predicted.map((el, i) => [el.id, actual[i].id]));
+      status.textContent = `loaded ${actual.length} element(s)`;
+      return { svg, ids: Object.fromEntries(idMap) };
+    }
+
+    /** シナリオ上の ID を、いまエディタが使っている ID に直す */
+    function mapId(id) {
+      return idMap.get(id) ?? id;
+    }
+
+    /** エディタが今持っている要素を、比較しやすい形に均して返す */
+    function elements() {
+      return editor.getElements().map((el) => ({
+        id: el.id,
+        x: round(el.x),
+        y: round(el.y),
+      }));
+    }
+
+    function round(v) {
+      return Math.round(v * 100) / 100;
+    }
+
+    const container = document.getElementById('stage');
+    editor = createEditor(container, {
+      width: STAGE_WIDTH,
+      height: STAGE_HEIGHT,
+      docWidth: STAGE_WIDTH,
+      docHeight: STAGE_HEIGHT,
+      theme: 'light',
+    });
+
+    window.harness = { editor, model, load, mapId, elements, round, STAGE_WIDTH, STAGE_HEIGHT };
+    status.textContent = 'ready';
+    document.body.dataset.harnessReady = '1';
+  </script>
+</body>
+</html>

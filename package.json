@@ -25,7 +25,10 @@
     "test": "playwright test",
     "test:e2e": "playwright test",
     "test:unit": "./scripts/moon-test.sh",
-    "test:mbt": "./scripts/moon-test.sh"
+    "test:mbt": "./scripts/moon-test.sh",
+    "test:visual-model": "playwright test e2e/visual-model.test.ts",
+    "vlm:integrity": "vlmkit check integrity http://localhost:5173/ --no-ledger",
+    "vlm:snapshot": "vlmkit snapshot http://localhost:5173/ --output .vlmkit/snapshots"
   },
   "devDependencies": {
     "@mizchi/vlmkit": "^0.22.0",

@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Moonlight SVG Editor', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    // 初期図形が出そろう前に数えると、テストが数える基準値がぶれる
+    await expect(page.locator('svg rect[data-id][cursor="move"]')).toHaveCount(4);
   });
 
   test('should have Rectangle and Circle buttons', async ({ page }) => {
