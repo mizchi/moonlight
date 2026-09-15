@@ -11,8 +11,7 @@ pub fn import_svg_elements(
     return []
   }
   // Moonlight形式かチェック
-  let is_moonlight =
-    !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+  let is_moonlight = !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
 
   let children = get_svg_children(svg_el)
   let elements : Array[@model.Element] = []
@@ -314,7 +313,7 @@ fn parse_connections(el : @js.Any) -> @model.LineConnections? {
     let s : String = end_raw.cast()
     parse_connection_string(s)
   }
-  Some({ start, end: end_ })
+  Some({ start, end: end_, })
 }
 
 ///|
@@ -323,7 +322,7 @@ fn parse_connection_string(s : String) -> @model.Connection? {
   // "element-id:anchor" 形式
   let parts : Array[String] = s
     .split(":")
-    .map(fn(sv) { sv.to_string() })
+    .map(fn(sv) { sv.to_owned() })
     .collect()
   if parts.length() != 2 {
     return None
@@ -331,7 +330,7 @@ fn parse_connection_string(s : String) -> @model.Connection? {
   let element_id = parts[0]
   let anchor_str = parts[1]
   match @model.parse_anchor(anchor_str) {
-    Some(anchor) => Some({ element_id, anchor })
+    Some(anchor) => Some({ element_id, anchor, })
     None => None
   }
 }
@@ -342,17 +341,17 @@ fn parse_points(s : String) -> Array[@model.Point] {
   let points : Array[@model.Point] = []
   let pairs : Array[String] = s
     .split(" ")
-    .map(fn(sv) { sv.to_string() })
+    .map(fn(sv) { sv.to_owned() })
     .collect()
   for pair in pairs {
     let coords : Array[String] = pair
       .split(",")
-      .map(fn(sv) { sv.to_string() })
+      .map(fn(sv) { sv.to_owned() })
       .collect()
     if coords.length() == 2 {
       if parse_double(coords[0]) is Some(x) {
         if parse_double(coords[1]) is Some(y) {
-          points.push({ x, y })
+          points.push({ x, y, })
         }
       }
     }
@@ -407,7 +406,7 @@ fn update_connection_ids(
           }
           None => None
         }
-        let lc : @model.LineConnections = { start: new_start, end: new_end }
+        let lc : @model.LineConnections = { start: new_start, end: new_end, }
         Some(lc)
       }
       None => None
@@ -425,17 +424,17 @@ fn update_connection_ids(
 /// 返り値: (start_x, start_y, end_x, end_y)
 fn parse_path_endpoints(d : String) -> (Double, Double, Double, Double) {
   // SVG pathコマンドをパースして座標を抽出
-  let start_x : Ref[Double] = { val: 0.0 }
-  let start_y : Ref[Double] = { val: 0.0 }
-  let end_x : Ref[Double] = { val: 0.0 }
-  let end_y : Ref[Double] = { val: 0.0 }
-  let current_x : Ref[Double] = { val: 0.0 }
-  let current_y : Ref[Double] = { val: 0.0 }
-  let found_start : Ref[Bool] = { val: false }
+  let start_x : Ref[Double] = { val: 0.0, }
+  let start_y : Ref[Double] = { val: 0.0, }
+  let end_x : Ref[Double] = { val: 0.0, }
+  let end_y : Ref[Double] = { val: 0.0, }
+  let current_x : Ref[Double] = { val: 0.0, }
+  let current_y : Ref[Double] = { val: 0.0, }
+  let found_start : Ref[Bool] = { val: false, }
   // 簡易パーサー: 数値を抽出
   let numbers = extract_path_numbers(d)
   let commands = extract_path_commands(d)
-  let num_idx : Ref[Int] = { val: 0 }
+  let num_idx : Ref[Int] = { val: 0, }
   for cmd in commands {
     let c = cmd
     match c {
@@ -616,7 +615,7 @@ fn extract_path_commands(d : String) -> Array[Char] {
 fn extract_path_numbers(d : String) -> Array[Double] {
   let numbers : Array[Double] = []
   let current : Array[Char] = []
-  let in_number : Ref[Bool] = { val: false }
+  let in_number : Ref[Bool] = { val: false, }
   for c in d {
     match c {
       '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '.' | '-' => {

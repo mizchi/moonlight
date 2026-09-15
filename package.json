@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "moon:build:compat": "moon build --target js --release && (test -e _build || ln -s target _build) && (test -e target || ln -s _build target)",
     "build:component": "pnpm moon:build:compat && rolldown -c rolldown.config.mjs",
     "build:all": "pnpm moon:build:compat && vite build && rolldown -c rolldown.config.mjs",
@@ -25,21 +26,24 @@
     "test": "playwright test",
     "test:e2e": "playwright test",
     "test:unit": "./scripts/moon-test.sh",
-    "test:mbt": "./scripts/moon-test.sh"
+    "test:mbt": "./scripts/moon-test.sh",
+    "test:visual-model": "playwright test e2e/visual-model.test.ts",
+    "vlm:integrity": "vlmkit check integrity http://localhost:5173/ --no-ledger",
+    "vlm:snapshot": "vlmkit snapshot http://localhost:5173/ --output .vlmkit/snapshots"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.3",
-    "happy-dom": "^20.0.11",
-    "pixelmatch": "^7.1.0",
-    "playwright": "^1.57.0",
+    "@mizchi/vlmkit": "^0.22.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.1",
+    "@types/pngjs": "^6.0.5",
+    "happy-dom": "^20.14.5",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.63.0",
     "pngjs": "^7.0.0",
-    "puppeteer": "^24.34.0",
-    "rolldown": "1.0.0-beta.57",
-    "tsdown": "^0.18.3",
-    "vite": "8.0.0-beta.5",
-    "vite-plugin-moonbit": "^0.1.5",
-    "vrt": "github:mizchi/vrt",
-    "wrangler": "^4.54.0"
+    "puppeteer": "^25.11.0",
+    "rolldown": "^1.2.8",
+    "vite": "^8.3.0",
+    "vite-plugin-moonbit": "^0.5.1",
+    "wrangler": "^4.131.2"
   }
 }

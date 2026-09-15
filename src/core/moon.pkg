@@ -1,10 +1,9 @@
 import {
   "mizchi/moonlight/model",
+  "mizchi/moonlight/interaction",
   "mizchi/luna",
   "mizchi/signals",
   "mizchi/js/core" @js,
 }
 
-options(
-  "supported-targets": [ "js" ],
-)
+supported_targets = "js"

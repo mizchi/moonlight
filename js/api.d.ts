@@ -21,10 +21,23 @@ export interface EditorOptions {
   initialSvg?: string;
 }
 
+export interface EditorElement {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** Unsubscribe from an event registered with one of the `on*` methods */
+export type Unsubscribe = () => void;
+
 export interface EditorHandle {
   /** Export current drawing as SVG string */
   exportSvg(): string;
-  /** Import SVG string into editor */
+  /**
+   * Import an SVG string into the editor, replacing its contents.
+   * Element ids are regenerated so they cannot collide; connections and
+   * parent links are remapped to match.
+   */
   importSvg(svg: string): void;
   /** Clear all elements */
   clear(): void;
@@ -32,8 +45,44 @@ export interface EditorHandle {
   destroy(): void;
   /** Check if editor has focus */
   hasFocus(): boolean;
-  /** Register change callback */
-  onChange(callback: () => void): void;
+
+  /** Select one element or several; replaces the current selection */
+  select(ids: string | string[]): void;
+  /** Select every element */
+  selectAll(): void;
+  /** Clear the selection */
+  deselect(): void;
+  /** Ids of the currently selected elements */
+  getSelectedIds(): string[];
+
+  /** Give the editor keyboard focus */
+  focus(): void;
+  /** Take keyboard focus away from the editor */
+  blur(): void;
+
+  /** Every element currently on the canvas */
+  getElements(): EditorElement[];
+  /** One element by id, or null when there is none */
+  getElementById(id: string): EditorElement | null;
+  /** Delete one element or several */
+  deleteElements(ids: string | string[]): void;
+
+  /** Switch between the select tool and free drawing */
+  setMode(mode: "select" | "freedraw"): void;
+  getMode(): "select" | "freedraw";
+
+  /** Turn editing off (the drawing stays visible) */
+  setReadonly(value: boolean): void;
+  isReadonly(): boolean;
+
+  onChange(callback: () => void): Unsubscribe;
+  onSelect(callback: (ids: string[]) => void): Unsubscribe;
+  onDeselect(callback: () => void): Unsubscribe;
+  onFocus(callback: () => void): Unsubscribe;
+  onBlur(callback: () => void): Unsubscribe;
+  onModeChange(callback: (mode: string) => void): Unsubscribe;
+  onElementAdd(callback: (id: string) => void): Unsubscribe;
+  onElementDelete(callback: (id: string) => void): Unsubscribe;
 }
 
 /**

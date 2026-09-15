@@ -6,9 +6,9 @@
 
 ///|
 test "Point equality" {
-  let p1 : Point = { x: 10.0, y: 20.0 }
-  let p2 : Point = { x: 10.0, y: 20.0 }
-  let p3 : Point = { x: 10.0, y: 30.0 }
+  let p1 : Point = { x: 10.0, y: 20.0, }
+  let p2 : Point = { x: 10.0, y: 20.0, }
+  let p3 : Point = { x: 10.0, y: 30.0, }
   assert_eq(p1, p2)
   assert_true(p1 != p3)
 }
@@ -19,35 +19,35 @@ test "Point equality" {
 
 ///|
 test "BoundingBox::contains - point inside" {
-  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0 }
-  let p : Point = { x: 125.0, y: 125.0 }
+  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0, }
+  let p : Point = { x: 125.0, y: 125.0, }
   assert_true(bbox.contains(p))
 }
 
 ///|
 test "BoundingBox::contains - point on edge" {
-  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0 }
+  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0, }
   // 左端
-  assert_true(bbox.contains({ x: 100.0, y: 125.0 }))
+  assert_true(bbox.contains({ x: 100.0, y: 125.0, }))
   // 右端
-  assert_true(bbox.contains({ x: 150.0, y: 125.0 }))
+  assert_true(bbox.contains({ x: 150.0, y: 125.0, }))
   // 上端
-  assert_true(bbox.contains({ x: 125.0, y: 100.0 }))
+  assert_true(bbox.contains({ x: 125.0, y: 100.0, }))
   // 下端
-  assert_true(bbox.contains({ x: 125.0, y: 150.0 }))
+  assert_true(bbox.contains({ x: 125.0, y: 150.0, }))
 }
 
 ///|
 test "BoundingBox::contains - point outside" {
-  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0 }
+  let bbox : BoundingBox = { x: 100.0, y: 100.0, width: 50.0, height: 50.0, }
   // 左外
-  assert_false(bbox.contains({ x: 99.0, y: 125.0 }))
+  assert_false(bbox.contains({ x: 99.0, y: 125.0, }))
   // 右外
-  assert_false(bbox.contains({ x: 151.0, y: 125.0 }))
+  assert_false(bbox.contains({ x: 151.0, y: 125.0, }))
   // 上外
-  assert_false(bbox.contains({ x: 125.0, y: 99.0 }))
+  assert_false(bbox.contains({ x: 125.0, y: 99.0, }))
   // 下外
-  assert_false(bbox.contains({ x: 125.0, y: 151.0 }))
+  assert_false(bbox.contains({ x: 125.0, y: 151.0, }))
 }
 
 // ============================================================
@@ -72,7 +72,7 @@ test "Viewport::screen_to_scene - no scroll, no zoom" {
 
 ///|
 test "Viewport::screen_to_scene - with scroll" {
-  let vp : Viewport = { scroll_x: 50.0, scroll_y: 100.0, zoom: 1.0 }
+  let vp : Viewport = { scroll_x: 50.0, scroll_y: 100.0, zoom: 1.0, }
   let scene = vp.screen_to_scene(100.0, 200.0)
   assert_eq(scene.x, 150.0) // 100 + 50
   assert_eq(scene.y, 300.0) // 200 + 100
@@ -80,7 +80,7 @@ test "Viewport::screen_to_scene - with scroll" {
 
 ///|
 test "Viewport::screen_to_scene - with zoom" {
-  let vp : Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 2.0 }
+  let vp : Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 2.0, }
   let scene = vp.screen_to_scene(100.0, 200.0)
   assert_eq(scene.x, 50.0) // 100 / 2
   assert_eq(scene.y, 100.0) // 200 / 2
@@ -96,7 +96,7 @@ test "Viewport::scene_to_screen - no scroll, no zoom" {
 
 ///|
 test "Viewport::scene_to_screen - with scroll" {
-  let vp : Viewport = { scroll_x: 50.0, scroll_y: 100.0, zoom: 1.0 }
+  let vp : Viewport = { scroll_x: 50.0, scroll_y: 100.0, zoom: 1.0, }
   let screen = vp.scene_to_screen(150.0, 300.0)
   assert_eq(screen.x, 100.0) // (150 - 50) * 1
   assert_eq(screen.y, 200.0) // (300 - 100) * 1
@@ -104,7 +104,7 @@ test "Viewport::scene_to_screen - with scroll" {
 
 ///|
 test "Viewport::scene_to_screen - with zoom" {
-  let vp : Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 2.0 }
+  let vp : Viewport = { scroll_x: 0.0, scroll_y: 0.0, zoom: 2.0, }
   let screen = vp.scene_to_screen(50.0, 100.0)
   assert_eq(screen.x, 100.0) // 50 * 2
   assert_eq(screen.y, 200.0) // 100 * 2
@@ -112,7 +112,7 @@ test "Viewport::scene_to_screen - with zoom" {
 
 ///|
 test "Viewport roundtrip - screen -> scene -> screen" {
-  let vp : Viewport = { scroll_x: 30.0, scroll_y: 40.0, zoom: 1.5 }
+  let vp : Viewport = { scroll_x: 30.0, scroll_y: 40.0, zoom: 1.5, }
   let original_x = 120.0
   let original_y = 180.0
   let scene = vp.screen_to_scene(original_x, original_y)
@@ -286,7 +286,7 @@ test "calc_drag_position - negative result" {
 ///|
 test "find_element_at - empty array" {
   let elements : Array[Element] = []
-  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  let result = find_element_at(elements, { x: 100.0, y: 100.0, })
   assert_eq(result, None)
 }
 
@@ -295,7 +295,7 @@ test "find_element_at - hit single element" {
   let elements = [
     Element::new("el-1", 50.0, 50.0, Rect(100.0, 100.0, None, None)),
   ]
-  let result = find_element_at(elements, { x: 75.0, y: 75.0 })
+  let result = find_element_at(elements, { x: 75.0, y: 75.0, })
   assert_true(result is Some(_))
   assert_eq(result.unwrap().id, "el-1")
 }
@@ -305,7 +305,7 @@ test "find_element_at - miss" {
   let elements = [
     Element::new("el-1", 50.0, 50.0, Rect(100.0, 100.0, None, None)),
   ]
-  let result = find_element_at(elements, { x: 200.0, y: 200.0 })
+  let result = find_element_at(elements, { x: 200.0, y: 200.0, })
   assert_eq(result, None)
 }
 
@@ -317,7 +317,7 @@ test "find_element_at - returns topmost element" {
     Element::new("el-2", 75.0, 75.0, Rect(100.0, 100.0, None, None)),
   ]
   // (100, 100) は両方の要素にヒットするが、el-2（後ろ）が返される
-  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  let result = find_element_at(elements, { x: 100.0, y: 100.0, })
   assert_true(result is Some(_))
   assert_eq(result.unwrap().id, "el-2")
 }
@@ -326,7 +326,7 @@ test "find_element_at - returns topmost element" {
 test "find_element_at - circle hit test" {
   let elements = [Element::new("circle-1", 100.0, 100.0, Circle(50.0))]
   // 円の中心付近
-  let result = find_element_at(elements, { x: 100.0, y: 100.0 })
+  let result = find_element_at(elements, { x: 100.0, y: 100.0, })
   assert_true(result is Some(_))
   assert_eq(result.unwrap().id, "circle-1")
 }
@@ -412,7 +412,7 @@ test "LineConnections::none" {
 
 ///|
 test "Connection - construction" {
-  let conn : Connection = { element_id: "el-1", anchor: Top }
+  let conn : Connection = { element_id: "el-1", anchor: Top, }
   assert_eq(conn.element_id, "el-1")
   assert_eq(conn.anchor, Top)
 }
@@ -453,10 +453,10 @@ test "Element::get_anchor_point - Rect edges" {
 ///|
 test "Element::get_anchor_point - Rect corners" {
   let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
-  assert_eq(el.get_anchor_point(TopLeft), { x: 100.0, y: 100.0 })
-  assert_eq(el.get_anchor_point(TopRight), { x: 180.0, y: 100.0 })
-  assert_eq(el.get_anchor_point(BottomLeft), { x: 100.0, y: 160.0 })
-  assert_eq(el.get_anchor_point(BottomRight), { x: 180.0, y: 160.0 })
+  assert_eq(el.get_anchor_point(TopLeft), { x: 100.0, y: 100.0, })
+  assert_eq(el.get_anchor_point(TopRight), { x: 180.0, y: 100.0, })
+  assert_eq(el.get_anchor_point(BottomLeft), { x: 100.0, y: 160.0, })
+  assert_eq(el.get_anchor_point(BottomRight), { x: 180.0, y: 160.0, })
 }
 
 ///|
@@ -502,7 +502,7 @@ test "Element::get_all_anchors - Circle has 5 anchors (no corners)" {
 test "Element::find_nearest_anchor - within threshold" {
   let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   // Point close to top anchor (140, 100)
-  let result = el.find_nearest_anchor({ x: 142.0, y: 102.0 }, 10.0)
+  let result = el.find_nearest_anchor({ x: 142.0, y: 102.0, }, 10.0)
   assert_true(result is Some(_))
   let (anchor, _, _) = result.unwrap()
   assert_eq(anchor, Top)
@@ -512,11 +512,11 @@ test "Element::find_nearest_anchor - within threshold" {
 test "Element::find_nearest_anchor - outside threshold" {
   let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   // Point far from any anchor
-  let result = el.find_nearest_anchor({ x: 140.0, y: 130.0 }, 5.0) // Center is at 140, 130
+  let result = el.find_nearest_anchor({ x: 140.0, y: 130.0, }, 5.0) // Center is at 140, 130
   // Center should be within threshold
   assert_true(result is Some(_))
   // But a point far away should not match
-  let result2 = el.find_nearest_anchor({ x: 200.0, y: 200.0 }, 10.0)
+  let result2 = el.find_nearest_anchor({ x: 200.0, y: 200.0, }, 10.0)
   assert_eq(result2, None)
 }
 
@@ -526,30 +526,30 @@ test "Element::find_nearest_anchor - outside threshold" {
 
 ///|
 test "BoundingBox::intersects - overlapping" {
-  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0 }
-  let b : BoundingBox = { x: 50.0, y: 50.0, width: 100.0, height: 100.0 }
+  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0, }
+  let b : BoundingBox = { x: 50.0, y: 50.0, width: 100.0, height: 100.0, }
   assert_true(a.intersects(b))
   assert_true(b.intersects(a))
 }
 
 ///|
 test "BoundingBox::intersects - touching edges" {
-  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0 }
-  let b : BoundingBox = { x: 100.0, y: 0.0, width: 100.0, height: 100.0 }
+  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0, }
+  let b : BoundingBox = { x: 100.0, y: 0.0, width: 100.0, height: 100.0, }
   assert_true(a.intersects(b)) // touching is intersecting
 }
 
 ///|
 test "BoundingBox::intersects - not intersecting" {
-  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0 }
-  let b : BoundingBox = { x: 200.0, y: 200.0, width: 100.0, height: 100.0 }
+  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0, }
+  let b : BoundingBox = { x: 200.0, y: 200.0, width: 100.0, height: 100.0, }
   assert_false(a.intersects(b))
 }
 
 ///|
 test "BoundingBox::intersects - one inside other" {
-  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0 }
-  let b : BoundingBox = { x: 25.0, y: 25.0, width: 50.0, height: 50.0 }
+  let a : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0, }
+  let b : BoundingBox = { x: 25.0, y: 25.0, width: 50.0, height: 50.0, }
   assert_true(a.intersects(b))
   assert_true(b.intersects(a))
 }
@@ -599,7 +599,7 @@ test "find_elements_in_box - select all" {
     Element::new("el-1", 50.0, 50.0, Rect(40.0, 40.0, None, None)),
     Element::new("el-2", 100.0, 100.0, Rect(40.0, 40.0, None, None)),
   ]
-  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 200.0, height: 200.0 }
+  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 200.0, height: 200.0, }
   let result = find_elements_in_box(elements, box_bbox)
   assert_eq(result.length(), 2)
 }
@@ -610,7 +610,7 @@ test "find_elements_in_box - select partial" {
     Element::new("el-1", 50.0, 50.0, Rect(40.0, 40.0, None, None)),
     Element::new("el-2", 200.0, 200.0, Rect(40.0, 40.0, None, None)),
   ]
-  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0 }
+  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 100.0, height: 100.0, }
   let result = find_elements_in_box(elements, box_bbox)
   assert_eq(result.length(), 1)
   assert_eq(result[0].id, "el-1")
@@ -628,7 +628,7 @@ test "find_elements_in_box - exclude children" {
     "parent",
   )
   let elements = [parent, child]
-  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 200.0, height: 200.0 }
+  let box_bbox : BoundingBox = { x: 0.0, y: 0.0, width: 200.0, height: 200.0, }
   let result = find_elements_in_box(elements, box_bbox)
   // Only parent should be selected, not child
   assert_eq(result.length(), 1)
@@ -853,28 +853,28 @@ test "TextEditState - construction" {
 ///|
 test "Element::hit_test - point inside rect" {
   let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
-  assert_true(el.hit_test({ x: 120.0, y: 120.0 }))
+  assert_true(el.hit_test({ x: 120.0, y: 120.0, }))
 }
 
 ///|
 test "Element::hit_test - point outside rect" {
   let el = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
-  assert_false(el.hit_test({ x: 50.0, y: 50.0 }))
+  assert_false(el.hit_test({ x: 50.0, y: 50.0, }))
 }
 
 ///|
 test "Element::hit_test - point inside circle" {
   let el = Element::new("el-1", 100.0, 100.0, Circle(50.0))
   // Circle bbox is (50, 50, 100, 100)
-  assert_true(el.hit_test({ x: 100.0, y: 100.0 }))
-  assert_true(el.hit_test({ x: 60.0, y: 100.0 }))
+  assert_true(el.hit_test({ x: 100.0, y: 100.0, }))
+  assert_true(el.hit_test({ x: 60.0, y: 100.0, }))
 }
 
 ///|
 test "Element::hit_test - point outside circle" {
   let el = Element::new("el-1", 100.0, 100.0, Circle(50.0))
   // Circle bbox is (50, 50, 100, 100)
-  assert_false(el.hit_test({ x: 160.0, y: 160.0 }))
+  assert_false(el.hit_test({ x: 160.0, y: 160.0, }))
 }
 
 // ============================================================
@@ -909,21 +909,21 @@ test "Style equality - same styles" {
 ///|
 test "Style equality - different fill" {
   let style1 = Style::default()
-  let style2 = { ..Style::default(), fill: Some("#ff0000") }
+  let style2 = { ..Style::default(), fill: Some("#ff0000"), }
   assert_true(style1 != style2)
 }
 
 ///|
 test "Style equality - different stroke_dasharray" {
   let style1 = Style::default()
-  let style2 = { ..Style::default(), stroke_dasharray: Some("5,5") }
+  let style2 = { ..Style::default(), stroke_dasharray: Some("5,5"), }
   assert_true(style1 != style2)
 }
 
 ///|
 test "Style equality - different marker" {
   let style1 = Style::default()
-  let style2 = { ..Style::default(), marker_end: Some(Arrow) }
+  let style2 = { ..Style::default(), marker_end: Some(Arrow), }
   assert_true(style1 != style2)
 }
 
@@ -998,9 +998,9 @@ test "Element::bounding_box - Polyline empty" {
 ///|
 test "Element::bounding_box - Polyline with points" {
   let points : Array[Point] = [
-    { x: 50.0, y: 50.0 },
-    { x: 150.0, y: 50.0 },
-    { x: 100.0, y: 150.0 },
+    { x: 50.0, y: 50.0, },
+    { x: 150.0, y: 50.0, },
+    { x: 100.0, y: 150.0, },
   ]
   let el = Element::new("el-1", 100.0, 100.0, Polyline(points))
   let bbox = el.bounding_box()
@@ -1024,7 +1024,7 @@ test "LineConnections::get_connected_ids - no connections" {
 ///|
 test "LineConnections::get_connected_ids - start only" {
   let conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Top }),
+    start: Some({ element_id: "rect-1", anchor: Top, }),
     end: None,
   }
   let ids = conns.get_connected_ids()
@@ -1036,7 +1036,7 @@ test "LineConnections::get_connected_ids - start only" {
 test "LineConnections::get_connected_ids - end only" {
   let conns : LineConnections = {
     start: None,
-    end: Some({ element_id: "rect-2", anchor: Bottom }),
+    end: Some({ element_id: "rect-2", anchor: Bottom, }),
   }
   let ids = conns.get_connected_ids()
   assert_eq(ids.length(), 1)
@@ -1046,8 +1046,8 @@ test "LineConnections::get_connected_ids - end only" {
 ///|
 test "LineConnections::get_connected_ids - both ends different" {
   let conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Top }),
-    end: Some({ element_id: "rect-2", anchor: Bottom }),
+    start: Some({ element_id: "rect-1", anchor: Top, }),
+    end: Some({ element_id: "rect-2", anchor: Bottom, }),
   }
   let ids = conns.get_connected_ids()
   assert_eq(ids.length(), 2)
@@ -1058,8 +1058,8 @@ test "LineConnections::get_connected_ids - both ends different" {
 ///|
 test "LineConnections::get_connected_ids - both ends same element" {
   let conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Top }),
-    end: Some({ element_id: "rect-1", anchor: Bottom }),
+    start: Some({ element_id: "rect-1", anchor: Top, }),
+    end: Some({ element_id: "rect-1", anchor: Bottom, }),
   }
   let ids = conns.get_connected_ids()
   // 同じ要素への接続は重複を除去
@@ -1086,7 +1086,7 @@ test "calc_connected_line_updates - no connected lines" {
 test "calc_connected_line_updates - line connected at start" {
   let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   let line_conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Right }),
+    start: Some({ element_id: "rect-1", anchor: Right, }),
     end: None,
   }
   let line = {
@@ -1113,7 +1113,7 @@ test "calc_connected_line_updates - line connected at end" {
   let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   let line_conns : LineConnections = {
     start: None,
-    end: Some({ element_id: "rect-1", anchor: Center }),
+    end: Some({ element_id: "rect-1", anchor: Center, }),
   }
   let line = {
     ..Element::new("line-1", 50.0, 50.0, Line(140.0, 130.0)),
@@ -1134,8 +1134,8 @@ test "calc_connected_line_updates - line connected at end" {
 test "calc_connected_line_updates - line connected at both ends to same element" {
   let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   let line_conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Top }),
-    end: Some({ element_id: "rect-1", anchor: Bottom }),
+    start: Some({ element_id: "rect-1", anchor: Top, }),
+    end: Some({ element_id: "rect-1", anchor: Bottom, }),
   }
   let line = {
     ..Element::new("line-1", 140.0, 100.0, Line(140.0, 160.0)),
@@ -1250,7 +1250,7 @@ test "apply_element_move - with children" {
 test "apply_element_move - with connected line" {
   let rect = Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
   let line_conns : LineConnections = {
-    start: Some({ element_id: "rect-1", anchor: Right }),
+    start: Some({ element_id: "rect-1", anchor: Right, }),
     end: None,
   }
   // Right アンカー初期位置: (180, 130)
@@ -1269,7 +1269,7 @@ test "apply_element_move - with connected line" {
   assert_eq(result[1].x, 280.0)
   assert_eq(result[1].y, 230.0)
   // 終点は変わらない
-  guard result[1].shape is Line(x2, y2)
+  guard result[1].shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 300.0)
   assert_eq(y2, 200.0)
 }
@@ -1304,7 +1304,7 @@ test "calc_ellipse_resize - SE expand" {
   // 右下ハンドルを (20, 10) だけ移動
   // 新しい x2 = 150 + 20 = 170, y2 = 130 + 10 = 140
   // 新しい rx = (170 - 50) / 2 = 60, ry = (140 - 70) / 2 = 35
-  inspect(result, content="{cx: 110, cy: 105, rx: 60, ry: 35}")
+  @debug.debug_inspect(result, content="{ cx: 110, cy: 105, rx: 60, ry: 35 }")
 }
 
 ///|
@@ -1320,7 +1320,7 @@ test "calc_ellipse_resize - NW shrink" {
     5.0,
   )
   // 左上ハンドルを (20, 10) だけ移動
-  inspect(result, content="{cx: 110, cy: 105, rx: 40, ry: 25}")
+  @debug.debug_inspect(result, content="{ cx: 110, cy: 105, rx: 40, ry: 25 }")
 }
 
 ///|
@@ -1396,7 +1396,7 @@ test "reorder_array - move forward" {
   let arr = [1, 2, 3, 4, 5]
   let result = reorder_array(arr, 1, 3)
   // [1, 2, 3, 4, 5] -> 要素2を位置3に移動 -> [1, 3, 4, 2, 5]
-  inspect(result, content="[1, 3, 4, 2, 5]")
+  @debug.debug_inspect(result, content="[1, 3, 4, 2, 5]")
 }
 
 ///|
@@ -1404,7 +1404,7 @@ test "reorder_array - move backward" {
   let arr = [1, 2, 3, 4, 5]
   let result = reorder_array(arr, 3, 1)
   // [1, 2, 3, 4, 5] -> 要素4を位置1に移動 -> [1, 4, 2, 3, 5]
-  inspect(result, content="[1, 4, 2, 3, 5]")
+  @debug.debug_inspect(result, content="[1, 4, 2, 3, 5]")
 }
 
 ///|
@@ -1412,7 +1412,7 @@ test "reorder_array - same position" {
   let arr = [1, 2, 3]
   let result = reorder_array(arr, 1, 1)
   // 同じ位置への移動は変化なし
-  inspect(result, content="[1, 2, 3]")
+  @debug.debug_inspect(result, content="[1, 2, 3]")
 }
 
 ///|
@@ -1420,7 +1420,7 @@ test "reorder_array - invalid index" {
   let arr = [1, 2, 3]
   let result = reorder_array(arr, -1, 1)
   // 無効なインデックスは変化なし
-  inspect(result, content="[1, 2, 3]")
+  @debug.debug_inspect(result, content="[1, 2, 3]")
 }
 
 // ============================================================
@@ -1486,7 +1486,7 @@ test "find_nearest_connection - finds closest anchor" {
     Element::new("rect-2", 300.0, 100.0, Rect(80.0, 60.0, None, None)),
   ]
   // Point close to rect-1's right anchor (180, 130)
-  let point : Point = { x: 175.0, y: 130.0 }
+  let point : Point = { x: 175.0, y: 130.0, }
   let result = find_nearest_connection(elements, point, [], 20.0)
   assert_true(result is Some(_))
   let r = result.unwrap()
@@ -1501,7 +1501,7 @@ test "find_nearest_connection - excludes specified ids" {
     Element::new("rect-2", 200.0, 100.0, Rect(80.0, 60.0, None, None)),
   ]
   // Point close to rect-1's right anchor
-  let point : Point = { x: 175.0, y: 130.0 }
+  let point : Point = { x: 175.0, y: 130.0, }
   // Exclude rect-1, should find rect-2 instead
   let result = find_nearest_connection(elements, point, ["rect-1"], 50.0)
   assert_true(result is Some(_))
@@ -1516,7 +1516,7 @@ test "find_nearest_connection - excludes Line elements" {
     Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
   ]
   // Point close to where line would be
-  let point : Point = { x: 140.0, y: 130.0 }
+  let point : Point = { x: 140.0, y: 130.0, }
   let result = find_nearest_connection(elements, point, [], 20.0)
   assert_true(result is Some(_))
   let r = result.unwrap()
@@ -1538,7 +1538,7 @@ test "find_nearest_connection - excludes child elements" {
   }
   let elements = [parent, child]
   // Point close to parent's top-left anchor (100, 100)
-  let point : Point = { x: 102.0, y: 102.0 }
+  let point : Point = { x: 102.0, y: 102.0, }
   let result = find_nearest_connection(elements, point, [], 10.0)
   assert_true(result is Some(_))
   let r = result.unwrap()
@@ -1552,7 +1552,7 @@ test "find_nearest_connection - returns None when no match within threshold" {
     Element::new("rect-1", 100.0, 100.0, Rect(80.0, 60.0, None, None)),
   ]
   // Point far from any anchor
-  let point : Point = { x: 500.0, y: 500.0 }
+  let point : Point = { x: 500.0, y: 500.0, }
   let result = find_nearest_connection(elements, point, [], 20.0)
   assert_eq(result, None)
 }
@@ -1560,7 +1560,7 @@ test "find_nearest_connection - returns None when no match within threshold" {
 ///|
 test "find_nearest_connection - empty array returns None" {
   let elements : Array[Element] = []
-  let point : Point = { x: 100.0, y: 100.0 }
+  let point : Point = { x: 100.0, y: 100.0, }
   let result = find_nearest_connection(elements, point, [], 20.0)
   assert_eq(result, None)
 }
@@ -1573,7 +1573,7 @@ test "find_nearest_connection - picks closer element" {
   ]
   // Point between rect-1's right (180, 130) and rect-2's left (150, 130)
   // Closer to rect-2's left
-  let point : Point = { x: 155.0, y: 130.0 }
+  let point : Point = { x: 155.0, y: 130.0, }
   let result = find_nearest_connection(elements, point, [], 20.0)
   assert_true(result is Some(_))
   let r = result.unwrap()
@@ -1628,7 +1628,7 @@ test "compute_line_move_topology - two lines connected A.end to B.start" {
   // Line B: (100,0) → (200,0)  B の始点が A の終点に接続
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1666,7 +1666,7 @@ test "compute_line_move_topology - moved line start connected to other line" {
   // A は B に接続されていないので更新されない（接続方向は B→A）
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1698,7 +1698,7 @@ test "compute_line_move_topology - chain of three lines" {
   // C: (100,100) → (200,100) - C.start connected to B.end
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1706,7 +1706,7 @@ test "compute_line_move_topology - chain of three lines" {
     connections: Some(line_b_conns),
   }
   let line_c_conns : LineConnections = {
-    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    start: Some({ element_id: "line-b", anchor: LineEnd, }),
     end: None,
   }
   let line_c = {
@@ -1747,7 +1747,7 @@ test "compute_line_move_topology - triangle formation" {
   // C: (50,86) → (0,0)    左辺 - C.start connected to B.end, C.end connected to A.start
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1755,8 +1755,8 @@ test "compute_line_move_topology - triangle formation" {
     connections: Some(line_b_conns),
   }
   let line_c_conns : LineConnections = {
-    start: Some({ element_id: "line-b", anchor: LineEnd }),
-    end: Some({ element_id: "line-a", anchor: LineStart }),
+    start: Some({ element_id: "line-b", anchor: LineEnd, }),
+    end: Some({ element_id: "line-a", anchor: LineStart, }),
   }
   let line_c = {
     ..Element::new("line-c", 50.0, 86.0, Line(0.0, 0.0)),
@@ -1803,7 +1803,7 @@ test "compute_line_move_topology - triangle move B" {
   // B は自由に移動し、C が追従する（A は接続がないので変化なし）
   let line_a = Element::new("line-a", 0.0, 0.0, Line(100.0, 0.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1811,8 +1811,8 @@ test "compute_line_move_topology - triangle move B" {
     connections: Some(line_b_conns),
   }
   let line_c_conns : LineConnections = {
-    start: Some({ element_id: "line-b", anchor: LineEnd }),
-    end: Some({ element_id: "line-a", anchor: LineStart }),
+    start: Some({ element_id: "line-b", anchor: LineEnd, }),
+    end: Some({ element_id: "line-a", anchor: LineStart, }),
   }
   let line_c = {
     ..Element::new("line-c", 50.0, 86.0, Line(0.0, 0.0)),
@@ -1853,7 +1853,7 @@ test "compute_line_move_topology - U shape formation" {
   // C: (100,100) → (100,0) 右縦 - C.start connected to B.end
   let line_a = Element::new("line-a", 0.0, 0.0, Line(0.0, 100.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1861,7 +1861,7 @@ test "compute_line_move_topology - U shape formation" {
     connections: Some(line_b_conns),
   }
   let line_c_conns : LineConnections = {
-    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    start: Some({ element_id: "line-b", anchor: LineEnd, }),
     end: None,
   }
   let line_c = {
@@ -1895,7 +1895,7 @@ test "compute_line_move_topology - U shape move middle segment" {
   // B は自由に移動し、C が追従する
   let line_a = Element::new("line-a", 0.0, 0.0, Line(0.0, 100.0))
   let line_b_conns : LineConnections = {
-    start: Some({ element_id: "line-a", anchor: LineEnd }),
+    start: Some({ element_id: "line-a", anchor: LineEnd, }),
     end: None,
   }
   let line_b = {
@@ -1903,7 +1903,7 @@ test "compute_line_move_topology - U shape move middle segment" {
     connections: Some(line_b_conns),
   }
   let line_c_conns : LineConnections = {
-    start: Some({ element_id: "line-b", anchor: LineEnd }),
+    start: Some({ element_id: "line-b", anchor: LineEnd, }),
     end: None,
   }
   let line_c = {

@@ -26,14 +26,14 @@ test "History::can_redo - empty stack" {
 ///|
 test "History::can_undo - with item" {
   let element = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
-  let history : History = { undo_stack: [AddElement(element)], redo_stack: [] }
+  let history : History = { undo_stack: [AddElement(element)], redo_stack: [], }
   assert_true(history.can_undo())
 }
 
 ///|
 test "History::can_redo - with item" {
   let element = Element::new("el-1", 100.0, 100.0, Rect(80.0, 60.0, None, None))
-  let history : History = { undo_stack: [], redo_stack: [AddElement(element)] }
+  let history : History = { undo_stack: [], redo_stack: [AddElement(element)], }
   assert_true(history.can_redo())
 }
 

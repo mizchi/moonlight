@@ -3,11 +3,10 @@ import {
   "mizchi/luna",
   "mizchi/luna/dom" @element,
   "mizchi/signals",
-  "mizchi/js/browser/dom" @js_dom,
+  "mizchi/js_browser/dom" @js_dom,
   "mizchi/js/core" @js,
 }
 
-options(
-  "is-main": true,
-  "supported-targets": [ "js" ],
-)
+supported_targets = "js"
+
+pkgtype(kind: "executable")

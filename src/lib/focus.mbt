@@ -46,7 +46,7 @@ pub(all) struct FocusState {
 ///|
 /// フォーカス状態を作成
 pub fn FocusState::new() -> FocusState {
-  { has_focus: @luna.signal(false), container: @luna.signal(None) }
+  { has_focus: @luna.signal(false), container: @luna.signal(None), }
 }
 
 ///|

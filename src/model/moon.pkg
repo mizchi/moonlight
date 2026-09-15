@@ -1,6 +1,12 @@
 import {
 }
 
-options(
-  "supported-targets": [ "wasm", "wasm-gc", "js" ],
-)
+import {
+  "moonbitlang/core/debug",
+} for "test"
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
+
+supported_targets = "js+wasm+wasm-gc"

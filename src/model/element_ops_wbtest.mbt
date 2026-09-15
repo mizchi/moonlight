@@ -64,7 +64,7 @@ test "move_element_with_relations - updates connected lines" {
     parent_id: None,
     connections: Some({
       start: None,
-      end: Some({ element_id: "rect-1", anchor: Left }),
+      end: Some({ element_id: "rect-1", anchor: Left, }),
     }),
   }
   let elements = [rect, line]
@@ -78,7 +78,7 @@ test "move_element_with_relations - updates connected lines" {
   assert_eq(moved_rect.y, 150.0)
   // Lineの終点がRectのLeftアンカーを追従していることを確認
   // 新しいRectのLeft アンカー = (200, 150 + 30) = (200, 180)
-  guard moved_line.shape is Line(x2, y2)
+  guard moved_line.shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 200.0)
   assert_eq(y2, 180.0)
 }
@@ -118,7 +118,7 @@ test "move_element_with_relations - updates both child and connected lines" {
     parent_id: None,
     connections: Some({
       start: None,
-      end: Some({ element_id: "rect-1", anchor: Left }),
+      end: Some({ element_id: "rect-1", anchor: Left, }),
     }),
   }
   let elements = [rect, child, line]
@@ -140,7 +140,7 @@ test "move_element_with_relations - updates both child and connected lines" {
 
   // Lineの終点がRectのLeftアンカーを追従
   // 新しいRectのLeft アンカー = (200, 200 + 30) = (200, 230)
-  guard moved_line.shape is Line(x2, y2)
+  guard moved_line.shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 200.0)
   assert_eq(y2, 230.0)
 }
@@ -178,7 +178,7 @@ test "resize_element_with_relations - centers child elements" {
   let moved_child = result[1]
 
   // 新しい形状
-  guard resized_rect.shape is Rect(w, h, _, _)
+  guard resized_rect.shape is Rect(w, h, _, _) else { abort("expected Rect") }
   assert_eq(w, 120.0)
   assert_eq(h, 100.0)
 
@@ -212,7 +212,7 @@ test "resize_element_with_relations - updates connected lines" {
     parent_id: None,
     connections: Some({
       start: None,
-      end: Some({ element_id: "rect-1", anchor: Left }),
+      end: Some({ element_id: "rect-1", anchor: Left, }),
     }),
   }
   let elements = [rect, line]
@@ -224,12 +224,12 @@ test "resize_element_with_relations - updates connected lines" {
   let moved_line = result[1]
 
   // 新しい形状
-  guard resized_rect.shape is Rect(_, h, _, _)
+  guard resized_rect.shape is Rect(_, h, _, _) else { abort("expected Rect") }
   assert_eq(h, 100.0)
 
   // Lineの終点が新しいLeftアンカーを追従
   // 新しいLeft アンカー = (100, 100 + 50) = (100, 150)
-  guard moved_line.shape is Line(x2, y2)
+  guard moved_line.shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 100.0)
   assert_eq(y2, 150.0)
 }
@@ -284,7 +284,7 @@ test "move_element_with_relations - line without connections" {
   // 単純に移動される
   assert_eq(result[0].x, 50.0)
   assert_eq(result[0].y, 50.0)
-  guard result[0].shape is Line(x2, y2)
+  guard result[0].shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 150.0) // 100 + 50
   assert_eq(y2, 150.0) // 100 + 50
 }
@@ -404,8 +404,8 @@ test "move_element_with_relations - line connected at both ends" {
     transform: None,
     parent_id: None,
     connections: Some({
-      start: Some({ element_id: "rect-1", anchor: Right }),
-      end: Some({ element_id: "rect-2", anchor: Left }),
+      start: Some({ element_id: "rect-1", anchor: Right, }),
+      end: Some({ element_id: "rect-2", anchor: Left, }),
     }),
   }
   let elements = [rect1, rect2, line]
@@ -419,7 +419,7 @@ test "move_element_with_relations - line connected at both ends" {
   assert_eq(moved_line.x, 180.0)
   assert_eq(moved_line.y, 230.0)
   // 終点は変わらない（rect2は移動していない）
-  guard moved_line.shape is Line(x2, y2)
+  guard moved_line.shape is Line(x2, y2) else { abort("expected Line") }
   assert_eq(x2, 300.0)
   assert_eq(y2, 130.0)
 }
@@ -444,7 +444,7 @@ test "resize_element_with_relations - element not found returns unchanged" {
 
   // 元の配列がそのまま返される
   assert_eq(result.length(), 1)
-  guard result[0].shape is Rect(w, h, _, _)
+  guard result[0].shape is Rect(w, h, _, _) else { abort("expected Rect") }
   assert_eq(w, 80.0)
   assert_eq(h, 60.0)
 }
@@ -478,7 +478,7 @@ test "resize_element_with_relations - circle resize" {
   let result = resize_element_with_relations(elements, "circle-1", new_shape)
 
   // 新しい形状
-  guard result[0].shape is Circle(r)
+  guard result[0].shape is Circle(r) else { abort("expected Circle") }
   assert_eq(r, 80.0)
 
   // 子要素が新しい中央に配置
@@ -509,7 +509,7 @@ test "resize_element_with_relations - connected line at start" {
     transform: None,
     parent_id: None,
     connections: Some({
-      start: Some({ element_id: "rect-1", anchor: Right }),
+      start: Some({ element_id: "rect-1", anchor: Right, }),
       end: None,
     }),
   }

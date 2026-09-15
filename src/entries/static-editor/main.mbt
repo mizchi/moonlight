@@ -34,7 +34,7 @@ pub fn import_svg(
 ///|
 /// シンプルな ID 生成器を作成
 pub fn create_id_generator() -> () -> String {
-  let counter : Ref[Int] = { val: 0 }
+  let counter : Ref[Int] = { val: 0, }
   fn() {
     counter.val = counter.val + 1
     "el-\{counter.val}"
@@ -280,7 +280,7 @@ pub fn move_element(
   dx : Double,
   dy : Double,
 ) -> @model.Element {
-  { ..el, x: el.x + dx, y: el.y + dy }
+  { ..el, x: el.x + dx, y: el.y + dy, }
 }
 
 ///|

@@ -1,13 +1,15 @@
 import {
   "mizchi/moonlight/model",
-  "mizchi/luna" @luna,
+  "mizchi/luna",
   "mizchi/luna/dom" @element,
   "mizchi/signals",
   "mizchi/js/core" @js,
-  "mizchi/js/browser/dom" @dom,
-  "moonbitlang/core/strconv" @strconv,
+  "mizchi/js_browser/dom",
+  "moonbitlang/core/string",
 }
 
-options(
-  "supported-targets": [ "js" ],
-)
+import {
+  "moonbitlang/core/debug",
+} for "test"
+
+supported_targets = "js"

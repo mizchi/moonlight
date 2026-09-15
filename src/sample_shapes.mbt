@@ -132,8 +132,8 @@ pub fn add_sample_shapes(
   let arrow1_conn = {
     ..arrow1,
     connections: Some({
-      start: Some({ element_id: moonbit_id, anchor: @model.Right }),
-      end: Some({ element_id: luna_id, anchor: @model.Left }),
+      start: Some({ element_id: moonbit_id, anchor: @model.Right, }),
+      end: Some({ element_id: luna_id, anchor: @model.Left, }),
     }),
   }
 
@@ -148,8 +148,8 @@ pub fn add_sample_shapes(
   let arrow2_conn = {
     ..arrow2,
     connections: Some({
-      start: Some({ element_id: luna_id, anchor: @model.Right }),
-      end: Some({ element_id: js_id, anchor: @model.Left }),
+      start: Some({ element_id: luna_id, anchor: @model.Right, }),
+      end: Some({ element_id: js_id, anchor: @model.Left, }),
     }),
   }
 
@@ -219,8 +219,8 @@ pub fn add_sample_shapes(
   let arrow3_conn = {
     ..arrow3,
     connections: Some({
-      start: Some({ element_id: luna_id, anchor: @model.Bottom }),
-      end: Some({ element_id: moonlight_id, anchor: @model.Top }),
+      start: Some({ element_id: luna_id, anchor: @model.Bottom, }),
+      end: Some({ element_id: moonlight_id, anchor: @model.Top, }),
     }),
   }
 
@@ -235,8 +235,8 @@ pub fn add_sample_shapes(
   let arrow4_conn = {
     ..arrow4,
     connections: Some({
-      start: Some({ element_id: excalidraw_id, anchor: @model.Right }),
-      end: Some({ element_id: moonlight_id, anchor: @model.Left }),
+      start: Some({ element_id: excalidraw_id, anchor: @model.Right, }),
+      end: Some({ element_id: moonlight_id, anchor: @model.Left, }),
     }),
   }
 
@@ -251,8 +251,8 @@ pub fn add_sample_shapes(
   let arrow5_conn = {
     ..arrow5,
     connections: Some({
-      start: Some({ element_id: moonlight_id, anchor: @model.Right }),
-      end: Some({ element_id: svg_id, anchor: @model.Left }),
+      start: Some({ element_id: moonlight_id, anchor: @model.Right, }),
+      end: Some({ element_id: svg_id, anchor: @model.Left, }),
     }),
   }
 

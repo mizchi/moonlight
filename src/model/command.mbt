@@ -20,7 +20,7 @@ pub(all) enum Command {
   RenameElement(String, String)
   /// テキスト内容を更新 (id, old_content, new_content)
   UpdateText(String, String, String)
-} derive(Show, Debug, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// 履歴管理
@@ -32,7 +32,7 @@ pub(all) struct History {
 ///|
 /// 履歴を作成
 pub fn History::new() -> History {
-  { undo_stack: [], redo_stack: [] }
+  { undo_stack: [], redo_stack: [], }
 }
 
 ///|

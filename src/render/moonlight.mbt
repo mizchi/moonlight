@@ -15,7 +15,7 @@ fn connection_to_string(conn : @model.Connection) -> String {
 ///|
 /// Moonlight 用矢印マーカー定義を生成
 fn generate_moonlight_arrow_defs() -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string("  <defs>\n")
   // 始点矢印
   sb.write_string(
@@ -54,7 +54,7 @@ pub fn element_to_moonlight_svg_with_parent(
   parent_stroke : String?,
 ) -> String {
   let style = el.style
-  let attrs = StringBuilder::new()
+  let attrs = StringBuilder()
   // メタデータ属性
   attrs.write_string(" data-id=\"\{el.id}\"")
   if el.parent_id is Some(pid) {
@@ -131,7 +131,7 @@ pub fn element_to_moonlight_svg_with_parent(
       if content.contains("\n") {
         let lines : Array[String] = content
           .split("\n")
-          .map(fn(sv) { sv.to_string() })
+          .map(fn(sv) { sv.to_owned() })
           .collect()
         let line_height = size * 1.2
         let total_height = (lines.length() - 1).to_double() * line_height
@@ -165,7 +165,7 @@ pub fn elements_to_moonlight_svg(
   height : Int,
   bg_color : String,
 ) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   sb.write_string(
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\{width}\" height=\"\{height}\" viewBox=\"0 0 \{width} \{height}\" data-moonlight=\"1.0\">\n",
   )

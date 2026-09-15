@@ -92,5 +92,5 @@ pub fn setup_editor(
   let handle = create_editor_handle(
     export_svg, import_svg, clear, destroy, has_focus_fn,
   )
-  { state, handle, context_menu }
+  { state, handle, context_menu, }
 }

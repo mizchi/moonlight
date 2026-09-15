@@ -1,8 +1,7 @@
 import {
-  "mizchi/moonlight/entries/viewer" @viewer,
+  "mizchi/moonlight/entries/viewer",
 }
 
-options(
-  "is-main": true,
-  "supported-targets": [ "js" ],
-)
+supported_targets = "js"
+
+pkgtype(kind: "executable")

@@ -271,7 +271,7 @@ fn parse_drag_target(e : @js.Any) -> DragTarget? {
     "p3" => P3
     _ => return None
   }
-  Some({ path_idx, seg_idx, point_type })
+  Some({ path_idx, seg_idx, point_type, })
 }
 
 ///|
@@ -293,7 +293,7 @@ fn on_pointer_down(e : @js.Any) -> Unit {
   // Check if clicking on a path hit area
   let path_idx = get_path_at_point(e)
   if path_idx >= 0 {
-    state.dragging = Some(Path({ path_idx, start_x: x, start_y: y }))
+    state.dragging = Some(Path({ path_idx, start_x: x, start_y: y, }))
     return
   }
 
@@ -322,7 +322,7 @@ fn on_pointer_move(e : @js.Any) -> Unit {
       let dx = x - drag.start_x
       let dy = y - drag.start_y
       move_path(drag.path_idx, dx, dy)
-      state.dragging = Some(Path({ ..drag, start_x: x, start_y: y }))
+      state.dragging = Some(Path({ ..drag, start_x: x, start_y: y, }))
       render()
       return
     }
@@ -361,10 +361,10 @@ fn update_point(target : DragTarget, x : Double, y : Double) -> Unit {
 
   // Update the specific point
   let new_seg : @bezier.BezierSegment = match target.point_type {
-    P0 => { ..seg, p0: new_point }
-    C1 => { ..seg, c1: new_point }
-    C2 => { ..seg, c2: new_point }
-    P3 => { ..seg, p3: new_point }
+    P0 => { ..seg, p0: new_point, }
+    C1 => { ..seg, c1: new_point, }
+    C2 => { ..seg, c2: new_point, }
+    P3 => { ..seg, p3: new_point, }
   }
   path.segments[target.seg_idx] = new_seg
 
@@ -374,13 +374,13 @@ fn update_point(target : DragTarget, x : Double, y : Double) -> Unit {
       // Update previous segment's P3 if exists
       if target.seg_idx > 0 {
         let prev_seg = path.segments[target.seg_idx - 1]
-        path.segments[target.seg_idx - 1] = { ..prev_seg, p3: new_point }
+        path.segments[target.seg_idx - 1] = { ..prev_seg, p3: new_point, }
       }
     P3 =>
       // Update next segment's P0 if exists
       if target.seg_idx + 1 < path.segments.length() {
         let next_seg = path.segments[target.seg_idx + 1]
-        path.segments[target.seg_idx + 1] = { ..next_seg, p0: new_point }
+        path.segments[target.seg_idx + 1] = { ..next_seg, p0: new_point, }
       }
     _ => ()
   }

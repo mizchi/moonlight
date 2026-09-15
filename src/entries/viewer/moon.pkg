@@ -3,6 +3,4 @@ import {
   "mizchi/moonlight/render",
 }
 
-options(
-  "supported-targets": [ "js", "wasm", "wasm-gc" ],
-)
+supported_targets = "js+wasm+wasm-gc"

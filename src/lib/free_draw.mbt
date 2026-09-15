@@ -7,8 +7,8 @@ pub fn start_free_draw(
   x : Double,
   y : Double,
 ) -> Unit {
-  let point : @model.Point = { x, y }
-  state.free_draw_state.set(Some({ points: [point] }))
+  let point : @model.Point = { x, y, }
+  state.free_draw_state.set(Some({ points: [point], }))
 }
 
 ///|
@@ -20,7 +20,7 @@ pub fn continue_free_draw(
 ) -> Unit {
   match state.free_draw_state.get() {
     Some(fds) => {
-      let point : @model.Point = { x, y }
+      let point : @model.Point = { x, y, }
       fds.points.push(point)
       // Signal を更新するために再設定
       state.free_draw_state.set(Some(fds))
@@ -129,7 +129,7 @@ pub fn set_free_draw_options(
   epsilon : Double,
   max_error : Double,
 ) -> Unit {
-  state.free_draw_options.set({ resample_dist, epsilon, max_error })
+  state.free_draw_options.set({ resample_dist, epsilon, max_error, })
 }
 
 ///|

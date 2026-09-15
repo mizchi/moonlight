@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import moonbit from 'vite-plugin-moonbit';
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   plugins: [
@@ -12,14 +12,14 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        embed: resolve(__dirname, 'examples/embed.html'),
-        webcomponent: resolve(__dirname, 'examples/webcomponent.html'),
-        preview: resolve(__dirname, 'examples/preview.html'),
-        'free_draw': resolve(__dirname, 'examples/free_draw.html'),
-        viewer: resolve(__dirname, 'examples/viewer.html'),
-        'api-demo': resolve(__dirname, 'examples/api-demo.html'),
-        help: resolve(__dirname, 'docs/help.html'),
+        main: resolve(import.meta.dirname, 'index.html'),
+        embed: resolve(import.meta.dirname, 'examples/embed.html'),
+        webcomponent: resolve(import.meta.dirname, 'examples/webcomponent.html'),
+        preview: resolve(import.meta.dirname, 'examples/preview.html'),
+        'free_draw': resolve(import.meta.dirname, 'examples/free_draw.html'),
+        viewer: resolve(import.meta.dirname, 'examples/viewer.html'),
+        'api-demo': resolve(import.meta.dirname, 'examples/api-demo.html'),
+        help: resolve(import.meta.dirname, 'docs/help.html'),
       },
     },
   },

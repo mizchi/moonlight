@@ -17,10 +17,10 @@ pub fn DragState::new() -> DragState {
   {
     is_dragging: @luna.signal(false),
     dragging_id: @luna.signal(None),
-    start_x: { val: 0.0 },
-    start_y: { val: 0.0 },
-    element_start_x: { val: 0.0 },
-    element_start_y: { val: 0.0 },
+    start_x: { val: 0.0, },
+    start_y: { val: 0.0, },
+    element_start_x: { val: 0.0, },
+    element_start_y: { val: 0.0, },
   }
 }
 
@@ -147,7 +147,7 @@ fn update_element_position(
   let new_elements : Array[@model.Element] = []
   for el in elements {
     if el.id == id {
-      new_elements.push({ ..el, x: new_x, y: new_y })
+      new_elements.push({ ..el, x: new_x, y: new_y, })
     } else {
       new_elements.push(el)
     }
@@ -173,7 +173,7 @@ fn update_line_endpoint(
           let new_shape = match anchor_type {
             @core.LineStart => {
               // 始点を移動: x, y を更新
-              new_elements.push({ ..el, x: new_x, y: new_y })
+              new_elements.push({ ..el, x: new_x, y: new_y, })
               continue
             }
             @core.LineEnd =>
@@ -181,7 +181,7 @@ fn update_line_endpoint(
               @model.Line(new_x, new_y)
             _ => @model.Line(x2, y2)
           }
-          new_elements.push({ ..el, shape: new_shape })
+          new_elements.push({ ..el, shape: new_shape, })
         }
         _ => new_elements.push(el)
       }
@@ -363,12 +363,12 @@ pub fn setup_interaction(
             my,
           )
           state.anchor_drag_state.set(
-            Some({ ..anchor_state, current_x: mx, current_y: my }),
+            Some({ ..anchor_state, current_x: mx, current_y: my, }),
           )
         } else {
           // 新規Line作成のプレビュー線を描画
           state.anchor_drag_state.set(
-            Some({ ..anchor_state, current_x: mx, current_y: my }),
+            Some({ ..anchor_state, current_x: mx, current_y: my, }),
           )
           draw_preview_line_ffi(
             svg,

@@ -63,9 +63,7 @@ pub fn color_picker_dropdown(
           }
           "width: 20px; height: 22px; padding: 0; border: 1px solid \{theme.ui_border}; border-radius: 3px; cursor: pointer; background: \{bg};"
         },
-        on=@element.events().click(fn(_) {
-          dropdown_open.update(fn(v) { !v })
-        }),
+        on=@element.events().click(fn(_) { dropdown_open.update(fn(v) { !v }) }),
         [],
       ),
       // ドロップダウンパネル
@@ -107,9 +105,7 @@ pub fn color_picker_with_input(
         }
         "width: 20px; height: 22px; padding: 0; border: 1px solid \{theme.ui_border}; border-radius: 3px; cursor: pointer; background: \{bg};"
       },
-      on=@element.events().click(fn(_) {
-        dropdown_open.update(fn(v) { !v })
-      }),
+      on=@element.events().click(fn(_) { dropdown_open.update(fn(v) { !v }) }),
       [],
     ),
     // テキスト入力

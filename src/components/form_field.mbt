@@ -155,7 +155,7 @@ extern "js" fn get_event_value_ffi(e : @js.Any) -> String =
 
 ///|
 fn parse_double(s : String) -> Double? {
-  Some(@strconv.parse_double(s)) catch {
+  Some(@string.parse_double(s)) catch {
     _ => None
   }
 }

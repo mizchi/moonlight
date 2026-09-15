@@ -1,0 +1,7 @@
+import {
+  "mizchi/moonlight" @editor,
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")

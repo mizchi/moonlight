@@ -2,7 +2,7 @@
 
 ///|
 /// ツールバーボタン用のユニーク ID カウンター
-let toolbar_btn_id_counter : Ref[Int] = { val: 0 }
+let toolbar_btn_id_counter : Ref[Int] = { val: 0, }
 
 ///|
 /// SVG アイコンを作成するヘルパー

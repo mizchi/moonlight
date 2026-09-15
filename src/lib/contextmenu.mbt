@@ -19,7 +19,7 @@ pub fn ContextMenuState::new() -> ContextMenuState {
     x: @luna.signal(0.0),
     y: @luna.signal(0.0),
     target_id: @luna.signal(None),
-    menu_el: { val: js_null() },
+    menu_el: { val: js_null(), },
   }
 }
 
@@ -408,7 +408,7 @@ fn update_element_stroke(
   color : String,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, stroke: Some(color) } }
+    { ..el, style: { ..el.style, stroke: Some(color), }, }
   })
 }
 
@@ -420,7 +420,7 @@ fn update_element_fill(
   color : String?,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, fill: color } }
+    { ..el, style: { ..el.style, fill: color, }, }
   })
 }
 
@@ -610,7 +610,7 @@ fn update_element_dasharray(
   dasharray : String?,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, stroke_dasharray: dasharray } }
+    { ..el, style: { ..el.style, stroke_dasharray: dasharray, }, }
   })
 }
 
@@ -622,7 +622,7 @@ fn update_element_marker_start(
   marker : @model.ArrowType?,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, marker_start: marker } }
+    { ..el, style: { ..el.style, marker_start: marker, }, }
   })
 }
 
@@ -634,7 +634,7 @@ fn update_element_marker_end(
   marker : @model.ArrowType?,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, marker_end: marker } }
+    { ..el, style: { ..el.style, marker_end: marker, }, }
   })
 }
 
@@ -646,7 +646,7 @@ fn update_element_font_family(
   font_family : String?,
 ) -> Unit {
   state.update_element_by_id(id, fn(el) {
-    { ..el, style: { ..el.style, font_family, } }
+    { ..el, style: { ..el.style, font_family, }, }
   })
 }
 

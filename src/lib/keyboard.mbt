@@ -209,7 +209,7 @@ fn move_selected(state : @core.EditorState, dx : Double, dy : Double) -> Unit {
       state.elements.update(fn(els) {
         els.map(fn(el) {
           if el.id == id {
-            { ..el, x: el.x + dx, y: el.y + dy }
+            { ..el, x: el.x + dx, y: el.y + dy, }
           } else {
             el
           }

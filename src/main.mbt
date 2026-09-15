@@ -9,7 +9,7 @@ let canvas_width : Int = 400
 
 ///|
 /// クリップボード（コピーした要素を保持）
-let clipboard : Ref[Array[@model.Element]] = { val: [] }
+let clipboard : Ref[Array[@model.Element]] = { val: [], }
 
 ///|
 let canvas_height : Int = 300
@@ -167,7 +167,7 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
 
   // ズームを設定（プレビューと同じスケールを維持）
   let viewport = state.viewport.get()
-  state.viewport.set({ ..viewport, zoom: options.zoom })
+  state.viewport.set({ ..viewport, zoom: options.zoom, })
 
   // テーマを設定
   let theme = if options.theme == "dark" { @model.Dark } else { @model.Light }
@@ -324,7 +324,10 @@ extern "js" fn create_editor_handle_ffi(
   set_readonly : (Bool) -> Unit,
   is_readonly : () -> Bool,
 ) -> @js.Any =
-  #| (exportSvg, importSvg, clear, hasFocus, select, selectAll, deselect, getSelectedIds, focus, blur, getElements, deleteElements, setMode, getMode, setReadonly, isReadonly) => ({
+  #| (exportSvg, importSvg, clear, hasFocus, select, selectAll, deselect, getSelectedIds, focus, blur, getElements, deleteElements, setMode, getMode, setReadonly, isReadonly) => {
+  #| const toIdArray = (ids) =>
+  #|   ids == null ? [] : Array.isArray(ids) ? ids : [ids];
+  #| return ({
   #|   // 内部コールバック配列
   #|   _changeCallbacks: [],
   #|   _selectCallbacks: [],
@@ -341,10 +344,12 @@ extern "js" fn create_editor_handle_ffi(
   #|   destroy: () => {},
   #|   hasFocus: hasFocus,
   #|   // 選択 API
-  #|   select: select,
+  #|   // MoonBit 側は ID の配列を取る。JS からは一つの ID を渡したくなるので
+  #|   // ここで揃える（揃えないと Signal に文字列が入り、選択ハンドルが出ない）。
+  #|   select: (ids) => select(toIdArray(ids)),
   #|   selectAll: selectAll,
   #|   deselect: deselect,
-  #|   getSelectedIds: getSelectedIds,
+  #|   getSelectedIds: () => toIdArray(getSelectedIds()),
   #|   // フォーカス API
   #|   focus: focus,
   #|   blur: blur,
@@ -354,7 +359,7 @@ extern "js" fn create_editor_handle_ffi(
   #|     const els = getElements();
   #|     return els.find(el => el.id === id) || null;
   #|   },
-  #|   deleteElements: deleteElements,
+  #|   deleteElements: (ids) => deleteElements(toIdArray(ids)),
   #|   // モード API
   #|   setMode: setMode,
   #|   getMode: getMode,
@@ -403,13 +408,14 @@ extern "js" fn create_editor_handle_ffi(
   #|   _fireModeChange: function(mode) { this._modeChangeCallbacks.forEach(cb => cb(mode)); },
   #|   _fireElementAdd: function(id) { this._elementAddCallbacks.forEach(cb => cb(id)); },
   #|   _fireElementDelete: function(id) { this._elementDeleteCallbacks.forEach(cb => cb(id)); }
-  #| })
+  #| });
+  #| }
 
 ///|
 /// ハンドルにイベントリスナーをセットアップ
 fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
   // 要素変更イベント
-  let prev_elements : Ref[Array[@model.Element]] = { val: [] }
+  let prev_elements : Ref[Array[@model.Element]] = { val: [], }
   let _ = @luna.effect(fn() {
     let elements = state.elements.get()
     // onChange を発火
@@ -432,23 +438,23 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     prev_elements.val = elements
   })
   // 選択変更イベント
-  let prev_selected : Ref[Array[String]] = { val: [] }
+  let prev_selected : Ref[Array[String]] = { val: [], }
   let _ = @luna.effect(fn() {
     let selected = state.selected_ids.get()
     if selected.length() > 0 && prev_selected.val.length() == 0 {
       // 選択開始
-      fire_select(handle, selected)
+      fire_select(handle, to_fixed_strings(selected))
     } else if selected.length() == 0 && prev_selected.val.length() > 0 {
       // 選択解除
       fire_deselect(handle)
     } else if selected.length() > 0 {
       // 選択変更
-      fire_select(handle, selected)
+      fire_select(handle, to_fixed_strings(selected))
     }
     prev_selected.val = selected
   })
   // フォーカス変更イベント
-  let prev_focus : Ref[Bool] = { val: false }
+  let prev_focus : Ref[Bool] = { val: false, }
   let _ = @luna.effect(fn() {
     let focused = state.has_focus.get()
     if focused && !prev_focus.val {
@@ -459,7 +465,7 @@ fn setup_handle_events(state : @core.EditorState, handle : @js.Any) -> Unit {
     prev_focus.val = focused
   })
   // モード変更イベント
-  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select }
+  let prev_mode : Ref[@core.ToolMode] = { val: @core.Select, }
   let _ = @luna.effect(fn() {
     let mode = state.tool_mode.get()
     if mode != prev_mode.val {
@@ -479,7 +485,17 @@ extern "js" fn fire_change(handle : @js.Any) =
   #| (h) => h._fireChange()
 
 ///|
-extern "js" fn fire_select(handle : @js.Any, ids : Array[String]) =
+/// JS FFI 境界では `Array` が非推奨なため `FixedArray` に詰め替える
+fn to_fixed_strings(xs : Array[String]) -> FixedArray[String] {
+  let out : FixedArray[String] = FixedArray::make(xs.length(), "")
+  for i, x in xs {
+    out[i] = x
+  }
+  out
+}
+
+///|
+extern "js" fn fire_select(handle : @js.Any, ids : FixedArray[String]) =
   #| (h, ids) => h._fireSelect(ids)
 
 ///|
@@ -579,7 +595,7 @@ fn get_mode_from_url() -> @core.EditorMode {
 ///|
 /// アプリケーションのエントリポイント（外部から呼び出し可能）
 pub fn app_main() -> Unit {
-  guard @js_dom.document().getElementById("app") is Some(el)
+  guard @js_dom.document().getElementById("app") is Some(el) else { return }
   let mode = get_mode_from_url()
   match mode {
     @core.Full =>
@@ -643,7 +659,7 @@ fn editor_app() -> @element.DomNode {
   })
 
   // Space キーが押されているか
-  let space_pressed : Ref[Bool] = { val: false }
+  let space_pressed : Ref[Bool] = { val: false, }
 
   // Space キーの監視を設定
   setup_keyboard_listener(state, history, space_pressed)
@@ -665,12 +681,12 @@ fn editor_app() -> @element.DomNode {
   }
 
   // ダブルクリック検出用の状態
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
 
   // アクティブポインター追跡（ピンチズーム用）
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
 
   // テキスト入力を確定するコールバック
   let commit_text_input = fn(text_content : String) {
@@ -809,7 +825,7 @@ fn resize_selected_by_arrow(
   step : Double,
 ) -> Unit {
   for id in selected_ids {
-    guard state.find_element(id) is Some(el)
+    guard state.find_element(id) is Some(el) else { continue }
     let old_shape = el.shape
     let (new_shape, new_x, new_y) = resize_shape_by_arrow(
       el.shape,
@@ -826,7 +842,7 @@ fn resize_selected_by_arrow(
     }
     // 要素をリサイズ
     state.update_element(id, fn(e) {
-      { ..e, shape: new_shape, x: new_x, y: new_y }
+      { ..e, shape: new_shape, x: new_x, y: new_y, }
     })
     // 位置も変わった場合は移動も記録
     if new_x != el.x || new_y != el.y {
@@ -867,14 +883,14 @@ fn move_selected_by_arrow(
     _ => (0.0, 0.0)
   }
   for id in selected_ids {
-    guard state.find_element(id) is Some(el)
+    guard state.find_element(id) is Some(el) else { continue }
     let (old_x, old_y) = (el.x, el.y)
     let (new_x, new_y) = (old_x + dx, old_y + dy)
-    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y } })
+    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y, } })
     // 子要素（テキストなど）も一緒に移動
     for child in state.get_children(id) {
       let (cx, cy) = (child.x, child.y)
-      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy } })
+      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy, } })
       history.undo_stack.push(
         @model.MoveElement(child.id, cx, cy, cx + dx, cy + dy),
       )
@@ -1000,7 +1016,7 @@ fn create_pointerdown_handler(
     // ポインターを追跡（ピンチズーム用）
     let pointer_id = get_pointer_id(e)
     let (screen_x, screen_y) = get_screen_coords(e)
-    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y, }
 
     // 2本指でピンチズーム開始
     if active_pointers.val.length() == 2 {
@@ -1120,7 +1136,7 @@ fn handle_anchor_click(
   let line_with_conn = {
     ..new_line,
     connections: Some({
-      start: Some({ element_id: source_id, anchor }),
+      start: Some({ element_id: source_id, anchor, }),
       end: None,
     }),
   }
@@ -1235,7 +1251,7 @@ fn handle_element_click(
 ///|
 /// ダブルクリック時のテキスト編集開始
 fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
-  guard state.find_element(element_id) is Some(el)
+  guard state.find_element(element_id) is Some(el) else { return }
   // Path 要素はテキスト編集不可（位置計算が困難なため）
   if el.shape is @model.Path(_, _, _, _, _) {
     return
@@ -1284,8 +1300,8 @@ fn handle_double_click(state : @core.EditorState, element_id : String) -> Unit {
 ///|
 /// テキスト要素の編集開始
 fn handle_text_edit(state : @core.EditorState, text_id : String) -> Unit {
-  guard state.find_element(text_id) is Some(el)
-  guard el.shape is @model.Text(content, font_size)
+  guard state.find_element(text_id) is Some(el) else { return }
+  guard el.shape is @model.Text(content, font_size) else { return }
   // parent_id がない場合は自分自身を親として扱う
   let parent_id = el.parent_id.unwrap_or(text_id)
   // テキストの表示位置を計算
@@ -1314,7 +1330,7 @@ fn commit_text_edit(
   new_id : () -> String,
   text_content : String,
 ) -> Unit {
-  guard state.text_edit.get() is Some(edit_state)
+  guard state.text_edit.get() is Some(edit_state) else { return }
   match edit_state.editing_id {
     Some(text_id) =>
       if text_content == "" {
@@ -1336,7 +1352,7 @@ fn commit_text_edit(
           match state.find_element(edit_state.parent_id) {
             Some(parent_el) =>
               match parent_el.style.stroke {
-                Some(color) => { ..state.get_text_style(), fill: Some(color) }
+                Some(color) => { ..state.get_text_style(), fill: Some(color), }
                 None => state.get_text_style()
               }
             None => state.get_text_style()
@@ -1384,11 +1400,11 @@ fn create_pointermove_handler(
     // ポインター位置を更新
     let pointer_id = get_pointer_id(e)
     let (screen_x, screen_y) = get_screen_coords(e)
-    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y }
+    active_pointers.val[pointer_id] = { x: screen_x, y: screen_y, }
 
     // ピンチズーム中の場合
     if state.is_pinching() {
-      state.update_pinch(pointer_id, { x: screen_x, y: screen_y })
+      state.update_pinch(pointer_id, { x: screen_x, y: screen_y, })
       return
     }
 
@@ -1399,7 +1415,7 @@ fn create_pointermove_handler(
 
     // マウス位置を更新（キーバインドでの挿入用）
     let (scene_x, scene_y) = get_scene_coords(e)
-    state.mouse_scene_pos.set({ x: scene_x, y: scene_y })
+    state.mouse_scene_pos.set({ x: scene_x, y: scene_y, })
     state.mouse_in_canvas.set(true)
 
     // フリードロー中の場合
@@ -1420,7 +1436,7 @@ fn create_pointermove_handler(
     }
     if state.is_placing() {
       // 配置モード中は要素をマウス位置に追従
-      state.update_placement({ x: scene_x, y: scene_y })
+      state.update_placement({ x: scene_x, y: scene_y, })
     } else if state.is_resizing() {
       state.resize_move(scene_x, scene_y)
     } else if state.is_multi_dragging() {
@@ -1903,7 +1919,7 @@ fn setup_keyboard_shortcuts(
               // Line の場合は終点も移動
               let final_el = match new_el.shape {
                 @model.Line(x2, y2) =>
-                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0) }
+                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0), }
                 _ => new_el
               }
               @core.execute_command(history, state, @model.AddElement(final_el))
@@ -1926,7 +1942,7 @@ fn setup_keyboard_shortcuts(
           for id in selected_ids {
             if state.find_element(id) is Some(el) {
               let dup_id = new_id()
-              let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0 }
+              let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
               @core.execute_command(history, state, @model.AddElement(new_el))
               new_ids.push(dup_id)
             }
@@ -2019,7 +2035,7 @@ fn render_editor_ui_vnode(
 ) -> @element.DomNode {
   // メインレイアウト（全画面キャンバス + フローティングUI）
   div(
-    style="position: relative; width: 100vw; height: 100vh; overflow: hidden;",
+    style="position: relative; width: 100%; height: 100%; overflow: hidden;",
     [
       // キャンバス（画面全体）
       div(style="position: absolute; inset: 0;", [
@@ -2032,9 +2048,12 @@ fn render_editor_ui_vnode(
         dyn_style=fn() {
           let is_mobile = state.is_mobile.get()
           if is_mobile {
-            "position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;"
+            // モバイルでは下端をパネル（ボトムシート）が占めるので、ツールバーは上に置く。
+            // 横一列では 375px に収まらないため折り返す。
+            "position: fixed; top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 8px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 110; box-sizing: border-box;"
           } else {
-            "position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;"
+            // 右上のパネル開閉ボタン（32px + 余白）を避けて収まるように上限を置く
+            "position: fixed; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 88px); box-sizing: border-box; display: flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.95); padding: 6px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 110;"
           }
         },
         [render_embedded_toolbar(state, history, new_id)],
@@ -2144,11 +2163,11 @@ pub fn render_editor_modal(
     let scene = vp.screen_to_scene(screen_x, screen_y)
     (scene.x, scene.y)
   }
-  let space_pressed : Ref[Bool] = { val: false }
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let space_pressed : Ref[Bool] = { val: false, }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
@@ -2298,11 +2317,11 @@ fn embedded_editor_app(
     let scene = vp.screen_to_scene(screen_x, screen_y)
     (scene.x, scene.y)
   }
-  let space_pressed : Ref[Bool] = { val: false }
-  let last_click_time : Ref[Double] = { val: 0.0 }
-  let last_click_element : Ref[String] = { val: "" }
+  let space_pressed : Ref[Bool] = { val: false, }
+  let last_click_time : Ref[Double] = { val: 0.0, }
+  let last_click_element : Ref[String] = { val: "", }
   let double_click_threshold : Double = 300.0
-  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {} }
+  let active_pointers : Ref[Map[Int, @model.Point]] = { val: {}, }
   let commit_text_input = fn(text_content : String) {
     commit_text_edit(state, history, new_id, text_content)
   }
@@ -2413,8 +2432,8 @@ fn render_text_input_container(
   state : @core.EditorState,
   commit : (String) -> Unit,
 ) -> @element.DomNode {
-  let container_ref : Ref[@js.Any?] = { val: None }
-  let current_textarea : Ref[@js.Any?] = { val: None }
+  let container_ref : Ref[@js.Any?] = { val: None, }
+  let current_textarea : Ref[@js.Any?] = { val: None, }
 
   // Effect で text_edit の変更を監視
   let _ = @luna.effect(fn() {
@@ -2556,342 +2575,346 @@ fn render_embedded_toolbar(
   new_id : () -> String,
 ) -> @element.DomNode {
   let theme = state.get_theme()
-  div(style="display: flex; gap: 3px; align-items: center;", [
-    // 図形追加ボタン
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_rect, 16),
-      Some("1"),
-      "Rectangle",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let width = 80.0
-        let height = 60.0
-        let new_rect = @model.Element::new(
-          el_id,
-          pos.x - width / 2.0,
-          pos.y - height / 2.0,
-          @model.Rect(width, height, None, None),
-        ).with_style(state.get_default_style())
-        @core.execute_command(history, state, @model.AddElement(new_rect))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_circle, 16),
-      Some("2"),
-      "Circle",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let new_circle = @model.Element::new(
-          el_id,
-          pos.x,
-          pos.y,
-          @model.Circle(40.0),
-        ).with_style(state.get_default_style())
-        @core.execute_command(history, state, @model.AddElement(new_circle))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_ellipse, 16),
-      Some("3"),
-      "Ellipse",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let new_ellipse = @model.Element::new(
-          el_id,
-          pos.x,
-          pos.y,
-          @model.Ellipse(60.0, 35.0),
-        ).with_style(state.get_default_style())
-        @core.execute_command(history, state, @model.AddElement(new_ellipse))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_line, 16),
-      Some("4"),
-      "Line",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let dx = 100.0
-        let dy = 50.0
-        let new_line = @model.Element::new(
-          el_id,
-          pos.x - dx / 2.0,
-          pos.y - dy / 2.0,
-          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
-        ).with_style(state.get_line_style())
-        @core.execute_command(history, state, @model.AddElement(new_line))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_arrow, 16),
-      Some("5"),
-      "Arrow",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let dx = 100.0
-        let dy = 50.0
-        let new_arrow = @model.Element::new(
-          el_id,
-          pos.x - dx / 2.0,
-          pos.y - dy / 2.0,
-          @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
-        ).with_style(state.get_arrow_style())
-        @core.execute_command(history, state, @model.AddElement(new_arrow))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_text, 16),
-      Some("6"),
-      "Text",
-      fn() {
-        let el_id = new_id()
-        let pos = state.get_placement_position()
-        let font_size = 24.0
-        // テキストは左上基準、概算で中央配置（"Text"の幅≒50px）
-        let new_text = @model.Element::new(
-          el_id,
-          pos.x - 25.0,
-          pos.y + font_size / 3.0,
-          @model.Text("Text", Some(font_size)),
-        ).with_style(state.get_text_style())
-        @core.execute_command(history, state, @model.AddElement(new_text))
-        state.select(Some(el_id))
-      },
-      theme~,
-    ),
-    // セパレータ
-    @components.toolbar_separator(theme),
-    // ツールモード切替
-    @components.toolbar_button(
-      @components.svg_icon(
-        if state.tool_mode.get() == @core.FreeDraw {
-          @components.icon_pen
-        } else {
-          @components.icon_cursor
+  // 一列に並べると狭い画面に収まらないので折り返す
+  div(
+    style="display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; align-items: center;",
+    [
+      // 図形追加ボタン
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_rect, 16),
+        Some("1"),
+        "Rectangle",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let width = 80.0
+          let height = 60.0
+          let new_rect = @model.Element::new(
+            el_id,
+            pos.x - width / 2.0,
+            pos.y - height / 2.0,
+            @model.Rect(width, height, None, None),
+          ).with_style(state.get_default_style())
+          @core.execute_command(history, state, @model.AddElement(new_rect))
+          state.select(Some(el_id))
         },
-        16,
+        theme~,
       ),
-      Some("P"),
-      if state.tool_mode.get() == @core.FreeDraw {
-        "Free Draw (active)"
-      } else {
-        "Free Draw"
-      },
-      fn() { @lib.toggle_tool_mode(state) },
-      theme~,
-    ),
-    // セパレータ
-    @components.toolbar_separator(theme),
-    // Undo/Redo
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_undo, 16),
-      Some("⌘Z"),
-      "Undo",
-      fn() { let _ = @core.undo_command(history, state) },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_redo, 16),
-      Some("⌘Y"),
-      "Redo",
-      fn() { let _ = @core.redo_command(history, state) },
-      theme~,
-    ),
-    // セパレータ
-    @components.toolbar_separator(theme),
-    // ズームコントロール
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_zoom_out, 16),
-      None,
-      "Zoom Out",
-      fn() { state.zoom_out() },
-      theme~,
-    ),
-    @element.span(
-      style="min-width: 44px; text-align: center; font-size: 11px; font-weight: 500; color: \{theme.ui_text};",
-      [
-        text_dyn(fn() {
-          let zoom = state.viewport.get().zoom
-          "\{(zoom * 100.0).to_int()}%"
-        }),
-      ],
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_zoom_in, 16),
-      None,
-      "Zoom In",
-      fn() { state.zoom_in() },
-      theme~,
-    ),
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_reset, 16),
-      None,
-      "Fit to Canvas",
-      fn() { state.reset_viewport() },
-      theme~,
-    ),
-    // セパレータ
-    @components.toolbar_separator(theme),
-    // グリッドスナップ（トグルボタン + Popover）
-    {
-      let snap_popover_id = "tooltip-grid-snap"
-      let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
-      div(style="position: relative; display: inline-block;", [
-        @element.create_element(
-          "button",
-          [
-            (
-              "style",
-              @element.Dynamic(fn() {
-                let enabled = state.grid_enabled.get()
-                let is_dark = state.theme_mode.get() == @model.Dark
-                let current_theme = if is_dark {
-                  @model.Theme::dark()
-                } else {
-                  @model.Theme::light()
-                }
-                let base = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid; border-radius: 4px; min-width: 36px; height: 40px;"
-                if enabled {
-                  let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
-                  let enabled_border = if is_dark {
-                    "#4a9eff"
-                  } else {
-                    "#2196f3"
-                  }
-                  let enabled_color = if is_dark {
-                    "#60a5fa"
-                  } else {
-                    "#1976d2"
-                  }
-                  base +
-                  "background: \{enabled_bg}; border-color: \{enabled_border}; color: \{enabled_color};"
-                } else {
-                  base +
-                  "background: \{current_theme.ui_bg}; border-color: \{current_theme.ui_border}; color: \{current_theme.ui_text_muted};"
-                }
-              }),
-            ),
-            ("aria-label", @element.Static("Grid Snap")),
-            ("click", @element.Handler(fn(_) { state.toggle_grid() })),
-            (
-              "mouseenter",
-              @element.Handler(fn(e) {
-                show_popover_at_button(snap_popover_id, e)
-              }),
-            ),
-            (
-              "mouseleave",
-              @element.Handler(fn(_) { hide_popover(snap_popover_id) }),
-            ),
-          ],
-          [
-            @components.svg_icon(@components.icon_grid, 16),
-            @element.span(
-              style="color: inherit; font-size: 9px; line-height: 1;",
-              [text("Snap")],
-            ),
-          ],
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_circle, 16),
+        Some("2"),
+        "Circle",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let new_circle = @model.Element::new(
+            el_id,
+            pos.x,
+            pos.y,
+            @model.Circle(40.0),
+          ).with_style(state.get_default_style())
+          @core.execute_command(history, state, @model.AddElement(new_circle))
+          state.select(Some(el_id))
+        },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_ellipse, 16),
+        Some("3"),
+        "Ellipse",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let new_ellipse = @model.Element::new(
+            el_id,
+            pos.x,
+            pos.y,
+            @model.Ellipse(60.0, 35.0),
+          ).with_style(state.get_default_style())
+          @core.execute_command(history, state, @model.AddElement(new_ellipse))
+          state.select(Some(el_id))
+        },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_line, 16),
+        Some("4"),
+        "Line",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let dx = 100.0
+          let dy = 50.0
+          let new_line = @model.Element::new(
+            el_id,
+            pos.x - dx / 2.0,
+            pos.y - dy / 2.0,
+            @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
+          ).with_style(state.get_line_style())
+          @core.execute_command(history, state, @model.AddElement(new_line))
+          state.select(Some(el_id))
+        },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_arrow, 16),
+        Some("5"),
+        "Arrow",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let dx = 100.0
+          let dy = 50.0
+          let new_arrow = @model.Element::new(
+            el_id,
+            pos.x - dx / 2.0,
+            pos.y - dy / 2.0,
+            @model.Line(pos.x + dx / 2.0, pos.y + dy / 2.0),
+          ).with_style(state.get_arrow_style())
+          @core.execute_command(history, state, @model.AddElement(new_arrow))
+          state.select(Some(el_id))
+        },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_text, 16),
+        Some("6"),
+        "Text",
+        fn() {
+          let el_id = new_id()
+          let pos = state.get_placement_position()
+          let font_size = 24.0
+          // テキストは左上基準、概算で中央配置（"Text"の幅≒50px）
+          let new_text = @model.Element::new(
+            el_id,
+            pos.x - 25.0,
+            pos.y + font_size / 3.0,
+            @model.Text("Text", Some(font_size)),
+          ).with_style(state.get_text_style())
+          @core.execute_command(history, state, @model.AddElement(new_text))
+          state.select(Some(el_id))
+        },
+        theme~,
+      ),
+      // セパレータ
+      @components.toolbar_separator(theme),
+      // ツールモード切替
+      @components.toolbar_button(
+        @components.svg_icon(
+          if state.tool_mode.get() == @core.FreeDraw {
+            @components.icon_pen
+          } else {
+            @components.icon_cursor
+          },
+          16,
         ),
-        div(
-          style=snap_popover_style,
-          attrs=[
-            ("id", @element.AttrString(snap_popover_id)),
-            ("popover", @element.AttrString("manual")),
-          ],
-          [text("Grid Snap")],
-        ),
-      ])
-    },
-    // セパレータ
-    @components.toolbar_separator(theme),
-    // エクスポート（Moonlight SVG形式でダウンロード）
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_export, 16),
-      None,
-      "Download SVG (Ctrl+S)",
-      fn() {
-        let svg_str = elements_to_moonlight_svg(
-          state.elements.get(),
-          state.doc_width.get().to_int(),
-          state.doc_height.get().to_int(),
-          state.get_theme().background,
-        )
-        download_file(svg_str, "moonlight.svg", "image/svg+xml")
+        Some("P"),
+        if state.tool_mode.get() == @core.FreeDraw {
+          "Free Draw (active)"
+        } else {
+          "Free Draw"
+        },
+        fn() { @lib.toggle_tool_mode(state) },
+        theme~,
+      ),
+      // セパレータ
+      @components.toolbar_separator(theme),
+      // Undo/Redo
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_undo, 16),
+        Some("⌘Z"),
+        "Undo",
+        fn() { let _ = @core.undo_command(history, state) },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_redo, 16),
+        Some("⌘Y"),
+        "Redo",
+        fn() { let _ = @core.redo_command(history, state) },
+        theme~,
+      ),
+      // セパレータ
+      @components.toolbar_separator(theme),
+      // ズームコントロール
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_zoom_out, 16),
+        None,
+        "Zoom Out",
+        fn() { state.zoom_out() },
+        theme~,
+      ),
+      @element.span(
+        style="min-width: 44px; text-align: center; font-size: 11px; font-weight: 500; color: \{theme.ui_text};",
+        [
+          text_dyn(fn() {
+            let zoom = state.viewport.get().zoom
+            "\{(zoom * 100.0).to_int()}%"
+          }),
+        ],
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_zoom_in, 16),
+        None,
+        "Zoom In",
+        fn() { state.zoom_in() },
+        theme~,
+      ),
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_reset, 16),
+        None,
+        "Fit to Canvas",
+        fn() { state.reset_viewport() },
+        theme~,
+      ),
+      // セパレータ
+      @components.toolbar_separator(theme),
+      // グリッドスナップ（トグルボタン + Popover）
+      {
+        let snap_popover_id = "tooltip-grid-snap"
+        let snap_popover_style = "position: fixed; margin: 0; padding: 4px 8px; background: #333; color: #fff; font-size: 11px; border-radius: 4px; white-space: nowrap; border: none;"
+        div(style="position: relative; display: inline-block;", [
+          @element.create_element(
+            "button",
+            [
+              (
+                "style",
+                @element.Dynamic(fn() {
+                  let enabled = state.grid_enabled.get()
+                  let is_dark = state.theme_mode.get() == @model.Dark
+                  let current_theme = if is_dark {
+                    @model.Theme::dark()
+                  } else {
+                    @model.Theme::light()
+                  }
+                  let base = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; border: 1px solid; border-radius: 4px; min-width: 36px; height: 40px;"
+                  if enabled {
+                    let enabled_bg = if is_dark { "#1e3a5f" } else { "#e3f2fd" }
+                    let enabled_border = if is_dark {
+                      "#4a9eff"
+                    } else {
+                      "#2196f3"
+                    }
+                    let enabled_color = if is_dark {
+                      "#60a5fa"
+                    } else {
+                      "#1976d2"
+                    }
+                    base +
+                    "background: \{enabled_bg}; border-color: \{enabled_border}; color: \{enabled_color};"
+                  } else {
+                    base +
+                    "background: \{current_theme.ui_bg}; border-color: \{current_theme.ui_border}; color: \{current_theme.ui_text_muted};"
+                  }
+                }),
+              ),
+              ("aria-label", @element.Static("Grid Snap")),
+              ("click", @element.Handler(fn(_) { state.toggle_grid() })),
+              (
+                "mouseenter",
+                @element.Handler(fn(e) {
+                  show_popover_at_button(snap_popover_id, e)
+                }),
+              ),
+              (
+                "mouseleave",
+                @element.Handler(fn(_) { hide_popover(snap_popover_id) }),
+              ),
+            ],
+            [
+              @components.svg_icon(@components.icon_grid, 16),
+              @element.span(
+                style="color: inherit; font-size: 9px; line-height: 1;",
+                [text("Snap")],
+              ),
+            ],
+          ),
+          div(
+            style=snap_popover_style,
+            attrs=[
+              ("id", @element.AttrString(snap_popover_id)),
+              ("popover", @element.AttrString("manual")),
+            ],
+            [text("Grid Snap")],
+          ),
+        ])
       },
-      theme~,
-    ),
-    // コピー（SVGテキスト）
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_copy, 16),
-      None,
-      "Copy SVG (Ctrl+Shift+C)",
-      fn() {
-        let svg_str = elements_to_moonlight_svg(
-          state.elements.get(),
-          state.doc_width.get().to_int(),
-          state.doc_height.get().to_int(),
-          state.get_theme().background,
-        )
-        copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
-      },
-      theme~,
-    ),
-    // インポート
-    @components.toolbar_button(
-      @components.svg_icon(@components.icon_import, 16),
-      None,
-      "Import SVG (Ctrl+Shift+V)",
-      fn() {
-        open_file_dialog(".svg", fn(text) {
-          let result = import_svg_validated(text, new_id)
-          for el in result.elements {
-            @core.execute_command(history, state, @model.AddElement(el))
-          }
-          if result.elements.length() > 0 {
-            // プレーンSVG要素を登録（既存に追加）
-            if result.plain_svg_ids.length() > 0 {
-              state.register_plain_svg_ids(result.plain_svg_ids)
+      // セパレータ
+      @components.toolbar_separator(theme),
+      // エクスポート（Moonlight SVG形式でダウンロード）
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_export, 16),
+        None,
+        "Download SVG (Ctrl+S)",
+        fn() {
+          let svg_str = elements_to_moonlight_svg(
+            state.elements.get(),
+            state.doc_width.get().to_int(),
+            state.doc_height.get().to_int(),
+            state.get_theme().background,
+          )
+          download_file(svg_str, "moonlight.svg", "image/svg+xml")
+        },
+        theme~,
+      ),
+      // コピー（SVGテキスト）
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_copy, 16),
+        None,
+        "Copy SVG (Ctrl+Shift+C)",
+        fn() {
+          let svg_str = elements_to_moonlight_svg(
+            state.elements.get(),
+            state.doc_width.get().to_int(),
+            state.doc_height.get().to_int(),
+            state.get_theme().background,
+          )
+          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
+        },
+        theme~,
+      ),
+      // インポート
+      @components.toolbar_button(
+        @components.svg_icon(@components.icon_import, 16),
+        None,
+        "Import SVG (Ctrl+Shift+V)",
+        fn() {
+          open_file_dialog(".svg", fn(text) {
+            let result = import_svg_validated(text, new_id)
+            for el in result.elements {
+              @core.execute_command(history, state, @model.AddElement(el))
             }
-            // バリデーション実行
-            state.revalidate()
-            let ids = result.elements
-              .filter(fn(el) { el.parent_id is None })
-              .map(fn(el) { el.id })
-            state.select_multiple(ids)
-          }
-        })
-      },
-      theme~,
-    ),
-    // GitHub リンク（フルモードのみ）
-    @element.show(fn() { state.mode is @core.Full }, fn() {
-      @element.fragment([
-        @components.toolbar_separator(theme),
-        @components.toolbar_button(
-          @components.svg_icon(@components.icon_github, 16),
-          None,
-          "View on GitHub",
-          fn() { open_github_url() },
-          theme~,
-        ),
-      ])
-    }),
-  ])
+            if result.elements.length() > 0 {
+              // プレーンSVG要素を登録（既存に追加）
+              if result.plain_svg_ids.length() > 0 {
+                state.register_plain_svg_ids(result.plain_svg_ids)
+              }
+              // バリデーション実行
+              state.revalidate()
+              let ids = result.elements
+                .filter(fn(el) { el.parent_id is None })
+                .map(fn(el) { el.id })
+              state.select_multiple(ids)
+            }
+          })
+        },
+        theme~,
+      ),
+      // GitHub リンク（フルモードのみ）
+      @element.show(fn() { state.mode is @core.Full }, fn() {
+        @element.fragment([
+          @components.toolbar_separator(theme),
+          @components.toolbar_button(
+            @components.svg_icon(@components.icon_github, 16),
+            None,
+            "View on GitHub",
+            fn() { open_github_url() },
+            theme~,
+          ),
+        ])
+      }),
+    ],
+  )
 }
 
 ///|
@@ -2923,17 +2946,22 @@ fn render_svg_canvas_node(
   on_contextmenu : (@js.Any) -> Unit,
   on_wheel : (@js.Any) -> Unit,
 ) -> @element.DomNode {
-  // 要素 ID リスト（for_each のキーとして使用）
-  // Line/Arrow を最後に描画（常に上に表示）するためソート
-  let element_ids = @luna.memo(fn() {
+  // 要素キーのリスト（for_each の差分キー）
+  //
+  // ID だけをキーにすると、同じ ID に別種の図形が入れ替わったときに古い DOM
+  // ノードが使い回され、rect のノードに circle の属性が上書きされる。SVG を
+  // 読み込み直すと ID が振り直されて衝突するので、実際にそうなる。
+  // 図形の種類までキーに含めて、種類が変われば作り直させる。
+  // Line/Arrow は常に手前に出したいので最後に並べる。
+  let element_keys = @luna.memo(fn() {
     let elements = state.elements.get()
     let non_lines : Array[String] = []
     let lines : Array[String] = []
     for el in elements {
       if el.shape is @model.Line(_, _) {
-        lines.push(el.id)
+        lines.push(element_key(el))
       } else {
-        non_lines.push(el.id)
+        non_lines.push(element_key(el))
       }
     }
     non_lines.append(lines)
@@ -2975,10 +3003,10 @@ fn render_svg_canvas_node(
     ),
   )
 
-  // 要素を for_each で描画（ID ベースの差分更新）
+  // 要素を for_each で描画（ID + 図形の種類をキーにした差分更新）
   children.push(
-    @element.for_each(fn() { element_ids() }, fn(id, _idx) {
-      render_element_vnode(state, id)
+    @element.for_each(fn() { element_keys() }, fn(key, _idx) {
+      render_element_vnode(state, element_id_of_key(key))
     }),
   )
 
@@ -3065,7 +3093,7 @@ fn render_svg_canvas_node(
       @element.Handler(fn(svg_el) {
         // SVG 要素への参照を保存（フリードロープレビュー用）
         state.svg_el.set(svg_el)
-        let is_first_resize : Ref[Bool] = { val: true }
+        let is_first_resize : Ref[Bool] = { val: true, }
         observe_resize_ffi(svg_el, fn(width : Double, height : Double) {
           let w = width.to_int()
           let h = height.to_int()
@@ -3086,10 +3114,4 @@ fn render_svg_canvas_node(
     ),
   ]
   @element.create_element_ns(@element.svg_ns, "svg", svg_attrs, children)
-}
-
-///|
-/// メインエントリポイント
-fn main {
-  app_main()
 }

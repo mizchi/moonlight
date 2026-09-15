@@ -21,7 +21,7 @@ pub fn calc_text_hit_area(
     // 複数行: 各行の長さを計算
     let lines : Array[String] = content
       .split("\n")
-      .map(fn(sv) { sv.to_string() })
+      .map(fn(sv) { sv.to_owned() })
       .collect()
     let line_count = lines.length()
     let line_height = font_size * line_height_ratio
@@ -66,7 +66,7 @@ pub fn calc_text_bounds(
 ) -> BoundingBox {
   let (width, height) = calc_text_hit_area(content, font_size)
   // テキストは中央揃えなので、位置を調整
-  { x: x - width / 2.0, y: y - height / 2.0, width, height }
+  { x: x - width / 2.0, y: y - height / 2.0, width, height, }
 }
 
 // ============================================================
@@ -130,7 +130,7 @@ pub fn update_element_position(
   new_x : Double,
   new_y : Double,
 ) -> Element {
-  { ..el, x: new_x, y: new_y }
+  { ..el, x: new_x, y: new_y, }
 }
 
 ///|
@@ -145,10 +145,10 @@ pub fn update_line_endpoint(
     Line(_, _) =>
       if endpoint == "start" {
         // 始点を更新
-        { ..el, x: new_x, y: new_y }
+        { ..el, x: new_x, y: new_y, }
       } else {
         // 終点を更新
-        { ..el, shape: Line(new_x, new_y) }
+        { ..el, shape: Line(new_x, new_y), }
       }
     _ => el // Line 以外は変更しない
   }
@@ -173,7 +173,7 @@ pub fn update_elements_in_array(
   elements : Array[Element],
   updates : Array[(String, (Element) -> Element)],
 ) -> Array[Element] {
-  let update_map : Map[String, (Element) -> Element] = {}
+  let update_map : Map[String, (Element) -> Element] = Map([])
   for pair in updates {
     let (id, updater) = pair
     update_map[id] = updater

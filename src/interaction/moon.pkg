@@ -1,0 +1,10 @@
+import {
+  "mizchi/moonlight/model",
+  "moonbitlang/core/string",
+}
+
+import {
+  "moonbitlang/core/debug",
+} for "test"
+
+supported_targets = "js+wasm+wasm-gc"

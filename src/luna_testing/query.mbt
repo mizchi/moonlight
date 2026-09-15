@@ -351,7 +351,7 @@ fn[E] find_all_by_impl(
 ///|
 /// VNode 以下の全テキストコンテンツを取得
 pub fn[E] get_all_text(node : @luna.Node[E, String]) -> String {
-  let sb = StringBuilder::new()
+  let sb = StringBuilder()
   collect_text(node, sb)
   sb.to_string()
 }
@@ -403,7 +403,6 @@ pub fn[E] node_type_name(node : @luna.Node[E, String]) -> String {
     @core.Show(..) => "Show"
     @core.For(..) => "For"
     @core.Component(..) => "Component"
-    @core.Island(_) => "Island"
     @core.WcIsland(_) => "WcIsland"
     @core.Async(_) => "Async"
     @core.ErrorBoundary(_) => "ErrorBoundary"

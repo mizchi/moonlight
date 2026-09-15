@@ -24,9 +24,13 @@ vrt-update:
 test-unit:
   pnpm test:unit
 
-# Type check
+# Type check (MoonBit)
 check:
   moon check
+
+# Type check (TypeScript: entry points, e2e tests, config)
+check-ts:
+  pnpm typecheck
 
 # Format
 fmt:
@@ -39,3 +43,15 @@ build:
 # Dev server
 dev:
   pnpm dev
+
+# Run the visual model tests (semantic model vs. real DnD)
+visual-model:
+  pnpm test:visual-model
+
+# vlmkit: reference-free integrity gate over 3 viewports (needs `just dev` running)
+vlm-integrity:
+  pnpm vlm:integrity
+
+# vlmkit: capture / diff visual snapshots (needs `just dev` running)
+vlm-snapshot:
+  pnpm vlm:snapshot

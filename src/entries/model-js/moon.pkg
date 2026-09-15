@@ -1,0 +1,15 @@
+import {
+  "mizchi/moonlight/model",
+  "mizchi/moonlight/interaction",
+  "mizchi/moonlight/render",
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")
+
+options(
+  link: {
+    "js": { "exports": [ "runScenario", "sceneToSvg" ], "format": "esm" },
+  },
+)

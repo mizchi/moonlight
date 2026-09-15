@@ -291,20 +291,53 @@ interface EditorHandle {
 
 ```
 src/
-├── main.mbt          # Full editor entry point
+├── main.mbt          # Editor assembly (library; the entry point lives in entries/app)
 ├── ui.mbt            # UI components (sidebar, toolbar)
 ├── render.mbt        # SVG rendering
-├── core/
-│   └── scene.mbt     # Editor state management
-├── model/
+├── model/            # Pure calculation — no signals, no DOM
 │   ├── types.mbt     # Data models (Element, Style, etc.)
 │   ├── command.mbt   # Undo/Redo commands
 │   └── element_ops.mbt # Pure element operations
+├── interaction/      # Semantic interaction model — what a gesture means
+│   ├── types.mbt     # Scene, Target, Input, Gesture, Session
+│   ├── joints.mbt    # Joints between line endpoints and shape anchors
+│   ├── resize.mbt    # Resize geometry per shape × handle
+│   ├── session.mbt   # The gesture state machine (a pure reducer)
+│   └── dsl.mbt       # Scenario DSL shared by unit and visual tests
+├── core/
+│   └── scene.mbt     # Editor state (signals) over the pure layers
 ├── lib/              # Shared library code
+├── entries/
+│   ├── app/          # Full editor entry point
+│   └── model-js/     # The interaction model, exported to JS for tests
 ├── embed/            # Embed mode entry point
 ├── webcomponent/     # Web Component entry point
 └── preview/          # Preview mode
 ```
+
+The three layers are kept apart on purpose: `model` and `interaction` know
+nothing about signals or the DOM, so the rules for dragging, resizing and
+joining shapes can be tested without a browser — and the editor delegates to
+them rather than keeping its own copy. See
+[docs/interaction-model.md](./docs/interaction-model.md).
+
+## Testing
+
+```bash
+just test-unit        # MoonBit unit tests, including the interaction model
+just test             # Playwright end-to-end suite
+just visual-model     # Semantic prediction vs. a real mouse gesture
+just vlm-integrity    # vlmkit reference-free gate over 3 viewports (needs `just dev`)
+just vlm-snapshot     # vlmkit visual snapshots (needs `just dev`)
+just vrt              # Screenshot regression against stored baselines
+```
+
+Visual-model tests state a scenario once and check it three ways: what the
+semantic model predicts, what the editor actually does under a real pointer
+gesture, and what the rendered picture shows. The last of those uses
+[@mizchi/vlmkit](https://github.com/mizchi/vlmkit); its natural-language
+assertions need `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY` or `GEMINI_API_KEY`
+and skip with a clear reason when none is set. Everything else runs key-free.
 
 ## Tech Stack
 

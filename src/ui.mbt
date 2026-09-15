@@ -109,7 +109,7 @@ fn render_breadcrumb(state : @core.EditorState) -> @element.DomNode {
         on=events().click(fn(_) { state.select(None) }),
         [text("Canvas")],
       ),
-      @element.span(style="color: #999;", [text(" > ")]),
+      @element.span(style="color: \{theme.ui_text_muted};", [text(" > ")]),
       // 選択中の要素名
       show(fn() { state.selected_ids.get().length() == 1 }, fn() {
         @element.span(style=current_style, [
@@ -189,9 +189,10 @@ fn render_multi_selection_panel(state : @core.EditorState) -> @element.DomNode {
                 text(shape_icon),
               ]),
               @element.span(style="color: #666;", [text(shape_name)]),
-              @element.span(style="color: #999; font-family: monospace;", [
-                text("#" + id),
-              ]),
+              @element.span(
+                style="color: \{theme.ui_text_muted}; font-family: monospace;",
+                [text("#" + id)],
+              ),
               // 選択から除外ボタン
               button(
                 style="margin-left: auto; padding: 1px 4px; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; font-size: 9px; background: #fff; color: #666;",
@@ -260,6 +261,7 @@ fn render_canvas_root_compact(state : @core.EditorState) -> @element.DomNode {
 ///|
 /// Canvas 設定パネル
 fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
+  let theme = state.get_theme()
   let row_style = "display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; font-size: 11px;"
   let label_style = "color: #666;"
   let text_input_style = "width: 70px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 10px;"
@@ -275,7 +277,10 @@ fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
           [text("Document Size")],
         ),
         div(style="display: flex; gap: 8px; align-items: center;", [
-          @element.span(style="font-size: 10px; color: #999;", [text("W:")]),
+          @element.span(
+            style="font-size: 10px; color: \{theme.ui_text_muted};",
+            [text("W:")],
+          ),
           input(
             type_="number",
             style=small_input_style,
@@ -289,7 +294,10 @@ fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
               }
             }),
           ),
-          @element.span(style="font-size: 10px; color: #999;", [text("H:")]),
+          @element.span(
+            style="font-size: 10px; color: \{theme.ui_text_muted};",
+            [text("H:")],
+          ),
           input(
             type_="number",
             style=small_input_style,
@@ -400,6 +408,7 @@ fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
 ///|
 /// プリセットカラーを表示
 fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
+  let theme = state.get_theme()
   let colors = @model.preset_colors()
   let children : Array[@element.DomNode] = []
   for preset in colors {
@@ -426,15 +435,16 @@ fn render_preset_colors(state : @core.EditorState) -> @element.DomNode {
               }
               if state.get_selected_id() is Some(id) {
                 state.update_element(id, fn(el) {
-                  { ..el, style: { ..el.style, stroke: Some(color) } }
+                  { ..el, style: { ..el.style, stroke: Some(color), }, }
                 })
               }
             }),
             [],
           ),
-          @element.span(style="font-size: 9px; color: #999;", [
-            text(preset_name),
-          ]),
+          @element.span(
+            style="font-size: 9px; color: \{theme.ui_text_muted};",
+            [text(preset_name)],
+          ),
         ],
       ),
     )
@@ -576,9 +586,9 @@ fn render_color_editor(
           let value = get_event_target_value(e.as_any())
           let old_style = el.style
           let new_style = if is_fill {
-            { ..old_style, fill: Some(value) }
+            { ..old_style, fill: Some(value), }
           } else {
-            { ..old_style, stroke: Some(value) }
+            { ..old_style, stroke: Some(value), }
           }
           @core.execute_command(
             history,
@@ -642,9 +652,9 @@ fn render_color_button(
               Some(color)
             }
             let new_style = if is_fill {
-              { ..old_style, fill: new_value }
+              { ..old_style, fill: new_value, }
             } else {
-              { ..old_style, stroke: new_value }
+              { ..old_style, stroke: new_value, }
             }
             @core.execute_command(
               history,
@@ -740,7 +750,7 @@ fn render_font_buttons_shared(
           if get_font_target_id(state) is Some(target_id) {
             if state.find_element(target_id) is Some(el) {
               let old_style = el.style
-              let new_style = { ..old_style, font_family: font_value }
+              let new_style = { ..old_style, font_family: font_value, }
               @core.execute_command(
                 history,
                 state,
@@ -799,7 +809,7 @@ fn render_line_style_editor(
               } else {
                 Some(@model.Arrow)
               }
-              let new_style = { ..old_style, marker_start: new_marker }
+              let new_style = { ..old_style, marker_start: new_marker, }
               @core.execute_command(
                 history,
                 state,
@@ -832,7 +842,7 @@ fn render_line_style_editor(
               } else {
                 Some(@model.Arrow)
               }
-              let new_style = { ..old_style, marker_end: new_marker }
+              let new_style = { ..old_style, marker_end: new_marker, }
               @core.execute_command(
                 history,
                 state,
@@ -881,7 +891,7 @@ fn render_dasharray_buttons_shared(
       on=events().click(fn(_) {
         if state.find_element(element_id) is Some(el) {
           let old_style = el.style
-          let new_style = { ..old_style, stroke_dasharray: pattern }
+          let new_style = { ..old_style, stroke_dasharray: pattern, }
           @core.execute_command(
             history,
             state,
@@ -990,48 +1000,66 @@ pub fn render_delete_button(
 
 ///|
 /// 要素ツリーをレンダリング
+///
+/// 中身を一度組み立てて終わりにすると、パネルが作られた時点の要素リストが
+/// そのまま貼り付いてしまう（実際、初回表示では要素があるのに「No elements」に
+/// なっていた）。for_each と show で state.elements を追うようにする。
 fn render_element_tree(state : @core.EditorState) -> @element.DomNode {
+  let theme = state.get_theme()
   let tree_style = "max-height: 300px; overflow-y: auto; padding: 4px;"
-  let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
-  // 親要素のみを表示（子要素は除外）
-  let elements = state.elements.get().filter(fn(el) { el.parent_id is None })
-  let children : Array[@element.DomNode] = []
-  for el in elements {
-    let shape_icon = match el.shape {
-      @model.Rect(_, _, _, _) => "▢"
-      @model.Circle(_) => "○"
-      @model.Ellipse(_, _) => "⬭"
-      @model.Line(_, _) => "╱"
-      @model.Polyline(_) => "⟋"
-      @model.Path(_, _, _, _, _) => "✎"
-      @model.Text(_, _) => "T"
-    }
-    let el_id = el.id
-    let shape_name = @model.shape_name(el.shape)
-    children.push(
+  // 親要素のみを表示（子要素は除外）。
+  // 図形の種類が変わったら行を作り直させたいので、キーに種類を含める。
+  let keys = fn() {
+    state.elements
+    .get()
+    .filter(fn(el) { el.parent_id is None })
+    .map(fn(el) { element_key(el) })
+  }
+  div(style=tree_style, [
+    show(fn() { keys().length() == 0 }, fn() {
       div(
-        style=item_style,
-        on=events().click(fn(_) { state.select(Some(el_id)) }),
-        [
-          @element.span(style="font-size: 14px; width: 16px;", [
-            text(shape_icon),
-          ]),
-          @element.span(style="color: #666;", [text(shape_name)]),
-          @element.span(style="color: #999; font-family: monospace;", [
-            text("#" + el_id),
-          ]),
-        ],
+        style="padding: 8px; color: \{theme.ui_text_muted}; font-size: 11px; text-align: center;",
+        [text("No elements")],
+      )
+    }),
+    @element.for_each(keys, fn(key, _idx) {
+      render_element_tree_item(state, theme, element_id_of_key(key))
+    }),
+  ])
+}
+
+///|
+/// 要素ツリーの一行
+fn render_element_tree_item(
+  state : @core.EditorState,
+  theme : @model.Theme,
+  el_id : String,
+) -> @element.DomNode {
+  guard state.find_element(el_id) is Some(el) else {
+    return @element.fragment([])
+  }
+  let item_style = "display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;"
+  let shape_icon = match el.shape {
+    @model.Rect(_, _, _, _) => "▢"
+    @model.Circle(_) => "○"
+    @model.Ellipse(_, _) => "⬭"
+    @model.Line(_, _) => "╱"
+    @model.Polyline(_) => "⟋"
+    @model.Path(_, _, _, _, _) => "✎"
+    @model.Text(_, _) => "T"
+  }
+  div(
+    style=item_style,
+    on=events().click(fn(_) { state.select(Some(el_id)) }),
+    [
+      @element.span(style="font-size: 14px; width: 16px;", [text(shape_icon)]),
+      @element.span(style="color: #666;", [text(@model.shape_name(el.shape))]),
+      @element.span(
+        style="color: \{theme.ui_text_muted}; font-family: monospace;",
+        [text("#" + el_id)],
       ),
-    )
-  }
-  if children.length() == 0 {
-    div(
-      style="padding: 8px; color: #999; font-size: 11px; text-align: center;",
-      [text("No elements")],
-    )
-  } else {
-    div(style=tree_style, [@element.fragment(children)])
-  }
+    ],
+  )
 }
 
 ///|
@@ -1060,6 +1088,7 @@ fn render_element_details(
   state : @core.EditorState,
   history : @model.History,
 ) -> @element.DomNode {
+  let theme = state.get_theme()
   let id_error = @luna.signal(false)
   div(style="font-size: 12px;", [
     // Shape type + ID (一行)
@@ -1076,7 +1105,9 @@ fn render_element_details(
           }
         }),
       ]),
-      @element.span(style="font-size: 11px; color: #999;", [text("#")]),
+      @element.span(style="font-size: 11px; color: \{theme.ui_text_muted};", [
+        text("#"),
+      ]),
       input(
         type_="text",
         style=id_input_style,
@@ -1250,7 +1281,7 @@ fn render_element_details(
                       let value = get_event_target_value(e.as_any())
                       if parse_double(value) is Some(w) {
                         let old_style = el.style
-                        let new_style = { ..old_style, stroke_width: Some(w) }
+                        let new_style = { ..old_style, stroke_width: Some(w), }
                         @core.execute_command(
                           history,
                           state,
@@ -1260,9 +1291,10 @@ fn render_element_details(
                     }
                   }),
                 ),
-                @element.span(style="font-size: 10px; color: #999;", [
-                  text("px"),
-                ]),
+                @element.span(
+                  style="font-size: 10px; color: \{theme.ui_text_muted};",
+                  [text("px")],
+                ),
               ],
             )
           },
@@ -1300,7 +1332,9 @@ pub fn render_text_input(
   commit : (String) -> Unit,
   cancel : () -> Unit,
 ) -> @element.DomNode {
-  guard state.text_edit.get() is Some(edit_state)
+  guard state.text_edit.get() is Some(edit_state) else {
+    return @element.fragment([])
+  }
   let vp = state.viewport.get()
   // 親要素がある場合は親の中央座標を使用
   let (text_x, text_y, max_width) : (Double, Double, Double) = match
@@ -1354,7 +1388,9 @@ pub fn render_context_menu(
   history : @model.History,
   new_id : () -> String,
 ) -> @element.DomNode {
-  guard state.context_menu.get() is Some(menu)
+  guard state.context_menu.get() is Some(menu) else {
+    return @element.fragment([])
+  }
   let theme = state.get_theme()
   let is_dark = state.theme_mode.get() == @model.Dark
   let shadow = if is_dark { "rgba(0,0,0,0.4)" } else { "rgba(0,0,0,0.1)" }
