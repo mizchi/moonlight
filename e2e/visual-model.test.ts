@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { nlAssert, NlAssertError } from '@mizchi/vlmkit/playwright';
-import { createReviewer, isVlmConfigured, VLM_SKIP_REASON } from './vlm-reviewer';
+import { createReviewer, isVlmConfigured, reviewerName, VLM_SKIP_REASON } from './vlm-reviewer';
 
 /**
  * 視覚モデルのテスト。
@@ -299,6 +299,8 @@ test.describe('Visual model — semantic prediction vs. real interaction', () =>
 
 test.describe('Visual model — what the picture must show (vlmkit)', () => {
   test.skip(!isVlmConfigured(), VLM_SKIP_REASON);
+  // 判定役が CLI のときは主張ごとにエージェントが立ち上がるので、既定の 30 秒では足りない
+  test.setTimeout(Number(process.env.VLMKIT_TEST_TIMEOUT_MS ?? 900_000));
 
   test('the rendered scene matches every claim the model makes', async ({ page }) => {
     await openHarness(page);
@@ -311,16 +313,21 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
     const reviewer = createReviewer();
     const failures: string[] = [];
 
+    console.log(`[vlmkit] reviewer: ${reviewerName()}`);
+    console.log(`[vlmkit] ${model.claims.length} claim(s) to check`);
+
     for (const claim of model.claims) {
       try {
-        await nlAssert({
+        const verdict = await nlAssert({
           assertion: claim,
           target: stage,
           metadata: { scene: model.description },
           reviewer,
         });
+        console.log(`[vlmkit] PASS  ${claim}\n          ${verdict.reasoning}`);
       } catch (error) {
         if (error instanceof NlAssertError) {
+          console.log(`[vlmkit] FAIL  ${claim}\n          ${error.result.reasoning}`);
           failures.push(`${claim}\n    -> ${error.result.reasoning}`);
         } else {
           throw error;
@@ -329,5 +336,45 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
     }
 
     expect(failures, `the rendering contradicts the model:\n${failures.join('\n')}`).toEqual([]);
+  });
+
+  /**
+   * 判定役の効き目そのものを確かめる。
+   *
+   * 上のテストは「主張が全部通ること」しか見ていないので、何を見せても pass と
+   * 答えるレビュアーでも緑になる。逆に、常に落ちるレビュアー（鍵切れ、CLI の
+   * 不在、壊れた応答）なら偽の主張を投げるだけのテストが緑になる。どちらの
+   * 壊れ方も見逃さないよう、同じレビュアーに真偽ひとつずつ通し、
+   * 真を通し・偽を落とすことの両方を要求する。
+   */
+  test('the reviewer tells a true claim from a false one', async ({ page }) => {
+    await openHarness(page);
+    await loadScene(page, BRIDGE);
+
+    const stage = page.locator('#stage');
+    const reviewer = createReviewer();
+
+    // 絵が支持する主張。落ちれば nlAssert がここで投げる。
+    const accepted = await nlAssert({
+      assertion: 'The image contains at least one rectangle and at least one circle.',
+      target: stage,
+      reviewer,
+    });
+    expect(accepted.pass).toBe(true);
+    console.log(`[vlmkit] control — true claim accepted: ${accepted.reasoning}`);
+
+    // 絵が否定する主張。
+    const falseClaim = 'The image contains exactly 7 triangle shapes, and no rectangles at all.';
+    let rejected: NlAssertError | null = null;
+    try {
+      await nlAssert({ assertion: falseClaim, target: stage, reviewer });
+    } catch (error) {
+      if (!(error instanceof NlAssertError)) throw error;
+      rejected = error;
+    }
+
+    expect(rejected, 'the reviewer must not rubber-stamp a false claim').not.toBeNull();
+    expect(rejected!.result.pass).toBe(false);
+    console.log(`[vlmkit] control — false claim rejected: ${rejected!.result.reasoning}`);
   });
 });

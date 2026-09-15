@@ -335,9 +335,23 @@ just vrt              # Screenshot regression against stored baselines
 Visual-model tests state a scenario once and check it three ways: what the
 semantic model predicts, what the editor actually does under a real pointer
 gesture, and what the rendered picture shows. The last of those uses
-[@mizchi/vlmkit](https://github.com/mizchi/vlmkit); its natural-language
-assertions need `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY` or `GEMINI_API_KEY`
-and skip with a clear reason when none is set. Everything else runs key-free.
+[@mizchi/vlmkit](https://github.com/mizchi/vlmkit)'s natural-language
+assertions, which need something that can look at a screenshot and judge a
+sentence about it. `e2e/vlm-reviewer.ts` will use, in order:
+
+| Reviewer | Needs |
+|---|---|
+| `anthropic` / `openrouter` / `gemini` | `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `GEMINI_API_KEY` |
+| `claude-cli` | the `claude` CLI on `PATH`, already signed in — no key |
+
+Name one explicitly with `VLMKIT_REVIEWER`; pick the judging model with
+`VLMKIT_MODEL`. With none of them available the assertions skip with a clear
+reason, and everything else in the suite runs key-free.
+
+One assertion in that file is a negative control: it hands the reviewer a claim
+the picture plainly contradicts and requires it to be rejected. A reviewer that
+answered "pass" to everything would turn the other assertions green without
+looking, so the positive results only mean something alongside it.
 
 ## Tech Stack
 

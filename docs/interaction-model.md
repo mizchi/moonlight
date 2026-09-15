@@ -109,9 +109,24 @@ just vlm-integrity       # vlmkit の参照なし検査（鍵不要、要 `just 
 just vlm-snapshot        # vlmkit の視覚スナップショット（要 `just dev`）
 ```
 
-3 の自然言語アサーションだけは判定役に VLM が要る。`ANTHROPIC_API_KEY` /
-`OPENROUTER_API_KEY` / `GEMINI_API_KEY` のいずれかがあれば走り、無ければ理由付きで
-skip する。判定役の実装は `e2e/vlm-reviewer.ts`。
+3 の自然言語アサーションだけは、絵を見て文を判定する役が要る。判定役は
+`e2e/vlm-reviewer.ts` にあり、上から順に使えるものを選ぶ。
+
+| 判定役 | 要るもの |
+|---|---|
+| `anthropic` / `openrouter` / `gemini` | `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `GEMINI_API_KEY` |
+| `claude-cli` | `PATH` 上のサインイン済み `claude` CLI（鍵は不要） |
+
+`VLMKIT_REVIEWER` で名指しでき、判定に使うモデルは `VLMKIT_MODEL` で選べる。
+どれも無ければ理由付きで skip する。
+
+### 判定役そのものを疑う
+
+主張が全部通ったことは、それだけでは何も言っていない。何を見せても pass と
+答えるレビュアーでも同じ緑になるからだ。そこで同じファイルに一つだけ、絵が
+明らかに否定する主張（「三角形がちょうど 7 つあり、矩形は一つも無い」）を
+投げて、落ちることを要求するテストを置いている。これが落ちて初めて、他の
+主張が通ったことに意味が出る。
 
 ## エディタ側の窓口
 
