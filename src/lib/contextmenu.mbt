@@ -431,6 +431,7 @@ fn update_element_fill(
 extern "js" fn create_context_menu_element() -> @js.Any =
   #| () => {
   #|   const menu = document.createElement('div');
+  #|   menu.dataset.contextMenu = '1';
   #|   menu.style.cssText = 'position: fixed; display: none; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); min-width: 140px; z-index: 10000; padding: 4px 0;';
   #|   return menu;
   #| }
@@ -488,6 +489,10 @@ extern "js" fn update_context_menu_position(
   #| (menu, x, y) => {
   #|   menu.style.left = x + 'px';
   #|   menu.style.top = y + 'px';
+  #|   // 画面の端で開いたときにはみ出さないよう、はみ出す分だけ内側へ寄せる。
+  #|   // translate の % は要素自身の大きさなので、寸法を測らずに済む。
+  #|   menu.style.transform =
+  #|     `translate(min(0px, calc(100vw - 8px - ${x}px - 100%)), min(0px, calc(100vh - 8px - ${y}px - 100%)))`;
   #| }
 
 ///|

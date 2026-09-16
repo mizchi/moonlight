@@ -1394,11 +1394,15 @@ pub fn render_context_menu(
   let theme = state.get_theme()
   let is_dark = state.theme_mode.get() == @model.Dark
   let shadow = if is_dark { "rgba(0,0,0,0.4)" } else { "rgba(0,0,0,0.1)" }
-  let style = "position: fixed; left: \{menu.x}px; top: \{menu.y}px; background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 4px; box-shadow: 2px 2px 10px \{shadow}; min-width: 140px; z-index: 1000; color: \{theme.ui_text};"
+  // 画面の端で開いたときに、メニューが viewport からはみ出して届かなくなるのを防ぐ。
+  // translate の % は要素自身の大きさを指すので、メニューの寸法を測らずに
+  // 「はみ出す分だけ内側へ寄せる（はみ出さないなら 0）」が CSS だけで書ける。
+  let clamp = "translate(min(0px, calc(100vw - 8px - \{menu.x}px - 100%)), min(0px, calc(100vh - 8px - \{menu.y}px - 100%)))"
+  let style = "position: fixed; left: \{menu.x}px; top: \{menu.y}px; transform: \{clamp}; background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 4px; box-shadow: 2px 2px 10px \{shadow}; min-width: 140px; z-index: 1000; color: \{theme.ui_text};"
   let section_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border};"
   let header_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border}; color: \{theme.ui_text_muted}; font-size: 11px;"
   let close_menu = fn() { state.hide_context_menu() }
-  div(style~, [
+  div(style~, attrs=[("data-context-menu", @element.AttrString("1"))], [
     // 要素上でクリックした場合のみメニューを表示
     if menu.target_id is Some(id) {
       @element.fragment([

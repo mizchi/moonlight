@@ -409,9 +409,14 @@ test.describe('Probabilistic Smoke Test', () => {
       await svg.click({ button: 'right', position: { x, y }, force: true });
       await page.waitForTimeout(100);
 
-      // Maybe click a context menu button
+      // Maybe click a context menu button.
+      // ツールバーにも Rectangle や Delete のボタンがあるので、メニュー自身の
+      // 目印で絞らないと、コンテキストメニューを触ったつもりでツールバーを
+      // 押すことになる（そして常に「見えている」ので分岐も意味を失う）。
       if (rand() > 0.5) {
-        const deleteBtn = page.locator('button:has-text("Delete")');
+        const menu = page.locator('[data-context-menu]');
+
+        const deleteBtn = menu.locator('button:has-text("Delete")').first();
         const deleteVisible = await deleteBtn.isVisible().catch(() => false);
         if (deleteVisible) {
           await deleteBtn.click();
@@ -420,7 +425,7 @@ test.describe('Probabilistic Smoke Test', () => {
         }
 
         // Insert menu buttons
-        const insertBtn = page.locator('button').filter({ hasText: 'Rectangle' }).first();
+        const insertBtn = menu.locator('button:has-text("Rectangle")').first();
         const insertVisible = await insertBtn.isVisible().catch(() => false);
         if (insertVisible && rand() > 0.5) {
           await insertBtn.click();
