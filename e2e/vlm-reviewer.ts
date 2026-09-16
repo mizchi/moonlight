@@ -13,7 +13,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { accessSync, constants } from 'node:fs';
+import { accessSync, constants, statSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
@@ -54,6 +54,10 @@ function findClaudeCli(env: NodeJS.ProcessEnv = process.env): string | null {
     const candidate = join(dir, 'claude');
     try {
       accessSync(candidate, constants.X_OK);
+      // ディレクトリにも実行ビットは立つ。`claude` という名のディレクトリを
+      // 掴むと「判定役はある」と答えてしまい、skip されるはずのテストが
+      // EACCES で落ちる
+      if (!statSync(candidate).isFile()) continue;
       return candidate;
     } catch {
       // 次の候補へ
@@ -101,6 +105,17 @@ export function resolveProvider(env: NodeJS.ProcessEnv = process.env): Provider 
     api('gemini', env.GEMINI_API_KEY) ??
     cli()
   );
+}
+
+/**
+ * 時間の指定を読む。数字でなければ既定値に倒す。
+ *
+ * NaN をそのまま渡すと execFile はその場で "timeout is out of range" を投げ、
+ * 判定役が壊れたのか設定を間違えたのか分からない形で落ちる。
+ */
+export function positiveMs(raw: string | undefined, fallback: number): number {
+  const n = raw === undefined || raw === '' ? Number.NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 /** VLM 判定を走らせられる環境かどうか */
@@ -282,7 +297,7 @@ async function askClaudeCli(
   provider: Provider,
   request: NlAssertReviewRequest,
 ): Promise<NlAssertReviewResult> {
-  const timeout = Number(process.env.VLMKIT_CLI_TIMEOUT_MS ?? 240_000);
+  const timeout = positiveMs(process.env.VLMKIT_CLI_TIMEOUT_MS, 240_000);
   const dir = await mkdtemp(join(tmpdir(), 'vlm-nlassert-'));
   const image = join(dir, 'screenshot.png');
   try {

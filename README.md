@@ -273,8 +273,10 @@ interface EditorHandle {
   // Export current canvas as SVG string
   exportSvg(): string;
 
-  // Import SVG string to canvas
-  importSvg(svg: string): void;
+  // Import SVG string to canvas.
+  // Returns false when nothing could be imported (the string did not parse, or
+  // it held no shape the editor understands); the current drawing is kept.
+  importSvg(svg: string): boolean;
 
   // Clear all elements
   clear(): void;

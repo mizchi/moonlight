@@ -99,6 +99,11 @@ Black, Gray, Red, Orange, Yellow, Green, Blue, Purple の 8 色。ライトモ�
 
 CSS 変数 (`--ml-stroke`, `--ml-fill`, `--ml-text`) でテーマ切り替えに対応。
 
+変数の定義はエディタの `<svg style>` にしか無いので、書き出す値は
+`var(--ml-stroke, #000000)` のように必ずフォールバックを伴う。フォールバックが
+無いと、書き出した SVG をファイルとして開いたときに未定義の `var()` が無効値と
+なり、`stroke` が初期値の `none` に落ちて線が消える。
+
 ## UI
 
 ### ツールバー

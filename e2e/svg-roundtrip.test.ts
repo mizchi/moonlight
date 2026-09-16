@@ -18,12 +18,6 @@ type Editor = {
   getElements(): Array<{ id: string }>;
 };
 
-declare global {
-  interface Window {
-    harness: { editor: Editor };
-  }
-}
-
 const wrap = (body: string, w = 200, h = 140) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
 
@@ -35,8 +29,9 @@ async function openHarness(page: Page) {
 /** 読み込ませて、そのまま書き出す */
 async function importThenExport(page: Page, svg: string) {
   return page.evaluate((s) => {
-    const ok = window.harness.editor.importSvg(s);
-    return { ok, svg: window.harness.editor.exportSvg(), count: window.harness.editor.getElements().length };
+    const ed = (window as unknown as { harness: { editor: Editor } }).harness.editor;
+    const ok = ed.importSvg(s);
+    return { ok, svg: ed.exportSvg(), count: ed.getElements().length };
   }, svg);
 }
 
@@ -137,7 +132,7 @@ test.describe('SVG round-trip', () => {
 
   test('an SVG that cannot be read is reported, and leaves the drawing alone', async ({ page }) => {
     const r = await page.evaluate(() => {
-      const ed = window.harness.editor;
+      const ed = (window as unknown as { harness: { editor: Editor } }).harness.editor;
       ed.importSvg('<svg xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="30" height="40"/></svg>');
       const before = ed.getElements().length;
       const broken = ed.importSvg('this is not an svg at all <<<');

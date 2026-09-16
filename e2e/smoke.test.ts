@@ -44,6 +44,17 @@ interface ActionCandidate {
   action: 'click' | 'type' | 'check';
 }
 
+/**
+ * 種を決める。VRT_SEED があればそれを使う。
+ *
+ * 落ちたときに同じ操作列を再現できないと、確率的なテストはただの運になる。
+ * justfile の `smoke-seed` はそのための入口なので、ここを通さない箇所が
+ * あると入口ごと効かなくなる。
+ */
+function pickSeed(): number {
+  return parseInt(process.env.VRT_SEED || '', 10) || Date.now();
+}
+
 function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
@@ -89,7 +100,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('random interactions should not crash', async ({ page }) => {
-    const seed = parseInt(process.env.VRT_SEED || '', 10) || Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const maxActions = 20;
     const errors: Array<{ step: number; type: string; message: string }> = [];
@@ -176,7 +187,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: rapid shape operations', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const shapeButtons = ['Rectangle', 'Circle', 'Ellipse', 'Line', 'Text'];
     const errors: string[] = [];
@@ -244,7 +255,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: random drag and resize', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 
@@ -370,7 +381,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: context menu operations', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 
@@ -427,7 +438,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: text editing with edge cases', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 

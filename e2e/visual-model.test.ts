@@ -1,6 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { nlAssert, NlAssertError } from '@mizchi/vlmkit/playwright';
-import { createReviewer, isVlmConfigured, reviewerName, VLM_SKIP_REASON } from './vlm-reviewer';
+import {
+  createReviewer,
+  isVlmConfigured,
+  positiveMs,
+  reviewerName,
+  VLM_SKIP_REASON,
+} from './vlm-reviewer';
 
 /**
  * 視覚モデルのテスト。
@@ -300,7 +306,7 @@ test.describe('Visual model — semantic prediction vs. real interaction', () =>
 test.describe('Visual model — what the picture must show (vlmkit)', () => {
   test.skip(!isVlmConfigured(), VLM_SKIP_REASON);
   // 判定役が CLI のときは主張ごとにエージェントが立ち上がるので、既定の 30 秒では足りない
-  test.setTimeout(Number(process.env.VLMKIT_TEST_TIMEOUT_MS ?? 900_000));
+  test.setTimeout(positiveMs(process.env.VLMKIT_TEST_TIMEOUT_MS, 900_000));
 
   test('the rendered scene matches every claim the model makes', async ({ page }) => {
     await openHarness(page);
