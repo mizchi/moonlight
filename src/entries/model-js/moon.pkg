@@ -1,6 +1,7 @@
 import {
   "mizchi/moonlight/model",
   "mizchi/moonlight/interaction",
+  "mizchi/moonlight/import",
   "mizchi/moonlight/render",
 }
 
@@ -10,6 +11,9 @@ pkgtype(kind: "executable")
 
 options(
   link: {
-    "js": { "exports": [ "runScenario", "sceneToSvg" ], "format": "esm" },
+    "js": {
+      "exports": [ "runScenario", "sceneToSvg", "applyToSvg", "describeSvg" ],
+      "format": "esm",
+    },
   },
 )
