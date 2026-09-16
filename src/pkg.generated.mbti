@@ -3,6 +3,7 @@ package "mizchi/moonlight"
 
 import {
   "mizchi/luna/dom",
+  "mizchi/moonlight/import",
   "mizchi/moonlight/model",
 }
 
@@ -41,6 +42,10 @@ pub fn debug_log(String) -> Unit
 
 pub fn download_file(String, String, String) -> Unit
 
+pub fn element_id_of_key(String) -> String
+
+pub fn element_key(@model.Element) -> String
+
 pub fn element_to_moonlight_svg(@model.Element) -> String
 
 pub fn element_to_svg_string(@model.Element) -> String
@@ -48,8 +53,6 @@ pub fn element_to_svg_string(@model.Element) -> String
 pub fn elements_to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
 
 pub fn elements_to_svg(Array[@model.Element], Int, Int) -> String
-
-pub fn get_attribute(@mizchi/js/core.Any, String) -> @mizchi/js/core.Any
 
 pub fn get_child_at_ffi(@mizchi/js/core.Any, Int) -> @mizchi/js/core.Any
 
@@ -61,19 +64,13 @@ pub fn get_current_time() -> Double
 
 pub fn get_event_target_value(@mizchi/js/core.Any) -> String
 
-pub fn get_svg_children(@mizchi/js/core.Any) -> @mizchi/js/core.Any
-
-pub fn get_tag_name(@mizchi/js/core.Any) -> String
-
-pub fn get_text_content(@mizchi/js/core.Any) -> String
-
 pub fn get_url_search_ffi() -> String
 
 pub fn hide_popover(String) -> Unit
 
 pub fn import_svg_elements(String, () -> String) -> Array[@model.Element]
 
-pub fn import_svg_validated(String, () -> String) -> ImportResult
+pub fn import_svg_validated(String, () -> String) -> @import.ImportResult
 
 pub fn insert_before_ffi(@mizchi/js/core.Any, @mizchi/js/core.Any, @mizchi/js/core.Any) -> Unit
 
@@ -90,8 +87,6 @@ pub fn observe_window_resize_ffi((Int, Int) -> Unit) -> Unit
 pub fn open_file_dialog(String, (String) -> Unit) -> Unit
 
 pub fn parse_double(String) -> Double?
-
-pub fn parse_svg_string(String) -> @mizchi/js/core.Any
 
 pub fn read_clipboard_text((String) -> Unit, () -> Unit) -> Unit
 
@@ -201,13 +196,6 @@ pub struct EmbedOptions {
 pub fn EmbedOptions::default() -> Self
 pub fn EmbedOptions::from_js(@mizchi/js/core.Any) -> Self
 
-pub struct ImportResult {
-  elements : Array[@model.Element]
-  is_moonlight : Bool
-  plain_svg_ids : Array[String]
-}
-
 // Type aliases
 
 // Traits
-

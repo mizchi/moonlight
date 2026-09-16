@@ -95,14 +95,20 @@ pub(all) struct Theme {
 } derive(Debug, Eq)
 
 ///|
-/// CSS変数名
-pub let css_var_stroke : String = "var(--ml-stroke)"
+/// CSS変数名。
+///
+/// 変数の定義はエディタの `<svg style>` にしか無いので、フォールバックを付けて
+/// おかないと、書き出した SVG をエディタの外（ファイルとして開く、`<img>` に
+/// 貼る、ドキュメントに埋める）で開いたときに色が解決できない。CSS の規則では
+/// 未定義の `var()` は「無効」となり、`stroke` は初期値の `none` に落ちる
+/// ——つまり線がまるごと消える。フォールバックはライトテーマの既定値に合わせる。
+pub let css_var_stroke : String = "var(--ml-stroke, #000000)"
 
 ///|
-pub let css_var_fill : String = "var(--ml-fill)"
+pub let css_var_fill : String = "var(--ml-fill, transparent)"
 
 ///|
-pub let css_var_text : String = "var(--ml-text)"
+pub let css_var_text : String = "var(--ml-text, #000000)"
 
 ///|
 /// ライトテーマのデフォルト

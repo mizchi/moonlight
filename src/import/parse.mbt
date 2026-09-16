@@ -1,26 +1,61 @@
 // SVG Import 機能
 
 ///|
+/// インポート結果（要素と、その出どころ）
+pub(all) struct ImportResult {
+  elements : Array[@model.Element]
+  is_moonlight : Bool // Moonlight形式かどうか
+  plain_svg_ids : Array[String] // プレーンSVG要素のID（移動のみ可能）
+}
+
+///|
+/// SVG文字列をパースして、要素と出どころを返す
+pub fn import_svg_validated(
+  svg_str : String,
+  new_id : () -> String,
+) -> ImportResult {
+  let svg_el = parse_svg_string(svg_str)
+  if @js.is_nullish(svg_el) {
+    return { elements: [], is_moonlight: false, plain_svg_ids: [], }
+  }
+  // Moonlight形式かチェック
+  let is_moonlight = !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+  let elements : Array[@model.Element] = []
+  let plain_svg_ids : Array[String] = []
+  let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
+  collect_elements(
+    svg_el, is_moonlight, new_id, elements, plain_svg_ids, id_map,
+  )
+  // Moonlight形式の場合、接続情報のIDを更新
+  if is_moonlight {
+    update_connection_ids(elements, id_map)
+  }
+  { elements, is_moonlight, plain_svg_ids, }
+}
+
+///|
 /// SVG文字列をパースして Element 配列を返す
 pub fn import_svg_elements(
   svg_str : String,
   new_id : () -> String,
 ) -> Array[@model.Element] {
-  let svg_el = parse_svg_string(svg_str)
-  if @js.is_nullish(svg_el) {
-    return []
-  }
-  // Moonlight形式かチェック
-  let is_moonlight = !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+  import_svg_validated(svg_str, new_id).elements
+}
 
-  let children = get_svg_children(svg_el)
-  let elements : Array[@model.Element] = []
-  let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
-  // 子要素をパース
-  let children_array : Array[@js.Any] = children.cast()
-  for child in children_array {
+///|
+/// 子要素をたどって Element を集める
+fn collect_elements(
+  parent : @js.Any,
+  is_moonlight : Bool,
+  new_id : () -> String,
+  elements : Array[@model.Element],
+  plain_svg_ids : Array[String],
+  id_map : Array[(String, String)],
+) -> Unit {
+  let children : Array[@js.Any] = get_svg_children(parent).cast()
+  for child in children {
     let tag = get_tag_name(child)
-    // defs, rect(背景) はスキップ
+    // defs はスキップ
     if tag == "defs" {
       continue
     }
@@ -31,13 +66,12 @@ pub fn import_svg_elements(
     }
     if el_opt is Some(el) {
       elements.push(el)
+      // プレーンSVG要素はIDを記録（移動のみ可能）
+      if !is_moonlight {
+        plain_svg_ids.push(el.id)
+      }
     }
   }
-  // Moonlight形式の場合、接続情報のIDを更新
-  if is_moonlight {
-    update_connection_ids(elements, id_map)
-  }
-  elements
 }
 
 ///|
@@ -233,6 +267,21 @@ fn parse_attr_double_opt(el : @js.Any, name : String) -> Double? {
 }
 
 ///|
+/// フォールバックの無い CSS 変数を、今の定義に寄せる。
+///
+/// 以前の書き出しには `var(--ml-stroke)` がそのまま入っている。エディタの中では
+/// 解決できるが、外で開くと無効値になって線が消える。読み込んだ時点で直して
+/// おけば、開いて保存し直すだけで古いファイルも直る。
+fn normalize_css_var(s : String) -> String {
+  match s {
+    "var(--ml-stroke)" => @model.css_var_stroke
+    "var(--ml-fill)" => @model.css_var_fill
+    "var(--ml-text)" => @model.css_var_text
+    _ => s
+  }
+}
+
+///|
 /// スタイル属性をパース
 fn parse_style(el : @js.Any) -> @model.Style {
   let fill_raw = get_attribute(el, "fill")
@@ -243,14 +292,14 @@ fn parse_style(el : @js.Any) -> @model.Style {
     if s == "none" {
       None
     } else {
-      Some(s)
+      Some(normalize_css_var(s))
     }
   }
   let stroke_raw = get_attribute(el, "stroke")
   let stroke : String? = if @js.is_nullish(stroke_raw) {
     None
   } else {
-    Some(stroke_raw.cast())
+    Some(normalize_css_var(stroke_raw.cast()))
   }
   let stroke_width = parse_attr_double_opt(el, "stroke-width")
   let opacity = parse_attr_double_opt(el, "opacity")
