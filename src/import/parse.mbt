@@ -99,6 +99,56 @@ fn collect_elements(
 }
 
 ///|
+/// transform のうち、座標に置ける分を畳み込む。
+///
+/// 平行移動だけなら x/y（と Line/Polyline が内部に持つ絶対座標）に足してしまう。
+/// そうすると transform を持たない普通の図形になり、選択ハンドルも当たり判定も
+/// そのまま効く——取り込んだ絵が「見えるだけ」ではなく編集できる状態になる。
+///
+/// Path は d に絶対座標が並んでいて書き換えられないので、rotate/scale/matrix と
+/// 同じく transform のまま持つ。描画は合うが、ハンドルは追随しない。
+fn place(
+  shape : @model.ShapeType,
+  x : Double,
+  y : Double,
+  transform : String?,
+) -> (@model.ShapeType, Double, Double, String?) {
+  match transform {
+    None => (shape, x, y, None)
+    Some(t) =>
+      match shape {
+        // d を書き換えられないので、そのまま transform で置く
+        @model.Path(_, _, _, _, _) => (shape, x, y, transform)
+        _ =>
+          match as_translation(t) {
+            // 平行移動でない（rotate/scale/matrix）ものは畳み込めない
+            None => (shape, x, y, transform)
+            Some((dx, dy)) =>
+              match shape {
+                @model.Line(x2, y2) =>
+                  (@model.Line(x2 + dx, y2 + dy), x + dx, y + dy, None)
+                @model.Polyline(points) =>
+                  (
+                    @model.Polyline(
+                      points
+                      .iter()
+                      .map(fn(pt : @model.Point) -> @model.Point {
+                        { x: pt.x + dx, y: pt.y + dy, }
+                      })
+                      .collect(),
+                    ),
+                    x + dx,
+                    y + dy,
+                    None,
+                  )
+                _ => (shape, x + dx, y + dy, None)
+              }
+          }
+      }
+  }
+}
+
+///|
 /// transform 属性をそのまま読む
 fn own_transform(el : @js.Any) -> String? {
   let raw = get_attribute(el, "transform")
@@ -172,13 +222,19 @@ fn parse_moonlight_element(
           Some(s)
         }
       }
+      let (shape, x, y, transform) = place(
+        shape,
+        x,
+        y,
+        compose_transform(inherited, own_transform(el)),
+      )
       Some({
         id: el_id,
         x,
         y,
         shape,
         style: parse_style(el),
-        transform: compose_transform(inherited, own_transform(el)),
+        transform,
         parent_id,
         connections: parse_connections(el),
       })
@@ -198,13 +254,19 @@ fn parse_plain_svg_element(
     None => None
     Some(shape_data) => {
       let (shape, x, y) = shape_data
+      let (shape, x, y, transform) = place(
+        shape,
+        x,
+        y,
+        compose_transform(inherited, own_transform(el)),
+      )
       Some({
         id: new_id(),
         x,
         y,
         shape,
         style: parse_style(el),
-        transform: compose_transform(inherited, own_transform(el)),
+        transform,
         parent_id: None,
         connections: None,
       })

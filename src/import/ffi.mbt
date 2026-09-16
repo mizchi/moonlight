@@ -46,3 +46,34 @@ fn parse_double(s : String) -> Double? {
     Some(result.cast())
   }
 }
+
+///|
+/// transform が translate() だけで出来ていれば、合計を [tx, ty] で返す。
+/// rotate/scale/matrix が混ざっていれば null（座標には畳み込めない）。
+extern "js" fn sum_translates_ffi(t : String) -> @js.Any =
+  #| (t) => {
+  #|   const terms = t.match(/[a-zA-Z]+\s*\([^)]*\)/g);
+  #|   if (!terms) return null;
+  #|   let tx = 0, ty = 0;
+  #|   for (const term of terms) {
+  #|     const m = /^translate\s*\(\s*(-?[\d.eE+-]+)\s*(?:[, ]\s*(-?[\d.eE+-]+)\s*)?\)$/.exec(term.trim());
+  #|     if (!m) return null;
+  #|     const x = parseFloat(m[1]);
+  #|     const y = m[2] === undefined ? 0 : parseFloat(m[2]);
+  #|     if (!isFinite(x) || !isFinite(y)) return null;
+  #|     tx += x; ty += y;
+  #|   }
+  #|   return [tx, ty];
+  #| }
+
+///|
+/// transform を平行移動として読む。読めなければ None。
+fn as_translation(t : String) -> (Double, Double)? {
+  let result = sum_translates_ffi(t)
+  if @js.is_nullish(result) {
+    None
+  } else {
+    let pair : Array[Double] = result.cast()
+    Some((pair[0], pair[1]))
+  }
+}

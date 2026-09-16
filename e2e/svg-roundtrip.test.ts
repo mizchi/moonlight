@@ -74,29 +74,65 @@ test.describe('SVG round-trip', () => {
     expect(r.count).toBe(2);
   });
 
-  test("a group's transform reaches the shapes inside it", async ({ page }) => {
+  test("a group's translate lands in the shape's own coordinates", async ({ page }) => {
+    // 平行移動は座標に畳み込む。transform を持ったままだと、絵は合っていても
+    // 選択ハンドルや当たり判定が x/y 側に残ってずれる。
     const r = await importThenExport(
       page,
       wrap('<g transform="translate(20,10)"><rect x="10" y="10" width="50" height="30"/></g>'),
     );
     expect(r.count).toBe(1);
-    expect(shapeLines(r.svg)[0]).toContain('transform="translate(20,10)"');
+    expect(shapeLines(r.svg)[0]).toContain('x="30"');
+    expect(shapeLines(r.svg)[0]).toContain('y="20"');
+    expect(shapeLines(r.svg)[0]).not.toContain('transform');
   });
 
-  test('nested group transforms are composed, not dropped', async ({ page }) => {
+  test('nested translates add up', async ({ page }) => {
+    const r = await importThenExport(
+      page,
+      wrap('<g transform="translate(20,10)"><g transform="translate(5,5)"><rect x="10" y="10" width="50" height="30"/></g></g>'),
+    );
+    expect(shapeLines(r.svg)[0]).toContain('x="35"');
+    expect(shapeLines(r.svg)[0]).toContain('y="25"');
+  });
+
+  test("a line's far end moves with the translate too", async ({ page }) => {
+    // Line は終点を内部に絶対座標で持っている。x/y だけ動かすと線が伸びる。
+    const r = await importThenExport(
+      page,
+      wrap('<g transform="translate(10,20)"><line x1="10" y1="10" x2="60" y2="40" stroke="#000000"/></g>'),
+    );
+    const line = shapeLines(r.svg)[0];
+    expect(line).toContain('x1="20"');
+    expect(line).toContain('y1="30"');
+    expect(line).toContain('x2="70"');
+    expect(line).toContain('y2="60"');
+  });
+
+  test('a transform that cannot be folded is kept, and the editor shows it', async ({ page }) => {
+    // rotate は座標にできないので transform のまま残る。残す以上、エディタの
+    // 中の絵と書き出した SVG が食い違ってはいけない。
     const r = await importThenExport(
       page,
       wrap('<g transform="translate(20,10)"><g transform="rotate(15)"><rect x="10" y="10" width="50" height="30"/></g></g>'),
     );
     expect(shapeLines(r.svg)[0]).toContain('transform="translate(20,10) rotate(15)"');
+
+    const live = await page.evaluate(
+      () => document.querySelector('#stage svg rect[data-id]')?.getAttribute('transform') ?? null,
+    );
+    expect(live, 'what the editor draws must match what it writes out').toBe(
+      'translate(20,10) rotate(15)',
+    );
   });
 
-  test("an element's own transform survives", async ({ page }) => {
+  test("an element's own translate lands in its coordinates", async ({ page }) => {
     const r = await importThenExport(
       page,
       wrap('<rect x="10" y="10" width="50" height="30" transform="translate(20,10)"/>'),
     );
-    expect(shapeLines(r.svg)[0]).toContain('transform="translate(20,10)"');
+    expect(shapeLines(r.svg)[0]).toContain('x="30"');
+    expect(shapeLines(r.svg)[0]).not.toContain('transform');
   });
 
   test('geometry and style are unchanged by a round-trip', async ({ page }) => {

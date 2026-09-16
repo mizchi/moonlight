@@ -2196,6 +2196,11 @@ fn create_element_vnode_with_ref(
         attrs.push(("ry", @model.num_str(v)))
       }
       add_style_attrs(attrs, el.style)
+      // 取り込んだ図形が transform を持つことがある。ここで出さないと、
+      // エディタの中の絵と書き出した SVG が食い違う
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
       attrs.push(("cursor", "move"))
       attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("rect", attrs, el_ref)
@@ -2205,6 +2210,11 @@ fn create_element_vnode_with_ref(
       attrs.push(("cy", @model.num_str(el.y)))
       attrs.push(("r", @model.num_str(r)))
       add_style_attrs(attrs, el.style)
+      // 取り込んだ図形が transform を持つことがある。ここで出さないと、
+      // エディタの中の絵と書き出した SVG が食い違う
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
       attrs.push(("cursor", "move"))
       attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("circle", attrs, el_ref)
@@ -2215,6 +2225,11 @@ fn create_element_vnode_with_ref(
       attrs.push(("rx", @model.num_str(rx)))
       attrs.push(("ry", @model.num_str(ry)))
       add_style_attrs(attrs, el.style)
+      // 取り込んだ図形が transform を持つことがある。ここで出さないと、
+      // エディタの中の絵と書き出した SVG が食い違う
+      if el.transform is Some(t) {
+        attrs.push(("transform", t))
+      }
       attrs.push(("cursor", "move"))
       attrs.push(("pointer-events", "all")) // 透明でもクリック可能
       create_svg_node_with_ref("ellipse", attrs, el_ref)
@@ -2277,6 +2292,10 @@ fn create_line_vnode_with_ref(
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
+  // 取り込んだ図形の transform はグループごと動かす（中の当たり判定も一緒に動く）
+  if el.transform is Some(t) {
+    group_attrs.push(("transform", @element.Static(t)))
+  }
   @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
 }
 
@@ -2317,6 +2336,10 @@ fn create_path_vnode_with_ref(
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
+  // 取り込んだ図形の transform はグループごと動かす（中の当たり判定も一緒に動く）
+  if el.transform is Some(t) {
+    group_attrs.push(("transform", @element.Static(t)))
+  }
   @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
 }
 
@@ -2429,6 +2452,10 @@ fn create_text_vnode_with_ref(
     ("cursor", @element.Static("move")),
     ("__ref", @element.Handler(fn(dom) { el_ref.val = Some(dom) })),
   ]
+  // 取り込んだ図形の transform はグループごと動かす（中の当たり判定も一緒に動く）
+  if el.transform is Some(t) {
+    group_attrs.push(("transform", @element.Static(t)))
+  }
   @element.create_element_ns(@element.svg_ns, "g", group_attrs, children)
 }
 
