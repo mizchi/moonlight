@@ -77,11 +77,14 @@ pub fn setup_editor(
     }
     export_elements_to_svg(state.elements.get(), width, height, bg_color)
   }
-  let import_svg = fn(svg_str : String) -> Unit {
+  // 取り込めたかどうかを返す（読めない SVG を黙って無視しないため）
+  let import_svg = fn(svg_str : String) -> Bool {
     let elements = parse_simple_svg(svg_str, new_id)
-    if elements.length() > 0 {
-      state.elements.set(elements)
+    if elements.length() == 0 {
+      return false
     }
+    state.elements.set(elements)
+    true
   }
   let clear = fn() -> Unit { state.elements.set([]) }
   let destroy = fn() -> Unit {

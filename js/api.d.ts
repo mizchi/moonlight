@@ -37,8 +37,12 @@ export interface EditorHandle {
    * Import an SVG string into the editor, replacing its contents.
    * Element ids are regenerated so they cannot collide; connections and
    * parent links are remapped to match.
+   *
+   * Returns false when nothing could be imported — the string did not parse, or
+   * it held no shape this editor understands. The current drawing is left as it
+   * was, so the return value is the only way to tell.
    */
-  importSvg(svg: string): void;
+  importSvg(svg: string): boolean;
   /** Clear all elements */
   clear(): void;
   /** Destroy editor and cleanup */

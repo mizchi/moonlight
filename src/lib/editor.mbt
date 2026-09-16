@@ -20,7 +20,7 @@ pub extern "js" fn clear_container_ffi(container : @js.Any) =
 /// エディタハンドルを作成
 pub extern "js" fn create_editor_handle(
   export_svg_fn : () -> String,
-  import_svg_fn : (String) -> Unit,
+  import_svg_fn : (String) -> Bool,
   clear_fn : () -> Unit,
   destroy_fn : () -> Unit,
   has_focus_fn : () -> Bool,

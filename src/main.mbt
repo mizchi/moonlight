@@ -236,7 +236,10 @@ fn create_editor_handle_js(
     }
     elements_to_moonlight_svg(state.elements.get(), width, height, bg_color)
   }
-  let import_svg = fn(svg_str : String) -> Unit {
+  // 取り込めたかどうかを返す。読めない SVG や、対応していない図形しか入って
+  // いない SVG を渡されたとき、黙って前のシーンを残したままにすると、埋め込み
+  // 側からは成功と区別が付かない。
+  let import_svg = fn(svg_str : String) -> Bool {
     let id_counter = create_id_counter()
     let new_id = fn() -> String {
       let current = id_counter.get()
@@ -244,16 +247,18 @@ fn create_editor_handle_js(
       "el-\{current + 1}"
     }
     let result = import_svg_validated(svg_str, new_id)
-    if result.elements.length() > 0 {
-      state.elements.set(result.elements)
-      // プレーンSVG要素を登録
-      state.clear_plain_svg_ids() // 既存のIDをクリア
-      if result.plain_svg_ids.length() > 0 {
-        state.register_plain_svg_ids(result.plain_svg_ids)
-      }
-      // バリデーション実行
-      state.revalidate()
+    if result.elements.length() == 0 {
+      return false
     }
+    state.elements.set(result.elements)
+    // プレーンSVG要素を登録
+    state.clear_plain_svg_ids() // 既存のIDをクリア
+    if result.plain_svg_ids.length() > 0 {
+      state.register_plain_svg_ids(result.plain_svg_ids)
+    }
+    // バリデーション実行
+    state.revalidate()
+    true
   }
   let clear = fn() -> Unit { state.elements.set([]) }
   let has_focus = fn() -> Bool { state.has_focus.get() }
@@ -308,7 +313,7 @@ fn create_editor_handle_js(
 /// FFI でハンドルオブジェクトを作成
 extern "js" fn create_editor_handle_ffi(
   export_svg : () -> String,
-  import_svg : (String) -> Unit,
+  import_svg : (String) -> Bool,
   clear : () -> Unit,
   has_focus : () -> Bool,
   select : (Array[String]) -> Unit,
