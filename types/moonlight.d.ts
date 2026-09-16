@@ -55,8 +55,14 @@ export interface EditorHandle {
   // === Existing API ===
   /** Export the current content as SVG string */
   exportSvg(): string;
-  /** Import SVG content into the editor */
-  importSvg(svg: string): void;
+  /**
+   * Import SVG content into the editor.
+   *
+   * Returns false when nothing could be imported — the SVG did not parse, or it
+   * held no shape this editor understands. The current scene is left alone in
+   * that case, so the return value is the only way to tell.
+   */
+  importSvg(svg: string): boolean;
   /** Clear all elements from the editor */
   clear(): void;
   /** Destroy the editor and clean up resources */
@@ -181,8 +187,8 @@ export interface HTMLMoonlightEditorElement extends HTMLElement {
   readonly shadowRoot: ShadowRoot;
   /** Export SVG content */
   exportSvg(): string;
-  /** Import SVG content */
-  importSvg(svg: string): void;
+  /** Import SVG content. Returns false when nothing could be imported. */
+  importSvg(svg: string): boolean;
   /** Clear the editor */
   clear(): void;
 }

@@ -1,6 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { nlAssert, NlAssertError } from '@mizchi/vlmkit/playwright';
-import { createReviewer, isVlmConfigured, reviewerName, VLM_SKIP_REASON } from './vlm-reviewer';
+import {
+  createReviewer,
+  isVlmConfigured,
+  positiveMs,
+  reviewerName,
+  VLM_SKIP_REASON,
+} from './vlm-reviewer';
 
 /**
  * 視覚モデルのテスト。
@@ -300,7 +306,7 @@ test.describe('Visual model — semantic prediction vs. real interaction', () =>
 test.describe('Visual model — what the picture must show (vlmkit)', () => {
   test.skip(!isVlmConfigured(), VLM_SKIP_REASON);
   // 判定役が CLI のときは主張ごとにエージェントが立ち上がるので、既定の 30 秒では足りない
-  test.setTimeout(Number(process.env.VLMKIT_TEST_TIMEOUT_MS ?? 900_000));
+  test.setTimeout(positiveMs(process.env.VLMKIT_TEST_TIMEOUT_MS, 900_000));
 
   test('the rendered scene matches every claim the model makes', async ({ page }) => {
     await openHarness(page);
@@ -316,7 +322,8 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
     console.log(`[vlmkit] reviewer: ${reviewerName()}`);
     console.log(`[vlmkit] ${model.claims.length} claim(s) to check`);
 
-    for (const claim of model.claims) {
+    /** 主張をひとつ判定させる。通れば null、落ちれば理由を返す。 */
+    const ask = async (claim: string): Promise<string | null> => {
       try {
         const verdict = await nlAssert({
           assertion: claim,
@@ -325,14 +332,30 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
           reviewer,
         });
         console.log(`[vlmkit] PASS  ${claim}\n          ${verdict.reasoning}`);
+        return null;
       } catch (error) {
-        if (error instanceof NlAssertError) {
-          console.log(`[vlmkit] FAIL  ${claim}\n          ${error.result.reasoning}`);
-          failures.push(`${claim}\n    -> ${error.result.reasoning}`);
-        } else {
-          throw error;
-        }
+        // 判定役が壊れている（鍵切れ・CLI 不在）のは主張が偽なのとは別の話なので、
+        // NlAssertError 以外はそのまま投げる
+        if (!(error instanceof NlAssertError)) throw error;
+        console.log(`[vlmkit] FAIL  ${claim}\n          ${error.result.reasoning}`);
+        return error.result.reasoning ?? '(no reasoning given)';
       }
+    };
+
+    for (const claim of model.claims) {
+      const first = await ask(claim);
+      if (first === null) continue;
+
+      // 判定役は毎回同じ答えを返すとは限らない。落ちた主張だけもう一度訊いて、
+      // 二度とも落ちたときに失敗とする。絵が本当に主張に反していれば二度落ちる。
+      // 一度目だけ落ちたときは、揺れたことをログに残しておく。
+      console.log(`[vlmkit] RETRY ${claim}`);
+      const second = await ask(claim);
+      if (second === null) {
+        console.log(`[vlmkit] WOBBLE ${claim}\n          1回目だけ落ちた: ${first}`);
+        continue;
+      }
+      failures.push(`${claim}\n    -> ${first}\n    -> ${second}`);
     }
 
     expect(failures, `the rendering contradicts the model:\n${failures.join('\n')}`).toEqual([]);

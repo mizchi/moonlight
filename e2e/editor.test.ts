@@ -156,6 +156,42 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(menuContainer.locator('button').filter({ hasText: 'Text' })).toBeVisible();
   });
 
+  test('context menu opened at the edge stays inside the viewport', async ({ page }) => {
+    // メニューは position: fixed で右クリック位置に出る。位置を補正しないと
+    // 画面の端では枠の外へはみ出し、項目に手が届かなくなる（見えてはいるので
+    // toBeVisible では捕まらない）。確率的なスモークテストが時々
+    // "element is outside of the viewport" で落ちていたのがこれ。
+    const svg = page.locator('svg[viewBox]').first();
+    const box = await svg.boundingBox();
+    if (!box) throw new Error('SVG not found');
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error('no viewport');
+
+    const corners: Array<[string, number, number]> = [
+      ['bottom-right', box.width - 2, box.height - 2],
+      ['right edge', box.width - 2, box.height / 2],
+      ['bottom edge', box.width / 2, box.height - 2],
+    ];
+
+    for (const [where, x, y] of corners) {
+      await svg.click({ position: { x: 10, y: 10 } }); // 前のメニューを閉じる
+      await svg.click({ button: 'right', position: { x, y }, force: true });
+
+      const menu = page.locator('[data-context-menu]');
+      await expect(menu, `${where}: the menu should open`).toBeVisible();
+
+      const rect = await menu.boundingBox();
+      expect(rect, `${where}: the menu should have a box`).not.toBeNull();
+      expect(rect!.x, `${where}: off the left edge`).toBeGreaterThanOrEqual(0);
+      expect(rect!.y, `${where}: off the top edge`).toBeGreaterThanOrEqual(0);
+      expect(rect!.x + rect!.width, `${where}: past the right edge`).toBeLessThanOrEqual(viewport.width);
+      expect(rect!.y + rect!.height, `${where}: past the bottom edge`).toBeLessThanOrEqual(viewport.height);
+
+      // 収まっているだけでなく、実際に押せること
+      await menu.locator('button').first().click({ timeout: 5000 });
+    }
+  });
+
   test('should have Undo and Redo buttons', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Redo' })).toBeVisible();

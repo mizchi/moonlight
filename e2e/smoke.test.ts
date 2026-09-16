@@ -44,6 +44,17 @@ interface ActionCandidate {
   action: 'click' | 'type' | 'check';
 }
 
+/**
+ * 種を決める。VRT_SEED があればそれを使う。
+ *
+ * 落ちたときに同じ操作列を再現できないと、確率的なテストはただの運になる。
+ * justfile の `smoke-seed` はそのための入口なので、ここを通さない箇所が
+ * あると入口ごと効かなくなる。
+ */
+function pickSeed(): number {
+  return parseInt(process.env.VRT_SEED || '', 10) || Date.now();
+}
+
 function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
@@ -89,7 +100,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('random interactions should not crash', async ({ page }) => {
-    const seed = parseInt(process.env.VRT_SEED || '', 10) || Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const maxActions = 20;
     const errors: Array<{ step: number; type: string; message: string }> = [];
@@ -176,7 +187,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: rapid shape operations', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const shapeButtons = ['Rectangle', 'Circle', 'Ellipse', 'Line', 'Text'];
     const errors: string[] = [];
@@ -244,7 +255,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: random drag and resize', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 
@@ -370,7 +381,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: context menu operations', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 
@@ -398,9 +409,14 @@ test.describe('Probabilistic Smoke Test', () => {
       await svg.click({ button: 'right', position: { x, y }, force: true });
       await page.waitForTimeout(100);
 
-      // Maybe click a context menu button
+      // Maybe click a context menu button.
+      // ツールバーにも Rectangle や Delete のボタンがあるので、メニュー自身の
+      // 目印で絞らないと、コンテキストメニューを触ったつもりでツールバーを
+      // 押すことになる（そして常に「見えている」ので分岐も意味を失う）。
       if (rand() > 0.5) {
-        const deleteBtn = page.locator('button:has-text("Delete")');
+        const menu = page.locator('[data-context-menu]');
+
+        const deleteBtn = menu.locator('button:has-text("Delete")').first();
         const deleteVisible = await deleteBtn.isVisible().catch(() => false);
         if (deleteVisible) {
           await deleteBtn.click();
@@ -409,7 +425,7 @@ test.describe('Probabilistic Smoke Test', () => {
         }
 
         // Insert menu buttons
-        const insertBtn = page.locator('button').filter({ hasText: 'Rectangle' }).first();
+        const insertBtn = menu.locator('button:has-text("Rectangle")').first();
         const insertVisible = await insertBtn.isVisible().catch(() => false);
         if (insertVisible && rand() > 0.5) {
           await insertBtn.click();
@@ -427,7 +443,7 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('stress test: text editing with edge cases', async ({ page }) => {
-    const seed = Date.now();
+    const seed = pickSeed();
     const rand = seededRandom(seed);
     const errors: string[] = [];
 

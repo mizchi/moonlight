@@ -265,7 +265,7 @@ const handle = MoonlightEditor.create(container, {
 
 // === Basic API ===
 handle.exportSvg();        // Get SVG
-handle.importSvg(svg);     // Import SVG
+handle.importSvg(svg);     // Import SVG (false = nothing was imported)
 handle.clear();            // Clear
 handle.destroy();          // Destroy
 handle.hasFocus();         // Focus state

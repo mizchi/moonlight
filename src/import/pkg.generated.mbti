@@ -9,13 +9,19 @@ import {
 // Values
 pub fn import_svg_elements(String, () -> String) -> Array[@model.Element]
 
+pub fn import_svg_validated(String, () -> String) -> ImportResult
+
 pub fn parse_svg_string(String) -> @core.Any
 
 // Errors
 
 // Types and methods
+pub(all) struct ImportResult {
+  elements : Array[@model.Element]
+  is_moonlight : Bool
+  plain_svg_ids : Array[String]
+}
 
 // Type aliases
 
 // Traits
-

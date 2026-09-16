@@ -4,6 +4,7 @@ package "mizchi/moonlight/lib"
 import {
   "mizchi/moonlight/model",
   "mizchi/signals",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -43,7 +44,7 @@ pub fn continue_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) ->
 
 pub fn create_arrow_defs() -> @mizchi/js/core.Any
 
-pub fn create_editor_handle(() -> String, (String) -> Unit, () -> Unit, () -> Unit, () -> Bool) -> @mizchi/js/core.Any
+pub fn create_editor_handle(() -> String, (String) -> Bool, () -> Unit, () -> Unit, () -> Bool) -> @mizchi/js/core.Any
 
 pub fn create_embed_state(Int, Int, EditorOptions) -> @mizchi/moonlight/core.EditorState
 
@@ -167,7 +168,7 @@ pub struct ContextMenuState {
   x : @signals.Signal[Double]
   y : @signals.Signal[Double]
   target_id : @signals.Signal[String?]
-  menu_el : Ref[@mizchi/js/core.Any]
+  menu_el : @ref.Ref[@mizchi/js/core.Any]
 }
 pub fn ContextMenuState::hide(Self) -> Unit
 pub fn ContextMenuState::new() -> Self
@@ -176,10 +177,10 @@ pub fn ContextMenuState::show(Self, Double, Double, String?) -> Unit
 pub struct DragState {
   is_dragging : @signals.Signal[Bool]
   dragging_id : @signals.Signal[String?]
-  start_x : Ref[Double]
-  start_y : Ref[Double]
-  element_start_x : Ref[Double]
-  element_start_y : Ref[Double]
+  start_x : @ref.Ref[Double]
+  start_y : @ref.Ref[Double]
+  element_start_x : @ref.Ref[Double]
+  element_start_y : @ref.Ref[Double]
 }
 pub fn DragState::new() -> Self
 
@@ -241,4 +242,3 @@ pub fn PreviewOptions::default() -> Self
 pub using @mizchi/moonlight/core {type EditorState as SimpleEditorState}
 
 // Traits
-

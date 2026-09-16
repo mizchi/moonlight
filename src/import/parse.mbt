@@ -1,43 +1,184 @@
 // SVG Import 機能
 
 ///|
+/// インポート結果（要素と、その出どころ）
+pub(all) struct ImportResult {
+  elements : Array[@model.Element]
+  is_moonlight : Bool // Moonlight形式かどうか
+  plain_svg_ids : Array[String] // プレーンSVG要素のID（移動のみ可能）
+}
+
+///|
+/// SVG文字列をパースして、要素と出どころを返す
+pub fn import_svg_validated(
+  svg_str : String,
+  new_id : () -> String,
+) -> ImportResult {
+  let svg_el = parse_svg_string(svg_str)
+  if @js.is_nullish(svg_el) {
+    return { elements: [], is_moonlight: false, plain_svg_ids: [], }
+  }
+  // Moonlight形式かチェック
+  let is_moonlight = !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+  let elements : Array[@model.Element] = []
+  let plain_svg_ids : Array[String] = []
+  let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
+  collect_elements(
+    svg_el,
+    is_moonlight,
+    new_id,
+    elements,
+    plain_svg_ids,
+    id_map,
+    None,
+  )
+  // Moonlight形式の場合、接続情報のIDを更新
+  if is_moonlight {
+    update_connection_ids(elements, id_map)
+  }
+  { elements, is_moonlight, plain_svg_ids, }
+}
+
+///|
 /// SVG文字列をパースして Element 配列を返す
 pub fn import_svg_elements(
   svg_str : String,
   new_id : () -> String,
 ) -> Array[@model.Element] {
-  let svg_el = parse_svg_string(svg_str)
-  if @js.is_nullish(svg_el) {
-    return []
-  }
-  // Moonlight形式かチェック
-  let is_moonlight = !@js.is_nullish(get_attribute(svg_el, "data-moonlight"))
+  import_svg_validated(svg_str, new_id).elements
+}
 
-  let children = get_svg_children(svg_el)
-  let elements : Array[@model.Element] = []
-  let id_map : Array[(String, String)] = [] // (old_id, new_id) for Moonlight format
-  // 子要素をパース
-  let children_array : Array[@js.Any] = children.cast()
-  for child in children_array {
+///|
+/// 子要素をたどって Element を集める。
+///
+/// `<g>` は図形ではないので、中身を一段降りて拾う。降りるときに g の transform を
+/// 被せていく（SVG の transform は並べて書けば外側から順に効く）。これをしないと、
+/// Illustrator や Figma の SVG——中身がほぼ必ず `<g>` に入っている——を読み込んでも
+/// 一つも図形が入らない。
+fn collect_elements(
+  parent : @js.Any,
+  is_moonlight : Bool,
+  new_id : () -> String,
+  elements : Array[@model.Element],
+  plain_svg_ids : Array[String],
+  id_map : Array[(String, String)],
+  inherited : String?,
+) -> Unit {
+  let children : Array[@js.Any] = get_svg_children(parent).cast()
+  for child in children {
     let tag = get_tag_name(child)
-    // defs, rect(背景) はスキップ
+    // defs はスキップ
     if tag == "defs" {
       continue
     }
+    if tag == "g" {
+      collect_elements(
+        child,
+        is_moonlight,
+        new_id,
+        elements,
+        plain_svg_ids,
+        id_map,
+        compose_transform(inherited, own_transform(child)),
+      )
+      continue
+    }
     let el_opt = if is_moonlight {
-      parse_moonlight_element(child, new_id, id_map)
+      parse_moonlight_element(child, new_id, id_map, inherited)
     } else {
-      parse_plain_svg_element(child, new_id)
+      parse_plain_svg_element(child, new_id, inherited)
     }
     if el_opt is Some(el) {
       elements.push(el)
+      // プレーンSVG要素はIDを記録（移動のみ可能）
+      if !is_moonlight {
+        plain_svg_ids.push(el.id)
+      }
     }
   }
-  // Moonlight形式の場合、接続情報のIDを更新
-  if is_moonlight {
-    update_connection_ids(elements, id_map)
+}
+
+///|
+/// transform のうち、座標に置ける分を畳み込む。
+///
+/// 平行移動だけなら x/y（と Line/Polyline が内部に持つ絶対座標）に足してしまう。
+/// そうすると transform を持たない普通の図形になり、選択ハンドルも当たり判定も
+/// そのまま効く——取り込んだ絵が「見えるだけ」ではなく編集できる状態になる。
+///
+/// Path は d に絶対座標が並んでいて書き換えられないので、rotate/scale/matrix と
+/// 同じく transform のまま持つ。描画は合うが、ハンドルは追随しない。
+fn place(
+  shape : @model.ShapeType,
+  x : Double,
+  y : Double,
+  transform : String?,
+) -> (@model.ShapeType, Double, Double, String?) {
+  match transform {
+    None => (shape, x, y, None)
+    Some(t) =>
+      match shape {
+        // d を書き換えられないので、そのまま transform で置く
+        @model.Path(_, _, _, _, _) => (shape, x, y, transform)
+        _ =>
+          match as_translation(t) {
+            // 平行移動でない（rotate/scale/matrix）ものは畳み込めない
+            None => (shape, x, y, transform)
+            Some((dx, dy)) =>
+              match shape {
+                @model.Line(x2, y2) =>
+                  (@model.Line(x2 + dx, y2 + dy), x + dx, y + dy, None)
+                @model.Polyline(points) =>
+                  (
+                    @model.Polyline(
+                      points
+                      .iter()
+                      .map(fn(pt : @model.Point) -> @model.Point {
+                        { x: pt.x + dx, y: pt.y + dy, }
+                      })
+                      .collect(),
+                    ),
+                    x + dx,
+                    y + dy,
+                    None,
+                  )
+                _ => (shape, x + dx, y + dy, None)
+              }
+          }
+      }
   }
-  elements
+}
+
+///|
+/// transform 属性をそのまま読む
+fn own_transform(el : @js.Any) -> String? {
+  let raw = get_attribute(el, "transform")
+  if @js.is_nullish(raw) {
+    None
+  } else {
+    let s : String = raw.cast()
+    if s == "" {
+      None
+    } else {
+      Some(s)
+    }
+  }
+}
+
+///|
+/// 外側と内側の transform を重ねる。
+///
+/// SVG の transform は空白区切りで並べられ、左から順に適用される。文字列を
+/// つなぐだけで合成になるので、行列を持ち出す必要はない。
+///
+/// NOTE: transform を持つ要素は、描画はこのとおりに出るが、選択ハンドルや
+/// 当たり判定は x/y から引いた bbox を使うのでずれる。取り込んだ図形が
+/// 消えるよりはましという判断で、まずは絵と中身を保つことを優先している。
+fn compose_transform(outer : String?, inner : String?) -> String? {
+  match (outer, inner) {
+    (None, x) => x
+    (x, None) => x
+    (Some(a), Some(b)) => Some("\{a} \{b}")
+  }
 }
 
 ///|
@@ -46,54 +187,58 @@ fn parse_moonlight_element(
   el : @js.Any,
   new_id : () -> String,
   id_map : Array[(String, String)],
+  inherited : String?,
 ) -> @model.Element? {
   let tag = get_tag_name(el)
-  // 基本属性
-  let old_id_raw = get_attribute(el, "data-id")
-  let old_id = if @js.is_nullish(old_id_raw) {
-    ""
-  } else {
-    let s : String = old_id_raw.cast()
-    s
-  }
-  // 新しいIDを生成してマップに追加
-  let el_id = new_id()
-  if old_id != "" {
-    id_map.push((old_id, el_id))
-  }
-  // parent_id
-  let parent_id_raw = get_attribute(el, "data-parent-id")
-  let parent_id : String? = if @js.is_nullish(parent_id_raw) {
-    None
-  } else {
-    let s : String = parent_id_raw.cast()
-    if s == "" {
-      None
-    } else {
-      Some(s)
-    }
-  }
-  // 接続情報
-  let connections = parse_connections(el)
-  // スタイル
-  let style = parse_style(el)
-  // 図形をパース
-  let shape_opt = parse_shape(el, tag)
-  match shape_opt {
+  // 図形にならないもの（背景の rect など）でも ID を消費してしまうと、開いて
+  // 保存し直すたびに data-id がひとつずつずれ、中身が同じでも差分が出る。
+  // 先に図形を見てから ID を採る。
+  match parse_shape(el, tag) {
+    None => None
     Some(shape_data) => {
       let (shape, x, y) = shape_data
+      // 基本属性
+      let old_id_raw = get_attribute(el, "data-id")
+      let old_id = if @js.is_nullish(old_id_raw) {
+        ""
+      } else {
+        let s : String = old_id_raw.cast()
+        s
+      }
+      // 新しいIDを生成してマップに追加
+      let el_id = new_id()
+      if old_id != "" {
+        id_map.push((old_id, el_id))
+      }
+      // parent_id
+      let parent_id_raw = get_attribute(el, "data-parent-id")
+      let parent_id : String? = if @js.is_nullish(parent_id_raw) {
+        None
+      } else {
+        let s : String = parent_id_raw.cast()
+        if s == "" {
+          None
+        } else {
+          Some(s)
+        }
+      }
+      let (shape, x, y, transform) = place(
+        shape,
+        x,
+        y,
+        compose_transform(inherited, own_transform(el)),
+      )
       Some({
         id: el_id,
         x,
         y,
         shape,
-        style,
-        transform: None,
+        style: parse_style(el),
+        transform,
         parent_id,
-        connections,
+        connections: parse_connections(el),
       })
     }
-    None => None
   }
 }
 
@@ -102,26 +247,30 @@ fn parse_moonlight_element(
 fn parse_plain_svg_element(
   el : @js.Any,
   new_id : () -> String,
+  inherited : String?,
 ) -> @model.Element? {
   let tag = get_tag_name(el)
-  let el_id = new_id()
-  let style = parse_style(el)
-  let shape_opt = parse_shape(el, tag)
-  match shape_opt {
+  match parse_shape(el, tag) {
+    None => None
     Some(shape_data) => {
       let (shape, x, y) = shape_data
+      let (shape, x, y, transform) = place(
+        shape,
+        x,
+        y,
+        compose_transform(inherited, own_transform(el)),
+      )
       Some({
-        id: el_id,
+        id: new_id(),
         x,
         y,
         shape,
-        style,
-        transform: None,
+        style: parse_style(el),
+        transform,
         parent_id: None,
         connections: None,
       })
     }
-    None => None
   }
 }
 
@@ -233,6 +382,21 @@ fn parse_attr_double_opt(el : @js.Any, name : String) -> Double? {
 }
 
 ///|
+/// フォールバックの無い CSS 変数を、今の定義に寄せる。
+///
+/// 以前の書き出しには `var(--ml-stroke)` がそのまま入っている。エディタの中では
+/// 解決できるが、外で開くと無効値になって線が消える。読み込んだ時点で直して
+/// おけば、開いて保存し直すだけで古いファイルも直る。
+fn normalize_css_var(s : String) -> String {
+  match s {
+    "var(--ml-stroke)" => @model.css_var_stroke
+    "var(--ml-fill)" => @model.css_var_fill
+    "var(--ml-text)" => @model.css_var_text
+    _ => s
+  }
+}
+
+///|
 /// スタイル属性をパース
 fn parse_style(el : @js.Any) -> @model.Style {
   let fill_raw = get_attribute(el, "fill")
@@ -243,14 +407,14 @@ fn parse_style(el : @js.Any) -> @model.Style {
     if s == "none" {
       None
     } else {
-      Some(s)
+      Some(normalize_css_var(s))
     }
   }
   let stroke_raw = get_attribute(el, "stroke")
   let stroke : String? = if @js.is_nullish(stroke_raw) {
     None
   } else {
-    Some(stroke_raw.cast())
+    Some(normalize_css_var(stroke_raw.cast()))
   }
   let stroke_width = parse_attr_double_opt(el, "stroke-width")
   let opacity = parse_attr_double_opt(el, "opacity")

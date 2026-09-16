@@ -1,5 +1,6 @@
 import {
   "mizchi/moonlight/model",
+  "mizchi/moonlight/import",
   "mizchi/moonlight/core",
   "mizchi/luna",
   "mizchi/signals" @signal,
