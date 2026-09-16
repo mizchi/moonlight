@@ -20,9 +20,6 @@ importers:
       '@types/pngjs':
         specifier: ^6.0.5
         version: 6.0.5
-      happy-dom:
-        specifier: ^20.14.5
-        version: 20.14.5
       pixelmatch:
         specifier: ^7.2.0
         version: 7.2.0
@@ -47,6 +44,10 @@ importers:
       wrangler:
         specifier: ^4.131.2
         version: 4.131.2(@types/node@26.5.1)
+    optionalDependencies:
+      happy-dom:
+        specifier: ^20.14.5
+        version: 20.14.5
 
 packages:
 
@@ -1339,11 +1340,13 @@ snapshots:
     dependencies:
       '@types/node': 26.5.1
 
-  '@types/whatwg-mimetype@3.0.2': {}
+  '@types/whatwg-mimetype@3.0.2':
+    optional: true
 
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 26.5.1
+    optional: true
 
   ansi-regex@6.3.0: {}
 
@@ -1354,6 +1357,7 @@ snapshots:
   buffer-image-size@0.6.4:
     dependencies:
       '@types/node': 26.5.1
+    optional: true
 
   cac@7.0.0: {}
 
@@ -1377,7 +1381,8 @@ snapshots:
 
   emoji-regex@10.6.0: {}
 
-  entities@7.0.1: {}
+  entities@7.0.1:
+    optional: true
 
   error-stack-parser-es@1.0.5: {}
 
@@ -1435,6 +1440,7 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+    optional: true
 
   hono@4.13.7: {}
 
@@ -1677,7 +1683,8 @@ snapshots:
 
   webdriver-bidi-protocol@0.4.3: {}
 
-  whatwg-mimetype@3.0.0: {}
+  whatwg-mimetype@3.0.0:
+    optional: true
 
   workerd@1.20260911.1:
     optionalDependencies:
