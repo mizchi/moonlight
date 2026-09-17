@@ -100,6 +100,15 @@ test.describe('Probabilistic Smoke Test', () => {
   });
 
   test('random interactions should not crash', async ({ page }) => {
+    // 20 手 × (探索 + 最大 3 秒のクリック待ち) は、既定の 30 秒に収まらないことがある。
+    // 収まらなかった場合、Playwright がテストを畳むので page.title() が投げ、
+    // 下の応答確認がそれを「ページが落ちた」と報告してしまう——製品は無事なのに
+    // クラッシュを追いかけることになる。持ち時間を実測（約 31 秒）に見合う長さにし、
+    // 時間切れそのものはクラッシュと呼ばない。
+    const budgetMs = 60_000;
+    test.setTimeout(budgetMs + 20_000);
+    const startedAt = Date.now();
+
     const seed = pickSeed();
     const rand = seededRandom(seed);
     const maxActions = 20;
@@ -117,6 +126,9 @@ test.describe('Probabilistic Smoke Test', () => {
     });
 
     for (let step = 0; step < maxActions; step++) {
+      // 持ち時間を使い切ったら、そこで終える（打ち切りは失敗ではない）
+      if (Date.now() - startedAt > budgetMs) break;
+
       const candidates = await discoverActions(page);
       if (candidates.length === 0) break;
 
@@ -168,9 +180,15 @@ test.describe('Probabilistic Smoke Test', () => {
       }
     }
 
-    // Assert no crashes
+    // Assert no crashes.
+    // 落ちたときは、種だけでなく「何を押していったか」も出す。種で再現はできるが、
+    // 操作列が見えないと、再現できても原因の当たりが付けられない。
+    const trail = actions.map((a) => `${a.step}. ${a.action} ${a.target} -> ${a.result}`).join('\n');
     const crashes = errors.filter((e) => e.type === 'crash');
-    expect(crashes, `Page crashed during smoke test (seed: ${seed})`).toHaveLength(0);
+    expect(
+      crashes,
+      `Page crashed during smoke test (seed: ${seed})\nactions:\n${trail}`,
+    ).toHaveLength(0);
 
     // Assert no uncaught exceptions (console errors are warnings, not failures)
     const uncaughtExceptions = errors.filter((e) => e.type === 'uncaught-exception');
