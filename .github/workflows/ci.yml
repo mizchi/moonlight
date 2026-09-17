@@ -114,6 +114,9 @@ jobs:
       - name: Build
         run: pnpm build:all
 
+      - name: Run headless tests
+        run: pnpm test:headless
+
       - name: Run E2E tests
         run: npx playwright test --grep-invert 'Smoke Test|Visual Regression'
 

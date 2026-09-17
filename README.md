@@ -262,6 +262,41 @@ pnpm deploy      # Deploy to Workers
 
 The worker serves files with CORS headers, enabling cross-origin usage.
 
+## Headless mode
+
+The editor needs a DOM; the drawing itself does not. `@mizchi/moonlight/headless`
+builds, reads and exports drawings from Node — which is also how you let an AI place
+shapes: it writes the scenario text, reads back what it drew, and corrects itself.
+
+```js
+import { createScene } from '@mizchi/moonlight/headless';
+
+const scene = createScene({ width: 640, height: 420 });
+scene.apply(`
+  rect box 80 80 120 80
+  circle dot 400 200 40
+  line link 200 120 360 200
+  join link start box right
+  join link end dot left
+`);
+
+scene.toSvg();       // Moonlight SVG
+scene.describe();    // "the start of line link is attached to the right anchor of rect box"
+scene.violations();  // connections that no longer hold — empty means consistent
+```
+
+There is a CLI too:
+
+```sh
+echo 'rect a 10 10 80 60' | moonlight render -o out.svg
+moonlight describe out.svg          # what is in the drawing, in words
+echo 'circle b 200 100 40' | moonlight apply out.svg
+moonlight png out.svg -o out.png
+```
+
+The scenario grammar, the Node API and the limits are in
+[docs/headless.md](docs/headless.md).
+
 ## API Reference
 
 ### Editor Handle

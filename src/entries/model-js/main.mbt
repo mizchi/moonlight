@@ -23,30 +23,94 @@
 /// 解析に失敗した場合は { "ok": false, "error": "line N: ..." }。
 pub fn runScenario(source : String, width : Int, height : Int) -> String {
   match @interaction.parse_scenario(source) {
-    Err(e) => "{\"ok\":false,\"error\":\{json_string(e.describe())}}"
-    Ok(scenario) => {
-      let before = scenario.scene
-      let after = scenario.run()
-      let sb = StringBuilder()
-      sb.write_string("{\"ok\":true")
-      sb.write_string(
-        ",\"initialSvg\":\{json_string(scene_svg(before, width, height))}",
-      )
-      sb.write_string(
-        ",\"svg\":\{json_string(scene_svg(after, width, height))}",
-      )
-      sb.write_string(",\"description\":\{json_string(after.describe())}")
-      sb.write_string(",\"claims\":\{json_strings(after.visual_claims())}")
-      sb.write_string(
-        ",\"violations\":\{json_strings(after.joint_violations().map(fn(v) { v.describe() }))}",
-      )
-      sb.write_string(",\"elements\":\{elements_json(after)}")
-      sb.write_string(",\"joints\":\{joints_json(after)}")
-      sb.write_string(",\"selection\":\{json_strings(after.selection)}")
-      sb.write_string("}")
-      sb.to_string()
-    }
+    Err(e) => error_json(e.describe())
+    Ok(scenario) =>
+      scene_json(scenario.run(), width, height, Some(scenario.scene))
   }
+}
+
+///|
+/// 既存の Moonlight SVG を読み込み、その上でシナリオを走らせる。
+///
+/// headless から「今ある図に足す・動かす」をするための入口。読めなければ
+/// `{"ok":false,...}` を返す。
+pub fn applyToSvg(
+  svg : String,
+  source : String,
+  width : Int,
+  height : Int,
+) -> String {
+  match scene_of_svg(svg) {
+    None => error_json("could not read the SVG")
+    Some(base) =>
+      match @interaction.parse_scenario_onto(base, source) {
+        Err(e) => error_json(e.describe())
+        Ok(scenario) => scene_json(scenario.run(), width, height, Some(base))
+      }
+  }
+}
+
+///|
+/// 既存の Moonlight SVG を読み込んで、そのシーンを説明する。
+///
+/// AI が「今どこに何があるか」を掴むための入口。
+pub fn describeSvg(svg : String, width : Int, height : Int) -> String {
+  match scene_of_svg(svg) {
+    None => error_json("could not read the SVG")
+    Some(scene) => scene_json(scene, width, height, None)
+  }
+}
+
+///|
+/// SVG 文字列を読み込んでシーンにする
+fn scene_of_svg(svg : String) -> @interaction.Scene? {
+  let counter : Ref[Int] = { val: 0, }
+  let new_id = fn() -> String {
+    counter.val = counter.val + 1
+    "el-\{counter.val}"
+  }
+  let elements = @import.import_svg_elements(svg, new_id)
+  if elements.length() == 0 && svg.trim(chars=" \n\t\r") != "" {
+    // 図形がひとつも取れなかったのは、読めなかったのと区別が付かない。
+    // 空の SVG を渡したいときは空文字列で。
+    None
+  } else {
+    Some(@interaction.Scene::of(elements))
+  }
+}
+
+///|
+/// エラーを JSON にする
+fn error_json(message : String) -> String {
+  "{\"ok\":false,\"error\":\{json_string(message)}}"
+}
+
+///|
+/// シーンひとつ分の JSON。`before` があれば初期 SVG も添える。
+fn scene_json(
+  scene : @interaction.Scene,
+  width : Int,
+  height : Int,
+  before : @interaction.Scene?,
+) -> String {
+  let sb = StringBuilder()
+  sb.write_string("{\"ok\":true")
+  if before is Some(b) {
+    sb.write_string(
+      ",\"initialSvg\":\{json_string(scene_svg(b, width, height))}",
+    )
+  }
+  sb.write_string(",\"svg\":\{json_string(scene_svg(scene, width, height))}")
+  sb.write_string(",\"description\":\{json_string(scene.describe())}")
+  sb.write_string(",\"claims\":\{json_strings(scene.visual_claims())}")
+  sb.write_string(
+    ",\"violations\":\{json_strings(scene.joint_violations().map(fn(v) { v.describe() }))}",
+  )
+  sb.write_string(",\"elements\":\{elements_json(scene)}")
+  sb.write_string(",\"joints\":\{joints_json(scene)}")
+  sb.write_string(",\"selection\":\{json_strings(scene.selection)}")
+  sb.write_string("}")
+  sb.to_string()
 }
 
 ///|

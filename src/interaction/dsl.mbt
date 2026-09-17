@@ -41,7 +41,19 @@ pub fn ScenarioError::describe(self : ScenarioError) -> String {
 ///|
 /// シナリオテキストを解析する
 pub fn parse_scenario(source : String) -> Result[Scenario, ScenarioError] {
-  let mut scene = Scene::empty()
+  parse_scenario_onto(Scene::empty(), source)
+}
+
+///|
+/// すでにあるシーンの上にシナリオを解析する。
+///
+/// headless で既存の SVG を読み込み、その続きを書き足すときに使う。空のシーンを
+/// 渡せば `parse_scenario` と同じ。
+pub fn parse_scenario_onto(
+  base : Scene,
+  source : String,
+) -> Result[Scenario, ScenarioError] {
+  let mut scene = base
   let inputs : Array[Input] = []
   let mut line_no = 0
   for raw in source.split("\n") {

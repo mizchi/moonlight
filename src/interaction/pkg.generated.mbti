@@ -1,0 +1,195 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moonlight/interaction"
+
+import {
+  "mizchi/moonlight/model",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn all_shape_kinds() -> Array[ShapeKind]
+
+pub fn anchor_side_phrase(@model.Anchor) -> String
+
+pub let anchor_snap_threshold : Double
+
+pub fn circle(String, Double, Double, Double) -> @model.Element
+
+pub fn connectable_perimeter_anchors(@model.Element) -> Array[@model.Anchor]
+
+pub fn describe_element(@model.Element) -> String
+
+pub fn ellipse(String, Double, Double, Double, Double) -> @model.Element
+
+pub fn endpoint_of_handle(@model.HandlePosition) -> Endpoint?
+
+pub fn line(String, Double, Double, Double, Double) -> @model.Element
+
+pub fn line_length(@model.Element) -> Double?
+
+pub let min_element_size : Double
+
+pub let min_line_length : Double
+
+pub let min_radius : Double
+
+pub fn parse_scenario(String) -> Result[Scenario, ScenarioError]
+
+pub fn parse_scenario_onto(Scene, String) -> Result[Scenario, ScenarioError]
+
+pub fn play_scenario(String) -> Result[Scene, ScenarioError]
+
+pub fn rect(String, Double, Double, Double, Double) -> @model.Element
+
+pub fn resize(Scene, ResizeGesture, @model.Point) -> ResizeOutcome?
+
+pub fn text(String, Double, Double, String) -> @model.Element
+
+// Errors
+
+// Types and methods
+pub(all) enum Endpoint {
+  Start
+  End
+} derive(Eq, @debug.Debug)
+pub fn Endpoint::handle(Self) -> @model.HandlePosition
+
+pub(all) enum Gesture {
+  Idle
+  Moving(MoveGesture)
+  Resizing(ResizeGesture)
+  BoxSelecting(@model.BoxSelectState)
+} derive(Eq, @debug.Debug)
+pub fn Gesture::name(Self) -> String
+
+pub(all) struct Grid {
+  enabled : Bool
+  size : Double
+} derive(Eq, @debug.Debug)
+pub fn Grid::of(Double) -> Self
+pub fn Grid::off() -> Self
+pub fn Grid::snap(Self, Double) -> Double
+pub fn Grid::snap_point(Self, @model.Point) -> @model.Point
+
+pub(all) enum Input {
+  Press(Target, @model.Point)
+  MoveTo(@model.Point)
+  Release
+  Cancel
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Joint {
+  line_id : String
+  endpoint : Endpoint
+  target_id : String
+  anchor : @model.Anchor
+} derive(Eq, @debug.Debug)
+
+pub(all) enum JointFault {
+  Detached
+  MissingTarget
+  NotALine
+} derive(Eq, @debug.Debug)
+
+pub(all) struct JointViolation {
+  joint : Joint
+  fault : JointFault
+  expected : @model.Point
+  actual : @model.Point
+  distance : Double
+} derive(Eq, @debug.Debug)
+pub fn JointViolation::describe(Self) -> String
+
+pub(all) struct MoveGesture {
+  element_id : String
+  offset_x : Double
+  offset_y : Double
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PendingJoint {
+  target_id : String
+  anchor : @model.Anchor
+  point : @model.Point
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ResizeGesture {
+  element_id : String
+  handle : @model.HandlePosition
+  start_x : Double
+  start_y : Double
+  start_shape : @model.ShapeType
+  mouse_start : @model.Point
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ResizeOutcome {
+  element : @model.Element
+  child_center : @model.Point?
+  joint : PendingJoint?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Scenario {
+  scene : Scene
+  inputs : Array[Input]
+} derive(Eq, @debug.Debug)
+pub fn Scenario::run(Self) -> Scene
+
+pub(all) struct ScenarioError {
+  line : Int
+  message : String
+} derive(Eq, @debug.Debug)
+pub fn ScenarioError::describe(Self) -> String
+
+pub(all) struct Scene {
+  elements : Array[@model.Element]
+  selection : Array[String]
+  grid : Grid
+} derive(Eq, @debug.Debug)
+pub fn Scene::add(Self, @model.Element) -> Self
+pub fn Scene::connect(Self, String, Endpoint, String, @model.Anchor) -> Self
+pub fn Scene::describe(Self) -> String
+pub fn Scene::describe_joint(Self, Joint) -> String
+pub fn Scene::disconnect(Self, String, Endpoint) -> Self
+pub fn Scene::empty() -> Self
+pub fn Scene::endpoint_point(Self, String, Endpoint) -> @model.Point?
+pub fn Scene::find(Self, String) -> @model.Element?
+pub fn Scene::hit(Self, @model.Point) -> @model.Element?
+pub fn Scene::joint_anchor_point(Self, Joint) -> @model.Point?
+pub fn Scene::joint_violations(Self, tolerance? : Double) -> Array[JointViolation]
+pub fn Scene::joints(Self) -> Array[Joint]
+pub fn Scene::joints_are_consistent(Self, tolerance? : Double) -> Bool
+pub fn Scene::joints_of(Self, String) -> Array[Joint]
+pub fn Scene::of(Array[@model.Element]) -> Self
+pub fn Scene::play(Self, Array[Input]) -> Self
+pub fn Scene::visual_claims(Self) -> Array[String]
+pub fn Scene::with_grid(Self, Grid) -> Self
+pub fn Scene::with_selection(Self, Array[String]) -> Self
+
+pub(all) struct Session {
+  scene : Scene
+  gesture : Gesture
+  pending : PendingJoint?
+  snapshot : Array[@model.Element]?
+} derive(Eq, @debug.Debug)
+pub fn Session::is_active(Self) -> Bool
+pub fn Session::run(Self, Array[Input]) -> Self
+pub fn Session::start(Scene) -> Self
+pub fn Session::step(Self, Input) -> Self
+
+pub(all) enum ShapeKind {
+  RectKind
+  CircleKind
+  EllipseKind
+} derive(Eq, @debug.Debug)
+pub fn ShapeKind::make(Self, String, Double, Double, Double, Double) -> @model.Element
+pub fn ShapeKind::name(Self) -> String
+pub fn ShapeKind::perimeter_anchors(Self) -> Array[@model.Anchor]
+
+pub(all) enum Target {
+  Canvas
+  Body(String)
+  Handle(String, @model.HandlePosition)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

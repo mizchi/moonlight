@@ -7,11 +7,17 @@
     ".": {
       "import": "./js/api.js",
       "types": "./js/api.d.ts"
+    },
+    "./headless": {
+      "import": "./js/headless.js",
+      "types": "./js/headless.d.ts"
     }
   },
   "files": [
     "js",
-    "_build/js/release/build/api"
+    "bin",
+    "_build/js/release/build/api",
+    "_build/js/release/build/entries/model-js"
   ],
   "scripts": {
     "dev": "vite",
@@ -29,14 +35,14 @@
     "test:mbt": "./scripts/moon-test.sh",
     "test:visual-model": "playwright test e2e/visual-model.test.ts",
     "vlm:integrity": "vlmkit check integrity http://localhost:5173/ --no-ledger",
-    "vlm:snapshot": "vlmkit snapshot http://localhost:5173/ --output .vlmkit/snapshots"
+    "vlm:snapshot": "vlmkit snapshot http://localhost:5173/ --output .vlmkit/snapshots",
+    "test:headless": "node --test test/headless.test.js"
   },
   "devDependencies": {
     "@mizchi/vlmkit": "^0.22.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.1",
     "@types/pngjs": "^6.0.5",
-    "happy-dom": "^20.14.5",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.63.0",
     "pngjs": "^7.0.0",
@@ -45,5 +51,11 @@
     "vite": "^8.3.0",
     "vite-plugin-moonbit": "^0.5.1",
     "wrangler": "^4.131.2"
+  },
+  "bin": {
+    "moonlight": "./bin/moonlight.js"
+  },
+  "optionalDependencies": {
+    "happy-dom": "^20.14.5"
   }
 }
