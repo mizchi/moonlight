@@ -322,3 +322,52 @@ test "is_selected: 選択されていない要素" {
   state.elements.set([rect])
   inspect(state.is_selected("rect1"), content="false")
 }
+
+///|
+test "Batch: まとめて消したものは Undo 一回で全部戻る" {
+  let state = EditorState::new(800, 600)
+  let parent = test_make_rect("parent", 100.0, 100.0, 100.0, 50.0)
+  let child = test_make_text_with_parent(
+    "child", 150.0, 125.0, "Hello", "parent",
+  )
+  state.elements.set([parent, child])
+  let history = @model.History::new()
+  // 削除は「後ろから」積む（Batch は逆順に戻すので、戻したとき元の並びになる）
+  execute_command(
+    history,
+    state,
+    @model.Batch([@model.RemoveElement(child), @model.RemoveElement(parent)]),
+  )
+  inspect(state.elements.get().length(), content="0")
+  inspect(undo_command(history, state), content="true")
+  let restored = state.elements.get()
+  inspect(restored.length(), content="2")
+  inspect(restored[0].id, content="parent")
+  inspect(restored[1].id, content="child")
+  // Redo も一回で効く
+  inspect(redo_command(history, state), content="true")
+  inspect(state.elements.get().length(), content="0")
+}
+
+///|
+test "Batch: 入れ子でも順番どおりに適用・取り消しされる" {
+  let state = EditorState::new(800, 600)
+  let a = test_make_rect("a", 0.0, 0.0, 10.0, 10.0)
+  state.elements.set([a])
+  let history = @model.History::new()
+  execute_command(
+    history,
+    state,
+    @model.Batch([
+      @model.MoveElement("a", 0.0, 0.0, 50.0, 0.0),
+      @model.Batch([@model.MoveElement("a", 50.0, 0.0, 50.0, 80.0)]),
+    ]),
+  )
+  let moved = state.elements.get()[0]
+  inspect(moved.x, content="50")
+  inspect(moved.y, content="80")
+  let _ = undo_command(history, state)
+  let back = state.elements.get()[0]
+  inspect(back.x, content="0")
+  inspect(back.y, content="0")
+}

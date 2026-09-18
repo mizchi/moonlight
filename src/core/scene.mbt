@@ -1559,6 +1559,10 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
       state.rename_element_raw(old_id, new_id)
     @model.UpdateText(id, _, new_content) =>
       state.update_text_raw(id, new_content)
+    @model.Batch(commands) =>
+      for cmd in commands {
+        apply_command(cmd, state)
+      }
   }
 }
 
@@ -1595,6 +1599,11 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
       state.rename_element_raw(new_id, old_id)
     @model.UpdateText(id, old_content, _) =>
       state.update_text_raw(id, old_content)
+    @model.Batch(commands) =>
+      // 適用の逆操作なので、後ろから戻す
+      for i = commands.length() - 1; i >= 0; i = i - 1 {
+        unapply_command(commands[i], state)
+      }
   }
 }
 

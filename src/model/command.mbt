@@ -20,6 +20,10 @@ pub(all) enum Command {
   RenameElement(String, String)
   /// テキスト内容を更新 (id, old_content, new_content)
   UpdateText(String, String, String)
+  /// 複数の操作をひとまとめにする
+  /// 一回の操作で複数の要素が変わるとき（ラベル付き図形の削除、複数選択の複製）
+  /// に使う。これが無いと Undo 一回で半分だけ戻る。
+  Batch(Array[Command])
 } derive(Debug, Eq)
 
 ///|
