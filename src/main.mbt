@@ -8,10 +8,6 @@ using @element {div, button, text, text_dyn, events, show, input}
 let canvas_width : Int = 400
 
 ///|
-/// クリップボード（コピーした要素を保持）
-let clipboard : Ref[Array[@model.Element]] = { val: [], }
-
-///|
 let canvas_height : Int = 300
 
 ///|
@@ -207,8 +203,8 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   }
   @lib.setup_focus_management(focus_state, container)
 
-  // キーボードハンドラをセットアップ（Delete キーなど）
-  @lib.setup_keyboard_handler(state, new_id)
+  // キーボードハンドラをセットアップ（コンテナ単位で受ける）
+  @lib.setup_keyboard_handler(state, history, new_id)
 
   // ハンドルを作成
   let handle = create_editor_handle_js(
@@ -605,17 +601,20 @@ pub fn app_main() -> Unit {
   match mode {
     @core.Full =>
       @element.render(el |> @element.DomElement::from_dom, editor_app())
-    @core.Embedded =>
+    @core.Embedded => {
+      let container : @js.Any = @js.identity(el)
       @element.render(
         el |> @element.DomElement::from_dom,
-        create_embedded_app(),
+        create_embedded_app(container),
       )
+    }
   }
 }
 
 ///|
 /// 埋め込みモード用のアプリを作成（外部から呼び出し可能）
-pub fn create_embedded_app() -> @element.DomNode {
+/// container: キーボードとフォーカスを受け取る DOM 要素
+pub fn create_embedded_app(container : @js.Any) -> @element.DomNode {
   let id_counter = create_id_counter()
   let new_id = fn() -> String {
     let current = id_counter.get()
@@ -628,12 +627,23 @@ pub fn create_embedded_app() -> @element.DomNode {
     @core.Embedded,
   )
   let history = @model.History::new()
+  // キーボードハンドラが見る先を先に決めておく
+  state.container_el.set(container)
   // IndexedDB から読み込み、なければサンプルを追加
   load_state(state, new_id, fn() { setup_auto_save(state) }, fn() {
     add_sample_shapes(state, new_id)
     setup_auto_save(state)
   })
-  embedded_editor_app(state, history, new_id)
+  let node = embedded_editor_app(state, history, new_id)
+  // create_js_editor と同じ配線をする。ここが抜けていたので ?mode=embed では
+  // キーが一つも効かなかった。
+  let focus_state : @lib.FocusState = {
+    has_focus: state.has_focus,
+    container: @luna.signal(None),
+  }
+  @lib.setup_focus_management(focus_state, container)
+  @lib.setup_keyboard_handler(state, history, new_id)
+  node
 }
 
 ///|
@@ -735,213 +745,6 @@ fn editor_app() -> @element.DomNode {
 // ============================================================
 
 ///|
-/// 矢印キー方向に応じて図形をリサイズ
-/// 戻り値: (新しい shape, 新しい x, 新しい y)
-fn resize_shape_by_arrow(
-  shape : @model.ShapeType,
-  x : Double,
-  y : Double,
-  key : String,
-  step : Double,
-) -> (@model.ShapeType, Double, Double) {
-  let min_size = 10.0 // 最小サイズ
-  match shape {
-    @model.Rect(w, h, rx, ry) =>
-      match key {
-        "ArrowRight" => (@model.Rect(w + step, h, rx, ry), x, y)
-        "ArrowLeft" => {
-          let new_w = if w + step >= min_size { w + step } else { min_size }
-          (@model.Rect(new_w, h, rx, ry), x - step, y)
-        }
-        "ArrowDown" => (@model.Rect(w, h + step, rx, ry), x, y)
-        "ArrowUp" => {
-          let new_h = if h + step >= min_size { h + step } else { min_size }
-          (@model.Rect(w, new_h, rx, ry), x, y - step)
-        }
-        _ => (shape, x, y)
-      }
-    @model.Circle(r) => {
-      // 円は全方向同じ（半径を増加）
-      let new_r = if r + step >= min_size / 2.0 {
-        r + step
-      } else {
-        min_size / 2.0
-      }
-      (@model.Circle(new_r), x, y)
-    }
-    @model.Ellipse(rx, ry) =>
-      match key {
-        "ArrowRight" | "ArrowLeft" => {
-          let new_rx = if rx + step >= min_size / 2.0 {
-            rx + step
-          } else {
-            min_size / 2.0
-          }
-          (@model.Ellipse(new_rx, ry), x, y)
-        }
-        "ArrowDown" | "ArrowUp" => {
-          let new_ry = if ry + step >= min_size / 2.0 {
-            ry + step
-          } else {
-            min_size / 2.0
-          }
-          (@model.Ellipse(rx, new_ry), x, y)
-        }
-        _ => (shape, x, y)
-      }
-    @model.Line(x2, y2) =>
-      match key {
-        "ArrowRight" => (@model.Line(x2 + step, y2), x, y)
-        "ArrowLeft" => (@model.Line(x2, y2), x - step, y)
-        "ArrowDown" => (@model.Line(x2, y2 + step), x, y)
-        "ArrowUp" => (@model.Line(x2, y2), x, y - step)
-        _ => (shape, x, y)
-      }
-    @model.Text(content, font_size) => {
-      // テキストはフォントサイズを変更
-      let size = font_size.unwrap_or(16.0)
-      match key {
-        "ArrowRight" | "ArrowDown" => {
-          let new_size = size + step / 2.0
-          (@model.Text(content, Some(new_size)), x, y)
-        }
-        "ArrowLeft" | "ArrowUp" => {
-          let new_size = if size - step / 2.0 >= 8.0 {
-            size - step / 2.0
-          } else {
-            8.0
-          }
-          (@model.Text(content, Some(new_size)), x, y)
-        }
-        _ => (shape, x, y)
-      }
-    }
-    _ => (shape, x, y) // Polyline, Path はそのまま
-  }
-}
-
-///|
-/// 矢印キーで選択要素をリサイズ
-fn resize_selected_by_arrow(
-  state : @core.EditorState,
-  history : @model.History,
-  selected_ids : Array[String],
-  key : String,
-  step : Double,
-) -> Unit {
-  for id in selected_ids {
-    guard state.find_element(id) is Some(el) else { continue }
-    let old_shape = el.shape
-    let (new_shape, new_x, new_y) = resize_shape_by_arrow(
-      el.shape,
-      el.x,
-      el.y,
-      key,
-      step,
-    )
-    // 子要素の現在位置を記録（履歴用）
-    let children = state.get_children(id)
-    let child_old_positions : Array[(String, Double, Double)] = []
-    for child in children {
-      child_old_positions.push((child.id, child.x, child.y))
-    }
-    // 要素をリサイズ
-    state.update_element(id, fn(e) {
-      { ..e, shape: new_shape, x: new_x, y: new_y, }
-    })
-    // 位置も変わった場合は移動も記録
-    if new_x != el.x || new_y != el.y {
-      history.undo_stack.push(@model.MoveElement(id, el.x, el.y, new_x, new_y))
-    }
-    history.undo_stack.push(@model.ResizeElement(id, old_shape, new_shape))
-    // 関連要素（子テキスト、接続ライン）を同期更新
-    state.sync_related_elements(id)
-    // 子要素の移動を履歴に記録
-    for pos in child_old_positions {
-      let (child_id, old_cx, old_cy) = pos
-      if state.find_element(child_id) is Some(child) {
-        if child.x != old_cx || child.y != old_cy {
-          history.undo_stack.push(
-            @model.MoveElement(child_id, old_cx, old_cy, child.x, child.y),
-          )
-        }
-      }
-    }
-  }
-  history.redo_stack.clear()
-}
-
-///|
-/// 矢印キーで選択要素を移動
-fn move_selected_by_arrow(
-  state : @core.EditorState,
-  history : @model.History,
-  selected_ids : Array[String],
-  key : String,
-  step : Double,
-) -> Unit {
-  let (dx, dy) : (Double, Double) = match key {
-    "ArrowUp" => (0.0, -step)
-    "ArrowDown" => (0.0, step)
-    "ArrowLeft" => (-step, 0.0)
-    "ArrowRight" => (step, 0.0)
-    _ => (0.0, 0.0)
-  }
-  for id in selected_ids {
-    guard state.find_element(id) is Some(el) else { continue }
-    let (old_x, old_y) = (el.x, el.y)
-    let (new_x, new_y) = (old_x + dx, old_y + dy)
-    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y, } })
-    // 子要素（テキストなど）も一緒に移動
-    for child in state.get_children(id) {
-      let (cx, cy) = (child.x, child.y)
-      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy, } })
-      history.undo_stack.push(
-        @model.MoveElement(child.id, cx, cy, cx + dx, cy + dy),
-      )
-    }
-    state.update_connected_lines(id)
-    history.undo_stack.push(@model.MoveElement(id, old_x, old_y, new_x, new_y))
-  }
-  history.redo_stack.clear()
-}
-
-///|
-/// 矢印キーでキャンバスをパン
-fn pan_by_arrow(state : @core.EditorState, key : String) -> Unit {
-  let zoom = state.viewport.get().zoom
-  let pan_step = 12.0 / zoom
-  match key {
-    "ArrowUp" => state.pan(0.0, -pan_step)
-    "ArrowDown" => state.pan(0.0, pan_step)
-    "ArrowLeft" => state.pan(-pan_step, 0.0)
-    "ArrowRight" => state.pan(pan_step, 0.0)
-    _ => ()
-  }
-}
-
-///|
-/// 矢印キーイベントを処理
-fn handle_arrow_key(
-  state : @core.EditorState,
-  history : @model.History,
-  key : String,
-  shift_key : Bool,
-) -> Unit {
-  let selected_ids = state.selected_ids.get()
-  if selected_ids.length() == 0 {
-    pan_by_arrow(state, key)
-    return
-  }
-  let step = if state.grid_enabled.get() { 10.0 } else { 5.0 }
-  if shift_key {
-    resize_selected_by_arrow(state, history, selected_ids, key, step)
-  } else {
-    move_selected_by_arrow(state, history, selected_ids, key, step)
-  }
-}
-
-///|
 /// キーボードリスナーを設定（Space + Arrow）
 fn setup_keyboard_listener(
   state : @core.EditorState,
@@ -982,7 +785,7 @@ fn setup_keyboard_listener(
     match key {
       "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
         let shift_key : Bool = e._get("shiftKey").cast()
-        handle_arrow_key(state, history, key, shift_key)
+        @lib.handle_arrow_key(state, history, key, shift_key)
         keyboard_event.preventDefault()
       }
       _ => ()
@@ -1705,45 +1508,9 @@ fn setup_keyboard_shortcuts(
     // マウス位置を取得
     let pos = state.mouse_scene_pos.get()
     match key {
-      "Delete" | "Backspace" => {
-        let selected_ids = state.selected_ids.get()
-        let elements = state.elements.get()
-        let all_ids : Array[String] = []
-
-        // 選択された要素とその親子関係を収集
-        for id in selected_ids {
-          all_ids.push(id)
-          // 子要素を収集
-          for el in elements {
-            if el.parent_id == Some(id) {
-              all_ids.push(el.id)
-            }
-          }
-          // 親要素を収集
-          if state.find_element(id) is Some(el) {
-            if el.parent_id is Some(parent_id) {
-              all_ids.push(parent_id)
-              // 親の他の子も収集
-              for child in elements {
-                if child.parent_id == Some(parent_id) {
-                  all_ids.push(child.id)
-                }
-              }
-            }
-          }
-        }
-
-        // 重複を除去して削除
-        let deleted : Array[String] = []
-        for id in all_ids {
-          if !deleted.contains(id) {
-            deleted.push(id)
-            if state.find_element(id) is Some(el) {
-              @core.execute_command(history, state, @model.RemoveElement(el))
-            }
-          }
-        }
-      }
+      // 消す範囲の判定も履歴の積み方も埋め込み側と同じものを使う。
+      // ここに同じ計算のコピーがあると、片方だけ直したときに挙動がずれる。
+      "Delete" | "Backspace" => @lib.delete_selection(state, history)
       "Escape" =>
         if state.tool_mode.get() == @core.FreeDraw {
           state.tool_mode.set(@core.Select)
@@ -1836,105 +1603,12 @@ fn setup_keyboard_shortcuts(
       "c" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          // 選択中の要素をクリップボードにコピー
-          let selected_ids = state.selected_ids.get()
-          let copied : Array[@model.Element] = []
-          for id in selected_ids {
-            if state.find_element(id) is Some(el) {
-              copied.push(el)
-              // 子要素もコピー
-              for child in state.get_children(id) {
-                copied.push(child)
-              }
-            }
-          }
-          clipboard.val = copied
+          @lib.copy_selection(state)
         }
       "v" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          // クリップボードから貼り付け（右下に少しずらす）
-          if clipboard.val.length() > 0 {
-            let id_map : Array[(String, String)] = [] // (old_id, new_id)
-            let new_ids : Array[String] = []
-            // まず全要素の新しいIDを生成
-            for el in clipboard.val {
-              let old_id = el.id
-              let dup_id = new_id()
-              id_map.push((old_id, dup_id))
-            }
-            // IDマッピングを検索するヘルパー
-            let find_new_id = fn(old_id : String) -> String {
-              for mapping in id_map {
-                let (o, n) = mapping
-                if o == old_id {
-                  return n
-                }
-              }
-              old_id
-            }
-            // 要素を追加
-            for el in clipboard.val {
-              let new_el_id = find_new_id(el.id)
-              // parent_id も更新
-              let new_parent_id = match el.parent_id {
-                Some(pid) => Some(find_new_id(pid))
-                None => None
-              }
-              // 接続情報も更新
-              let new_connections : @model.LineConnections? = match
-                el.connections {
-                Some(conns) => {
-                  let new_start : @model.Connection? = match conns.start {
-                    Some(conn) => {
-                      let c : @model.Connection = {
-                        element_id: find_new_id(conn.element_id),
-                        anchor: conn.anchor,
-                      }
-                      Some(c)
-                    }
-                    None => None
-                  }
-                  let new_end : @model.Connection? = match conns.end {
-                    Some(conn) => {
-                      let c : @model.Connection = {
-                        element_id: find_new_id(conn.element_id),
-                        anchor: conn.anchor,
-                      }
-                      Some(c)
-                    }
-                    None => None
-                  }
-                  let lc : @model.LineConnections = {
-                    start: new_start,
-                    end: new_end,
-                  }
-                  Some(lc)
-                }
-                None => None
-              }
-              let new_el = {
-                ..el,
-                id: new_el_id,
-                x: el.x + 20.0,
-                y: el.y + 20.0,
-                parent_id: new_parent_id,
-                connections: new_connections,
-              }
-              // Line の場合は終点も移動
-              let final_el = match new_el.shape {
-                @model.Line(x2, y2) =>
-                  { ..new_el, shape: @model.Line(x2 + 20.0, y2 + 20.0), }
-                _ => new_el
-              }
-              @core.execute_command(history, state, @model.AddElement(final_el))
-              // 子要素でなければ選択対象に追加
-              if new_parent_id is None {
-                new_ids.push(new_el_id)
-              }
-            }
-            state.select_multiple(new_ids)
-          }
+          @lib.paste_clipboard(state, history, new_id)
         } else {
           // v: 選択モードに切り替え
           @lib.set_select_mode(state)
@@ -1942,22 +1616,18 @@ fn setup_keyboard_shortcuts(
       "d" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          let selected_ids = state.selected_ids.get()
-          let new_ids : Array[String] = []
-          for id in selected_ids {
-            if state.find_element(id) is Some(el) {
-              let dup_id = new_id()
-              let new_el = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
-              @core.execute_command(history, state, @model.AddElement(new_el))
-              new_ids.push(dup_id)
-            }
-          }
-          state.select_multiple(new_ids)
+          @lib.duplicate_selection(state, history, new_id)
         }
-      "z" =>
+      // Cmd/Ctrl+Shift+Z は Redo。shift 付きの z は "Z" で来ることも "z" の
+      // まま来ることもあるので、両方を同じ入口で見る。
+      "z" | "Z" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          let _ = @core.undo_command(history, state)
+          if shift_key {
+            let _ = @core.redo_command(history, state)
+          } else {
+            let _ = @core.undo_command(history, state)
+          }
         }
       "y" =>
         if is_cmd {
@@ -2019,6 +1689,8 @@ fn setup_keyboard_shortcuts(
         }
       // P: フリードローモード切替
       "p" | "P" => @lib.toggle_tool_mode(state)
+      // ?: ヘルプ（埋め込み側では前から効いていた）
+      "?" => @lib.open_help_page()
       _ => ()
     }
   }
@@ -2198,36 +1870,9 @@ pub fn render_editor_modal(
     on_wheel,
   )
 
-  // モーダル用キーボードハンドラ（Escape で閉じる、矢印キーで移動）
-  let _ = @luna.effect(fn() {
-    let _ = state.modal_open.get() // 依存関係を登録
-    if state.modal_open.get() {
-      let handler = fn(e : @js.Any) {
-        // 入力フォーカス中は無視
-        if is_input_focused_ffi() {
-          return
-        }
-        let key : String = e._get("key").cast()
-        let keyboard_event : @js_dom.KeyboardEvent = e.cast()
-        // Escape で閉じる
-        if key == "Escape" {
-          state.modal_open.set(false)
-          keyboard_event.preventDefault()
-          return
-        }
-        // 矢印キーで選択要素を移動
-        match key {
-          "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
-            let shift_key : Bool = e._get("shiftKey").cast()
-            handle_arrow_key(state, history, key, shift_key)
-            keyboard_event.preventDefault()
-          }
-          _ => ()
-        }
-      }
-      let _ = add_keydown_listener(handler)
-    }
-  })
+  // キーボードはコンテナ側の @lib.setup_keyboard_handler が受ける。
+  // ここで window に足すと、モーダルを開くたびにリスナーが積み上がり（外す口が
+  // 無い）、矢印キーの移動量が開いた回数だけ倍になっていた。閉じたあとも残る。
 
   // モーダルオーバーレイ（クリックで閉じる）
   div(

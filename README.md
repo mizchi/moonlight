@@ -63,44 +63,52 @@ pnpm build
 
 | Tool | Shortcut | Description |
 |------|----------|-------------|
-| Select | `V` or `1` | Select and move elements |
-| Rectangle | `R` or `2` | Draw rectangles |
-| Circle | `C` or `3` | Draw circles/ellipses |
-| Line | `L` or `4` | Draw lines and arrows |
-| Text | `T` or `5` | Add text elements |
+| Select | `V` | Select and move elements |
+| Free draw | `P` | Draw freehand, fitted to a path |
+| Rectangle | `1` | Add a rectangle |
+| Circle | `2` | Add a circle |
+| Ellipse | `3` | Add an ellipse |
+| Line | `4` | Add a line |
+| Arrow | `5` | Add an arrow |
+| Text | `6` | Add a text element |
 
 ### Keyboard Shortcuts
 
-#### General
+スタンドアロン（`/`）でも埋め込み（`MoonlightEditor.create()` / `<moonlight-editor>` /
+`/?mode=embed`）でも同じキーが効く。埋め込みではエディタにフォーカスがあるときだけ拾う。
+
+#### Edit
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Z` / `Cmd+Z` | Undo |
-| `Ctrl+Shift+Z` / `Cmd+Shift+Z` | Redo |
-| `Ctrl+Y` / `Cmd+Y` | Redo (alternative) |
+| `Ctrl+Shift+Z` / `Ctrl+Y` | Redo |
 | `Delete` / `Backspace` | Delete selected element |
-| `Escape` | Deselect / Cancel operation |
+| `Ctrl+D` / `Cmd+D` | Duplicate selected element |
+| `Ctrl+C` / `Ctrl+V` | Copy / paste elements |
+| `Ctrl+A` | Select all |
+| `Escape` | Deselect / cancel / close the fullscreen modal |
 
 #### Navigation
 | Shortcut | Action |
 |----------|--------|
-| `Arrow Keys` | Move selected element (5px) |
-| `Shift + Arrow Keys` | Move selected element (1px, precise) |
-| `Ctrl + Arrow Keys` | Move selected element (10px, fast) |
+| `Arrow Keys` | Move selected element (5px, 10px with grid snap) |
+| `Shift + Arrow Keys` | Resize selected element |
+| `Arrow Keys` (nothing selected) | Pan the canvas |
 
-#### Element Operations
+#### Tools
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+D` / `Cmd+D` | Duplicate selected element |
-| `[` | Send backward |
-| `]` | Bring forward |
-| `Ctrl+[` / `Cmd+[` | Send to back |
-| `Ctrl+]` / `Cmd+]` | Bring to front |
+| `1` … `6` | Rect / Circle / Ellipse / Line / Arrow / Text |
+| `V` | Select mode |
+| `P` | Toggle free draw |
+| `?` | Open the help page |
 
-#### View
+#### Standalone only
 | Shortcut | Action |
 |----------|--------|
-| `G` | Toggle grid visibility |
-| `Ctrl+G` / `Cmd+G` | Toggle grid snapping |
+| `Ctrl+S` | Download the drawing as SVG |
+| `Ctrl+Shift+C` | Copy the SVG text to the clipboard |
+| `Ctrl+Shift+V` | Import SVG from the clipboard |
 
 ### Mouse Operations
 

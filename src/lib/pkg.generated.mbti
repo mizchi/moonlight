@@ -42,6 +42,8 @@ pub fn clear_svg_children(@mizchi/js/core.Any) -> Unit
 
 pub fn continue_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
 
+pub fn copy_selection(@mizchi/moonlight/core.EditorState) -> Unit
+
 pub fn create_arrow_defs() -> @mizchi/js/core.Any
 
 pub fn create_editor_handle(() -> String, (String) -> Bool, () -> Unit, () -> Unit, () -> Bool) -> @mizchi/js/core.Any
@@ -56,9 +58,13 @@ pub fn create_svg_container(@mizchi/moonlight/core.EditorState, @mizchi/js/core.
 
 pub fn create_svg_element_ns(String) -> @mizchi/js/core.Any
 
+pub fn delete_selection(@mizchi/moonlight/core.EditorState, @model.History) -> Unit
+
 pub fn draw_free_draw_preview(@mizchi/js/core.Any, Array[@model.Point]) -> Unit
 
 pub fn draw_preview_line(@mizchi/js/core.Any, Double, Double, Double, Double) -> Unit
+
+pub fn duplicate_selection(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
 
 pub fn element_to_svg_string(@model.Element) -> String
 
@@ -75,6 +81,8 @@ pub fn get_mouse_coords_from_event(@mizchi/js/core.Any) -> (Double, Double)
 pub fn get_preview_points(@mizchi/moonlight/core.EditorState) -> Array[@model.Point]
 
 pub fn get_target_id(@mizchi/js/core.Any) -> String
+
+pub fn handle_arrow_key(@mizchi/moonlight/core.EditorState, @model.History, String, Bool) -> Unit
 
 pub fn is_drawing(@mizchi/moonlight/core.EditorState) -> Bool
 
@@ -93,6 +101,8 @@ pub fn parse_anchor_type(String) -> @mizchi/moonlight/core.AnchorType?
 pub fn parse_simple_svg(String, () -> String) -> Array[@model.Element]
 
 pub fn parse_theme(String?) -> @model.ThemeMode
+
+pub fn paste_clipboard(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
 
 pub fn redraw_svg(@mizchi/moonlight/core.EditorState) -> Unit
 
@@ -136,8 +146,6 @@ pub fn set_tabindex_ffi(@mizchi/js/core.Any, Int) -> Unit
 
 pub fn setup_context_menu(@mizchi/moonlight/core.EditorState, ContextMenuState, () -> String) -> Unit
 
-pub fn setup_editor(@mizchi/js/core.Any, EditorOptions, () -> String) -> EditorSetupResult
-
 pub fn setup_event_listeners(@mizchi/moonlight/core.EditorState, EventCallbacks) -> Unit
 
 pub fn setup_focus_management(FocusState, @mizchi/js/core.Any) -> Unit
@@ -148,7 +156,7 @@ pub fn setup_help_button(@mizchi/moonlight/core.EditorState, Bool) -> Unit
 
 pub fn setup_interaction(@mizchi/moonlight/core.EditorState, DragState) -> Unit
 
-pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
+pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
 
 pub fn should_handle_keyboard(@signals.Signal[Bool]) -> Bool
 
@@ -198,12 +206,6 @@ pub(all) struct EditorOptions {
 }
 pub fn EditorOptions::default() -> Self
 pub fn EditorOptions::from_js(@mizchi/js/core.Any) -> Self
-
-pub struct EditorSetupResult {
-  state : @mizchi/moonlight/core.EditorState
-  handle : @mizchi/js/core.Any
-  context_menu : ContextMenuState
-}
 
 pub struct EventCallbacks {
   on_change : Array[() -> Unit]

@@ -1,4 +1,12 @@
-// キーボードハンドリング - 埋め込みモード用
+// キーボードハンドリング - 埋め込みシェル用
+//
+// 埋め込み（create_js_editor / WebComponent / API / ?mode=embed）は window では
+// なくコンテナで keydown を受ける。スタンドアロンの editor_app() だけが window
+// 側の setup_keyboard_shortcuts を使う。
+//
+// 以前この隣に setup_editor() という二つ目の初期化経路があったが、呼び出し元は
+// 無かった。「埋め込みのキーボードはあちらで繋がっている」という誤読を生むので
+// 消してある。
 
 ///|
 /// キーボードイベント情報
@@ -13,6 +21,7 @@ pub struct KeyEvent {
 /// キーボードハンドラをセットアップ
 pub fn setup_keyboard_handler(
   state : @core.EditorState,
+  history : @model.History,
   new_id : () -> String,
 ) -> Unit {
   let container = state.container_el.get()
@@ -25,16 +34,12 @@ pub fn setup_keyboard_handler(
     if !state.has_focus.get() {
       return
     }
-    // フルスクリーンモーダルでは main 側のキーボード処理に委譲する
-    if state.modal_open.get() {
-      return
-    }
     // 読み取り専用モードの場合は無視
     if state.is_readonly.get() {
       return
     }
     let key_event = parse_key_event(e)
-    let handled = handle_key(state, key_event, new_id)
+    let handled = handle_key(state, history, key_event, new_id)
     if handled {
       prevent_default_ffi(e)
     }
@@ -45,6 +50,7 @@ pub fn setup_keyboard_handler(
 /// キーイベントを処理（keybindings を使用）
 fn handle_key(
   state : @core.EditorState,
+  history : @model.History,
   e : KeyEvent,
   new_id : () -> String,
 ) -> Bool {
@@ -58,16 +64,23 @@ fn handle_key(
     // その他のキーはテキスト入力として扱う（ブラウザに処理させる）
     return false
   }
-  // Arrow は main.mbt のグローバルハンドラで一元処理する
-  if e.key == "ArrowUp" ||
-    e.key == "ArrowDown" ||
-    e.key == "ArrowLeft" ||
-    e.key == "ArrowRight" {
-    return false
+  // モーダル表示中の Escape は選択解除ではなくモーダルを閉じる
+  if state.modal_open.get() && e.key == "Escape" {
+    state.modal_open.set(false)
+    return true
+  }
+  // 矢印はキーバインド表を通さずここで捌く。Shift+矢印はリサイズという
+  // 「同じキーで違う動作」なので、key と修飾キーの一対一表では書けない。
+  match e.key {
+    "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" => {
+      handle_arrow_key(state, history, e.key, e.shift_key)
+      return true
+    }
+    _ => ()
   }
   // keybindings から一致するアクションを検索
   match @model.match_keybinding(e.key, e.ctrl_key, e.shift_key, e.meta_key) {
-    Some(kb) => execute_action(state, kb.action, new_id)
+    Some(kb) => execute_action(state, history, kb.action, new_id)
     None => false
   }
 }
@@ -76,13 +89,39 @@ fn handle_key(
 /// アクションを実行
 fn execute_action(
   state : @core.EditorState,
+  history : @model.History,
   action : String,
   new_id : () -> String,
 ) -> Bool {
   let pos = get_placement_position(state)
   match action {
     "delete" => {
-      delete_selected(state)
+      delete_selection(state, history)
+      true
+    }
+    "undo" => {
+      let _ = @core.undo_command(history, state)
+      // 取り消すものが無くてもキーは飲む（埋め込み先のページに漏らさない）
+      true
+    }
+    "redo" => {
+      let _ = @core.redo_command(history, state)
+      true
+    }
+    "duplicate" => {
+      duplicate_selection(state, history, new_id)
+      true
+    }
+    "copy" => {
+      copy_selection(state)
+      true
+    }
+    "paste" => {
+      paste_clipboard(state, history, new_id)
+      true
+    }
+    "select_all" => {
+      state.select_all()
       true
     }
     "escape" => {
@@ -102,21 +141,21 @@ fn execute_action(
         80.0,
         60.0,
       )
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
       true
     }
     "create_circle" => {
       let el_id = new_id()
       let el = create_circle_element(el_id, pos.0, pos.1, 40.0)
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
       true
     }
     "create_ellipse" => {
       let el_id = new_id()
       let el = create_ellipse_element(el_id, pos.0, pos.1, 60.0, 35.0)
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
       true
     }
@@ -129,7 +168,7 @@ fn execute_action(
         pos.0 + 50.0,
         pos.1,
       )
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
       true
     }
@@ -142,31 +181,15 @@ fn execute_action(
         pos.0 + 50.0,
         pos.1,
       )
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
       true
     }
     "create_text" => {
       let el_id = new_id()
       let el = create_text_element(el_id, pos.0, pos.1, "Text")
-      add_element(state, el)
+      @core.execute_command(history, state, @model.AddElement(el))
       set_selected_id(state, Some(el_id))
-      true
-    }
-    "move_up" => {
-      move_selected(state, 0.0, -10.0)
-      true
-    }
-    "move_down" => {
-      move_selected(state, 0.0, 10.0)
-      true
-    }
-    "move_left" => {
-      move_selected(state, -10.0, 0.0)
-      true
-    }
-    "move_right" => {
-      move_selected(state, 10.0, 0.0)
       true
     }
     "toggle_draw_mode" => {
@@ -194,38 +217,55 @@ fn get_placement_position(state : @core.EditorState) -> (Double, Double) {
 }
 
 ///|
-/// 選択要素を削除（親子関係を考慮）
-fn delete_selected(state : @core.EditorState) -> Unit {
-  // EditorState.delete_selected() は親子関係を考慮した削除を行う
+/// 選択要素を削除する（親子関係を考慮）。両方のシェルから呼ぶ。
+///
+/// ラベル付きの図形を消すと要素は複数消えるが、操作としては一回なので、
+/// Undo も一回で全部戻るように Batch でまとめて積む。
+pub fn delete_selection(
+  state : @core.EditorState,
+  history : @model.History,
+) -> Unit {
+  // EditorState.delete_selected() が親子をたどって消す範囲を決めるので、
+  // 何が消えたかは前後の差分から取る（呼ぶ側に同じ計算を持たない）
+  let before = state.elements.get()
   state.delete_selected()
-}
-
-///|
-/// 選択要素を移動
-fn move_selected(state : @core.EditorState, dx : Double, dy : Double) -> Unit {
-  match state.get_selected_id() {
-    None => ()
-    Some(id) =>
-      state.elements.update(fn(els) {
-        els.map(fn(el) {
-          if el.id == id {
-            { ..el, x: el.x + dx, y: el.y + dy, }
-          } else {
-            el
-          }
-        })
-      })
+  let remaining = state.elements.get().map(fn(el) { el.id })
+  // Batch は後ろから戻すので、ここでは後ろから積む。そうすると戻したときに
+  // 元の並び（＝重なり順）で戻る。
+  let removed : Array[@model.Command] = []
+  for i = before.length() - 1; i >= 0; i = i - 1 {
+    let el = before[i]
+    if !remaining.contains(el.id) {
+      removed.push(@model.RemoveElement(el))
+    }
   }
+  // 何も消えていないなら履歴に段を作らない（Ctrl+Z が空振りする段になる）
+  guard removed.length() > 0 else { return }
+  history.undo_stack.push(@model.Batch(removed))
+  history.redo_stack.clear()
 }
 
 ///|
-/// 要素を追加
-fn add_element(state : @core.EditorState, el : @model.Element) -> Unit {
-  state.elements.update(fn(els) {
-    let new_els = els.copy()
-    new_els.push(el)
-    new_els
-  })
+/// 選択要素を複製して、複製したほうを選択する。両方のシェルから呼ぶ。
+pub fn duplicate_selection(
+  state : @core.EditorState,
+  history : @model.History,
+  new_id : () -> String,
+) -> Unit {
+  let added : Array[@model.Command] = []
+  let new_ids : Array[String] = []
+  for id in state.selected_ids.get() {
+    guard state.find_element(id) is Some(el) else { continue }
+    let dup_id = new_id()
+    let dup = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
+    state.add_element_raw(dup)
+    added.push(@model.AddElement(dup))
+    new_ids.push(dup_id)
+  }
+  guard added.length() > 0 else { return }
+  history.undo_stack.push(@model.Batch(added))
+  history.redo_stack.clear()
+  state.select_multiple(new_ids)
 }
 
 ///|
