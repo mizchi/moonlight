@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moonlight/model"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn anchor_to_string(Anchor) -> String
 
@@ -199,45 +203,35 @@ pub(all) enum Anchor {
   BottomRight
   LineStart
   LineEnd
-}
-pub impl Eq for Anchor
-pub impl Show for Anchor
+} derive(Eq, @debug.Debug)
 
 pub(all) enum ArrowType {
   NoArrow
   Arrow
-}
-pub impl Eq for ArrowType
-pub impl Show for ArrowType
+} derive(Eq, @debug.Debug)
 
 pub(all) struct BoundingBox {
   x : Double
   y : Double
   width : Double
   height : Double
-}
+} derive(Eq, @debug.Debug)
 pub fn BoundingBox::contains(Self, Point) -> Bool
 pub fn BoundingBox::intersects(Self, Self) -> Bool
-pub impl Eq for BoundingBox
-pub impl Show for BoundingBox
 
 pub(all) struct BoxSelectState {
   start_x : Double
   start_y : Double
   current_x : Double
   current_y : Double
-}
+} derive(Eq, @debug.Debug)
 pub fn BoxSelectState::to_bbox(Self) -> BoundingBox
-pub impl Eq for BoxSelectState
-pub impl Show for BoxSelectState
 
 pub(all) struct ChildMoveResult {
   child_id : String
   new_x : Double
   new_y : Double
-}
-pub impl Eq for ChildMoveResult
-pub impl Show for ChildMoveResult
+} derive(Eq, @debug.Debug)
 
 pub(all) enum Command {
   AddElement(Element)
@@ -248,9 +242,8 @@ pub(all) enum Command {
   UpdateStyle(String, Style, Style)
   RenameElement(String, String)
   UpdateText(String, String, String)
-}
-pub impl Eq for Command
-pub impl Show for Command
+  Batch(Array[Command])
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ConnectedLineUpdate {
   line_id : String
@@ -258,22 +251,18 @@ pub(all) struct ConnectedLineUpdate {
   new_y : Double
   new_x2 : Double
   new_y2 : Double
-}
-pub impl Eq for ConnectedLineUpdate
-pub impl Show for ConnectedLineUpdate
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Connection {
   element_id : String
   anchor : Anchor
-}
-pub impl Eq for Connection
-pub impl Show for Connection
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ConnectionGraph {
   adjacency : Map[String, Array[Edge]]
   edges : Array[Edge]
   line_to_edge : Map[String, Edge]
-}
+} derive(@debug.Debug)
 pub fn ConnectionGraph::are_directly_connected(Self, String, String) -> Bool
 pub fn ConnectionGraph::connection_distance(Self, String, String) -> Int
 pub fn ConnectionGraph::distance_map_from(Self, String) -> Map[String, Int]
@@ -289,7 +278,6 @@ pub fn ConnectionGraph::is_hub(Self, String) -> Bool
 pub fn ConnectionGraph::is_isolated(Self, String) -> Bool
 pub fn ConnectionGraph::is_leaf(Self, String) -> Bool
 pub fn ConnectionGraph::new() -> Self
-pub impl Show for ConnectionGraph
 
 pub(all) struct ContextMenu {
   x : Double
@@ -297,9 +285,7 @@ pub(all) struct ContextMenu {
   scene_x : Double
   scene_y : Double
   target_id : String?
-}
-pub impl Eq for ContextMenu
-pub impl Show for ContextMenu
+} derive(Eq, @debug.Debug)
 
 pub(all) struct DragState {
   element_id : String
@@ -310,9 +296,7 @@ pub(all) struct DragState {
   start_shape : ShapeType?
   start_connections : LineConnections?
   connected_start_positions : Array[(String, Double, Double)]
-}
-pub impl Eq for DragState
-pub impl Show for DragState
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Edge {
   from_id : String
@@ -320,9 +304,7 @@ pub(all) struct Edge {
   line_id : String
   from_anchor : Anchor
   to_anchor : Anchor
-}
-pub impl Eq for Edge
-pub impl Show for Edge
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Element {
   id : String
@@ -333,7 +315,7 @@ pub(all) struct Element {
   transform : String?
   parent_id : String?
   connections : LineConnections?
-}
+} derive(Eq, @debug.Debug)
 pub fn Element::bounding_box(Self) -> BoundingBox
 pub fn Element::find_nearest_anchor(Self, Point, Double) -> (Anchor, Point, Double)?
 pub fn Element::get_all_anchors(Self) -> Array[(Anchor, Point)]
@@ -343,8 +325,6 @@ pub fn Element::is_valid(Self) -> Bool
 pub fn Element::new(String, Double, Double, ShapeType) -> Self
 pub fn Element::with_parent(Self, String) -> Self
 pub fn Element::with_style(Self, Style) -> Self
-pub impl Eq for Element
-pub impl Show for Element
 
 pub(all) struct ElementCapability {
   can_move : Bool
@@ -353,22 +333,18 @@ pub(all) struct ElementCapability {
   can_delete : Bool
   can_connect : Bool
   can_add_child : Bool
-}
+} derive(Eq, @debug.Debug)
 pub fn ElementCapability::full() -> Self
 pub fn ElementCapability::move_and_delete() -> Self
 pub fn ElementCapability::move_only() -> Self
 pub fn ElementCapability::none() -> Self
-pub impl Eq for ElementCapability
-pub impl Show for ElementCapability
 
 pub(all) struct EllipseResizeResult {
   cx : Double
   cy : Double
   rx : Double
   ry : Double
-}
-pub impl Eq for EllipseResizeResult
-pub impl Show for EllipseResizeResult
+} derive(Eq, @debug.Debug)
 
 pub(all) struct GraphStats {
   node_count : Int
@@ -377,9 +353,7 @@ pub(all) struct GraphStats {
   hub_count : Int
   leaf_count : Int
   isolated_count : Int
-}
-pub impl Eq for GraphStats
-pub impl Show for GraphStats
+} derive(Eq, @debug.Debug)
 
 pub(all) enum HandlePosition {
   NW
@@ -388,9 +362,7 @@ pub(all) enum HandlePosition {
   SE
   LineStart
   LineEnd
-}
-pub impl Eq for HandlePosition
-pub impl Show for HandlePosition
+} derive(Eq, @debug.Debug)
 
 pub(all) struct History {
   undo_stack : Array[Command]
@@ -413,11 +385,9 @@ pub(all) struct KeyBinding {
 pub(all) struct LineConnections {
   start : Connection?
   end : Connection?
-}
+} derive(Eq, @debug.Debug)
 pub fn LineConnections::get_connected_ids(Self) -> Array[String]
 pub fn LineConnections::none() -> Self
-pub impl Eq for LineConnections
-pub impl Show for LineConnections
 
 pub(all) struct LineCoords {
   id : String
@@ -425,18 +395,14 @@ pub(all) struct LineCoords {
   y : Double
   x2 : Double
   y2 : Double
-}
-pub impl Eq for LineCoords
-pub impl Show for LineCoords
+} derive(Eq, @debug.Debug)
 
 pub(all) struct LineResizeResult {
   x1 : Double
   y1 : Double
   x2 : Double
   y2 : Double
-}
-pub impl Eq for LineResizeResult
-pub impl Show for LineResizeResult
+} derive(Eq, @debug.Debug)
 
 pub(all) struct MoveResult {
   elements : Array[Element]
@@ -446,9 +412,7 @@ pub(all) struct MoveTarget {
   id : String
   new_x : Double
   new_y : Double
-}
-pub impl Eq for MoveTarget
-pub impl Show for MoveTarget
+} derive(Eq, @debug.Debug)
 
 pub(all) struct MultiDragState {
   element_ids : Array[String]
@@ -456,65 +420,49 @@ pub(all) struct MultiDragState {
   line_endpoints : Array[(String, Double, Double)]
   mouse_start_x : Double
   mouse_start_y : Double
-}
-pub impl Eq for MultiDragState
-pub impl Show for MultiDragState
+} derive(Eq, @debug.Debug)
 
 pub(all) struct NearestConnectionResult {
   element : Element
   anchor : Anchor
   point : Point
-}
-pub impl Eq for NearestConnectionResult
-pub impl Show for NearestConnectionResult
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Path {
   nodes : Array[String]
   edges : Array[Edge]
   total_distance : Double
-}
-pub impl Eq for Path
-pub impl Show for Path
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Point {
   x : Double
   y : Double
-}
-pub impl Eq for Point
-pub impl Show for Point
+} derive(Eq, @debug.Debug)
 
 pub(all) struct PresetColor {
   name : String
   light : String
   dark : String
-}
-pub impl Eq for PresetColor
-pub impl Show for PresetColor
+} derive(Eq, @debug.Debug)
 
 pub(all) struct RecalculationResult {
   element_updates : Array[MoveTarget]
   line_updates : Array[LineCoords]
-}
-pub impl Eq for RecalculationResult
-pub impl Show for RecalculationResult
+} derive(Eq, @debug.Debug)
 
 pub(all) struct RectResizeResult {
   x : Double
   y : Double
   width : Double
   height : Double
-}
-pub impl Eq for RectResizeResult
-pub impl Show for RectResizeResult
+} derive(Eq, @debug.Debug)
 
 pub(all) enum RepairAction {
   RemoveConnection(String, String)
   RemoveParent(String)
   DeleteElement(String)
   RegenerateId(String, String)
-}
-pub impl Eq for RepairAction
-pub impl Show for RepairAction
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ResizeState {
   element_id : String
@@ -524,9 +472,7 @@ pub(all) struct ResizeState {
   start_shape : ShapeType
   mouse_start_x : Double
   mouse_start_y : Double
-}
-pub impl Eq for ResizeState
-pub impl Show for ResizeState
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ShapeConfig {
   has_stroke : Bool
@@ -548,11 +494,9 @@ pub(all) enum ShapeType {
   Polyline(Array[Point])
   Path(String, Double, Double, Double, Double)
   Text(String, Double?)
-}
+} derive(Eq, @debug.Debug)
 pub fn ShapeType::config(Self) -> ShapeConfig
 pub fn ShapeType::is_valid(Self, Double, Double) -> Bool
-pub impl Eq for ShapeType
-pub impl Show for ShapeType
 
 pub(all) struct Style {
   fill : String?
@@ -563,10 +507,8 @@ pub(all) struct Style {
   marker_start : ArrowType?
   marker_end : ArrowType?
   font_family : String?
-}
+} derive(Eq, @debug.Debug)
 pub fn Style::default() -> Self
-pub impl Eq for Style
-pub impl Show for Style
 
 pub(all) struct TextEditState {
   parent_id : String
@@ -575,15 +517,11 @@ pub(all) struct TextEditState {
   editing_id : String?
   initial_text : String
   font_size : Double?
-}
-pub impl Eq for TextEditState
-pub impl Show for TextEditState
+} derive(Eq, @debug.Debug)
 
 pub(all) struct TextResizeResult {
   font_size : Double
-}
-pub impl Eq for TextResizeResult
-pub impl Show for TextResizeResult
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Theme {
   background : String
@@ -597,56 +535,44 @@ pub(all) struct Theme {
   ui_text : String
   ui_text_muted : String
   ui_accent : String
-}
+} derive(Eq, @debug.Debug)
 pub fn Theme::dark() -> Self
 pub fn Theme::light() -> Self
-pub impl Eq for Theme
-pub impl Show for Theme
 
 pub(all) enum ThemeMode {
   Light
   Dark
-}
-pub impl Eq for ThemeMode
-pub impl Show for ThemeMode
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ValidationIssue {
   level : ValidationLevel
   element_id : String?
   code : String
   message : String
-}
-pub impl Eq for ValidationIssue
-pub impl Show for ValidationIssue
+} derive(Eq, @debug.Debug)
 
 pub(all) enum ValidationLevel {
   Error
   Warning
   Info
-}
-pub impl Eq for ValidationLevel
-pub impl Show for ValidationLevel
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ValidationResult {
   is_valid : Bool
   issues : Array[ValidationIssue]
   capabilities : Map[String, ElementCapability]
-}
+} derive(@debug.Debug)
 pub fn ValidationResult::valid() -> Self
-pub impl Show for ValidationResult
 
 pub(all) struct Viewport {
   scroll_x : Double
   scroll_y : Double
   zoom : Double
-}
+} derive(Eq, @debug.Debug)
 pub fn Viewport::default() -> Self
 pub fn Viewport::scene_to_screen(Self, Double, Double) -> Point
 pub fn Viewport::screen_to_scene(Self, Double, Double) -> Point
-pub impl Eq for Viewport
-pub impl Show for Viewport
 
 // Type aliases
 
 // Traits
-

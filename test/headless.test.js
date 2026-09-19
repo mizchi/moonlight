@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 
 import { createScene, loadSvg, describeSvg, toPng } from '../js/headless.js';
+
+// playwright.config.ts と同じ理由。サンドボックスや CI イメージが置いた
+// chromium を指しておくと、ダウンロード無しで PNG 化まで走る。
+if (!process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE && existsSync('/opt/pw-browsers/chromium')) {
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE = '/opt/pw-browsers/chromium';
+}
 
 const BRIDGE = `
 rect box 80 80 120 80

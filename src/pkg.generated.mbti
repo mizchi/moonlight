@@ -32,7 +32,7 @@ pub fn create_doc_shadow_filter(Bool) -> @mizchi/js/core.Any
 
 pub fn create_doc_shadow_filter_node(Bool) -> @dom.DomNode
 
-pub fn create_embedded_app() -> @dom.DomNode
+pub fn create_embedded_app(@mizchi/js/core.Any) -> @dom.DomNode
 
 pub fn create_js_editor(@mizchi/js/core.Any, EmbedOptions) -> @mizchi/js/core.Any
 

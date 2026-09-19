@@ -1,36 +1,32 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
 /**
- * 同じ操作を、スタンドアロンと埋め込みの両方で回す。
+ * 同じ操作を、エディタの三つの殻すべてに当てる。
  *
- * 二つのモードは同じ中核（create_js_editor）を通るが、外側のシェルは別物で、
- * ツールバーもキーボードの配線も違う。片方で直したつもりが他方で崩れる、という
- * 事故が起きうるので、操作の集合をひとつ書いて両方に適用する。
+ *   /                      スタンドアロン   editor_app()
+ *   /examples/embed.html   埋め込み         create_js_editor()
+ *   /?mode=embed           埋め込み         create_embedded_app()
  *
- * 行が片方だけ落ちたら、それは「そのモードのシェルの配線が抜けている」という
- * 意味になる。
+ * 中核は一つだが、外側の配線は殻ごとに書かれている。片方で直したつもりが他方で
+ * 崩れる、という事故が起きうるので、操作の集合をひとつ書いて全部に適用する。
+ *
+ * 行が一つの殻だけ落ちたら、それは「その殻の配線が抜けている」という意味になる。
  */
 
 type Mode = {
   name: string;
   url: string;
-  /**
-   * キーボードがどこまで繋がっているか。
-   *
-   * 埋め込みは @lib.setup_keyboard_handler だけを繋ぐので delete / escape /
-   * 図形追加しか通らない。矢印・undo・複製はスタンドアロン専用シェル
-   * editor_app() の setup_keyboard_listener / setup_keyboard_shortcuts 側にある。
-   */
-  keyboard: 'full' | 'delete-only';
-  /** そのモードでの SVG の取り出し方（口がモードごとに違う） */
-  exportSvg: (page: Page) => Promise<string>;
+  /** SVG の取り出し方。口が無い殻もあるので任意 */
+  exportSvg?: (page: Page) => Promise<string>;
+  /** フルスクリーンモーダルを持つのは埋め込みの二つだけ */
+  hasModal: boolean;
 };
 
 const MODES: Mode[] = [
   {
     name: 'standalone',
     url: '/',
-    keyboard: 'full',
+    hasModal: false,
     // ツールバーの Copy SVG と同じ経路（Ctrl+Shift+C）
     exportSvg: async (page) => {
       await page.keyboard.press('Control+Shift+KeyC');
@@ -41,9 +37,16 @@ const MODES: Mode[] = [
   {
     name: 'embed',
     url: '/examples/embed.html',
-    keyboard: 'delete-only',
+    hasModal: true,
     exportSvg: (page) =>
       page.evaluate(() => (window as unknown as { editor: { exportSvg(): string } }).editor.exportSvg()),
+  },
+  {
+    // 殻としては embed と同じものを、ページ全体に開いたもの。ここだけ
+    // キーボードが一つも繋がっていなかったことがあるので、並べて回す。
+    name: 'embed-url',
+    url: '/?mode=embed',
+    hasModal: true,
   },
 ];
 
@@ -55,11 +58,12 @@ function shapeLines(svg: string): string[] {
     .filter((line) => line.includes('data-id='));
 }
 
-// --- 両モード共通のヘルパー（既存スイートと同じ作法） ---
+// --- 全モード共通のヘルパー（既存スイートと同じ作法） ---
 
 const shapes = (page: Page) => page.locator('svg rect[data-id][cursor="move"]');
 const handles = (page: Page) => page.locator('svg [data-handle]');
 const canvas = (page: Page) => page.locator('svg[viewBox]').first();
+const everything = (page: Page) => page.locator('svg [data-id]');
 
 async function num(locator: Locator, name: string) {
   return parseFloat((await locator.getAttribute(name)) ?? '0');
@@ -100,7 +104,7 @@ for (const mode of MODES) {
     });
 
     test('opens with the same starting scene', async ({ page }) => {
-      // 両モードが同じサンプルを載せていること。ここがずれると、以降の
+      // 全モードが同じサンプルを載せていること。ここがずれると、以降の
       // 比較がモードの違いではなく初期状態の違いになってしまう。
       await expect(shapes(page)).toHaveCount(4);
       await expect(page.locator('svg circle[data-id]')).toHaveCount(1);
@@ -185,7 +189,7 @@ for (const mode of MODES) {
     });
 
     test('a shape can be deleted from the context menu', async ({ page }) => {
-      const before = await page.locator('svg [data-id]').count();
+      const before = await everything(page).count();
 
       await shapes(page).first().click({ button: 'right', force: true });
       const remove = page.locator('[data-context-menu] button:has-text("Delete")').first();
@@ -193,24 +197,20 @@ for (const mode of MODES) {
       await remove.click();
       await page.waitForTimeout(200);
 
-      expect(await page.locator('svg [data-id]').count()).toBeLessThan(before);
+      expect(await everything(page).count()).toBeLessThan(before);
     });
 
     test('the Delete key removes the selection', async ({ page }) => {
-      const before = await page.locator('svg [data-id]').count();
+      const before = await everything(page).count();
 
       await select(page, shapes(page).first());
       await page.keyboard.press('Delete');
       await page.waitForTimeout(200);
 
-      expect(await page.locator('svg [data-id]').count()).toBeLessThan(before);
+      expect(await everything(page).count()).toBeLessThan(before);
     });
 
     test('arrow keys nudge the selection', async ({ page }) => {
-      test.skip(
-        mode.keyboard !== 'full',
-        'embed does not bind arrows: lib/keyboard.mbt defers them to the global handler that only editor_app() installs',
-      );
       const rect = shapes(page).first();
       await select(page, rect);
 
@@ -218,14 +218,23 @@ for (const mode of MODES) {
       await page.keyboard.press('ArrowRight');
       await page.waitForTimeout(200);
 
-      expect(await num(rect, 'x')).not.toBe(x0);
+      // 移動量も殻ごとに揃っていること（別々に書かれていた頃はここがずれた）
+      expect(await num(rect, 'x')).toBe(x0 + 5);
+    });
+
+    test('shift+arrow resizes instead of moving', async ({ page }) => {
+      const rect = shapes(page).first();
+      await select(page, rect);
+
+      const [x0, w0] = [await num(rect, 'x'), await num(rect, 'width')];
+      await page.keyboard.press('Shift+ArrowRight');
+      await page.waitForTimeout(200);
+
+      expect(await num(rect, 'width'), 'shift+arrow should widen it').toBe(w0 + 5);
+      expect(await num(rect, 'x'), 'and leave it where it is').toBe(x0);
     });
 
     test('a drag can be undone', async ({ page }) => {
-      test.skip(
-        mode.keyboard !== 'full',
-        'embed does not bind undo: setup_keyboard_shortcuts is only called from editor_app()',
-      );
       const rect = shapes(page).first();
       const x0 = await num(rect, 'x');
 
@@ -236,21 +245,134 @@ for (const mode of MODES) {
       await page.waitForTimeout(250);
       expect(await num(rect, 'x'), 'undo should put it back').toBe(x0);
     });
+
+    test('one undo brings back everything a delete removed', async ({ page }) => {
+      // ラベル付きの図形を消すと要素は複数消えるが、操作としては一回なので
+      // Ctrl+Z 一回で全部戻ってほしい（半分だけ戻るのは壊れた状態）
+      const before = await everything(page).count();
+
+      await select(page, shapes(page).first());
+      await page.keyboard.press('Delete');
+      await page.waitForTimeout(200);
+      const afterDelete = await everything(page).count();
+      expect(afterDelete, 'the delete should take more than one element').toBeLessThan(before - 1);
+
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(250);
+      expect(await everything(page).count(), 'one undo should restore all of it').toBe(before);
+    });
+
+    test('Ctrl+D duplicates the selection, and Ctrl+Z takes it back', async ({ page }) => {
+      const before = await everything(page).count();
+
+      await select(page, shapes(page).first());
+      await page.keyboard.press('Control+d');
+      await page.waitForTimeout(250);
+      expect(await everything(page).count(), 'the copy should be there').toBeGreaterThan(before);
+
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(250);
+      expect(await everything(page).count(), 'one undo should remove the whole copy').toBe(before);
+    });
+
+    test('Ctrl+C then Ctrl+V pastes a copy, and one undo removes it', async ({ page }) => {
+      const before = await everything(page).count();
+
+      await select(page, shapes(page).first());
+      await page.keyboard.press('Control+c');
+      await page.keyboard.press('Control+v');
+      await page.waitForTimeout(250);
+      expect(await everything(page).count(), 'the paste should land').toBeGreaterThan(before);
+
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(250);
+      expect(await everything(page).count(), 'one undo should remove the whole paste').toBe(before);
+    });
+
+    test('Ctrl+A selects everything', async ({ page }) => {
+      const before = await everything(page).count();
+
+      await select(page, shapes(page).first());
+      await page.keyboard.press('Control+a');
+      await page.waitForTimeout(150);
+      await page.keyboard.press('Delete');
+      await page.waitForTimeout(250);
+
+      expect(await everything(page).count(), 'select all + delete should empty the canvas').toBe(0);
+    });
+
+    test('Ctrl+Shift+Z redoes what Ctrl+Z undid', async ({ page }) => {
+      const rect = shapes(page).first();
+      await select(page, rect);
+      const x0 = await num(rect, 'x');
+
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(200);
+      const moved = await num(rect, 'x');
+      // 先に動いていないと、以降の比較が全部 x0 同士になって何も検査しない
+      expect(moved, 'the arrow should have moved it first').not.toBe(x0);
+
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(200);
+      expect(await num(rect, 'x')).toBe(x0);
+
+      await page.keyboard.press('Control+Shift+z');
+      await page.waitForTimeout(200);
+      expect(await num(rect, 'x'), 'redo should put it back where undo took it from').toBe(moved);
+    });
   });
 }
 
-test.describe('the two modes draw the same thing', () => {
+test.describe('the fullscreen modal', () => {
+  const modalCanvas = (page: Page) => page.locator('div[style*="position: fixed"] svg[width="100%"]');
+
+  for (const mode of MODES.filter((m) => m.hasModal)) {
+    test(`${mode.name}: reopening it does not multiply the arrow step`, async ({ page }) => {
+      // モーダルはかつて開くたびに window へ keydown を足していて、外す口が
+      // 無かった。二回目は 2 歩、三回目は 3 歩動く。閉じても残る。
+      await openEditor(page, mode);
+      const outside = shapes(page).first();
+
+      for (const round of [1, 2, 3]) {
+        await page.locator('button[aria-label="Edit in fullscreen"]').click();
+        await expect(page.locator('button[aria-label="Close"]')).toBeVisible();
+
+        await modalCanvas(page).locator('rect[data-id][cursor="move"]').first().click({ force: true });
+        await page.waitForTimeout(150);
+
+        const x0 = await num(outside, 'x');
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(200);
+        expect(await num(outside, 'x'), `open #${round} should still move it one step`).toBe(x0 + 5);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('button[aria-label="Close"]')).not.toBeVisible();
+      }
+
+      // 閉じたあとも、残骸が効いて二重に動いたりしないこと
+      await select(page, outside);
+      const x = await num(outside, 'x');
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(200);
+      expect(await num(outside, 'x'), 'after closing, one press is still one step').toBe(x + 5);
+    });
+  }
+});
+
+test.describe('the shells draw the same thing', () => {
   test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+  const exportable = MODES.filter((m) => m.exportSvg);
 
   /** 各モードを開いて、操作してから SVG を取り出す */
   async function drawingOf(page: Page, mode: Mode, act?: (page: Page) => Promise<void>) {
     await openEditor(page, mode);
     if (act) await act(page);
-    return shapeLines(await mode.exportSvg(page));
+    return shapeLines(await mode.exportSvg!(page));
   }
 
   test('the starting scene is identical in both', async ({ page }) => {
-    const [standalone, embed] = MODES;
+    const [standalone, embed] = exportable;
     const a = await drawingOf(page, standalone);
     const b = await drawingOf(page, embed);
 
@@ -269,7 +391,7 @@ test.describe('the two modes draw the same thing', () => {
       await page.waitForTimeout(200);
     };
 
-    const [standalone, embed] = MODES;
+    const [standalone, embed] = exportable;
     const a = await drawingOf(page, standalone, remove);
     const b = await drawingOf(page, embed, remove);
 

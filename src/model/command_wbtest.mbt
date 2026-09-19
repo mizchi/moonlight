@@ -205,3 +205,13 @@ test "Command equality - UpdateText" {
   let cmd2 : Command = UpdateText("id", "old", "new")
   assert_eq(cmd1, cmd2)
 }
+
+///|
+test "Command - Batch" {
+  let element = Element::new("el-1", 0.0, 0.0, Circle(10.0))
+  let cmd : Command = Batch([AddElement(element), RenameElement("el-1", "el-2")])
+  match cmd {
+    Batch(commands) => assert_eq(commands.length(), 2)
+    _ => fail("Expected Batch")
+  }
+}
