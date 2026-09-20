@@ -37,6 +37,23 @@ pub fn should_handle_keyboard(has_focus : @luna.Signal[Bool]) -> Bool {
 }
 
 ///|
+/// 要素に実際に DOM フォーカスを当てる
+extern "js" fn focus_element_ffi(el : @js.Any) =
+  #| (el) => {
+  #|   if (el && typeof el.focus === 'function') el.focus({ preventScroll: true });
+  #| }
+
+///|
+/// エディタのコンテナにフォーカスを戻す
+///
+/// keydown はフォーカスのある要素から上に伝わるので、フォーカスがコンテナの外
+/// （メニューのボタンを押すと、そのボタンごと消えて body に落ちる）にあると、
+/// has_focus が立っていてもキーはコンテナまで届かない。
+pub fn focus_container(state : @core.EditorState) -> Unit {
+  focus_element_ffi(state.container_el.get())
+}
+
+///|
 /// フォーカス状態
 pub(all) struct FocusState {
   has_focus : @luna.Signal[Bool] // フォーカスがあるか

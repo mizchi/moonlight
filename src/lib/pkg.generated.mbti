@@ -72,6 +72,8 @@ pub fn export_elements_to_svg(Array[@model.Element], Int, Int, String) -> String
 
 pub fn finish_free_draw(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
 
+pub fn focus_container(@mizchi/moonlight/core.EditorState) -> Unit
+
 pub fn get_element_anchor_points(@model.Element) -> Array[(Double, Double, @mizchi/moonlight/core.AnchorType)]
 
 pub fn get_element_bounds(@model.Element) -> (Double, Double, Double, Double)

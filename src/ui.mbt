@@ -990,7 +990,7 @@ pub fn render_delete_button(
     style=btn_style,
     on=events().click(fn(_) {
       if state.find_element(element_id) is Some(el) {
-        @core.execute_command(history, state, @model.RemoveElement(el))
+        @core.execute_command(history, state, state.removal_of(el))
       }
       close_menu()
     }),
@@ -1401,7 +1401,12 @@ pub fn render_context_menu(
   let style = "position: fixed; left: \{menu.x}px; top: \{menu.y}px; transform: \{clamp}; background: \{theme.ui_bg}; border: 1px solid \{theme.ui_border}; border-radius: 4px; box-shadow: 2px 2px 10px \{shadow}; min-width: 140px; z-index: 1000; color: \{theme.ui_text};"
   let section_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border};"
   let header_style = "padding: 4px 12px; border-bottom: 1px solid \{theme.ui_border}; color: \{theme.ui_text_muted}; font-size: 11px;"
-  let close_menu = fn() { state.hide_context_menu() }
+  // 閉じたらフォーカスをエディタに返す。項目のボタンは押すと DOM から消える
+  // ので、放っておくとフォーカスが body に落ちてキーが効かなくなる。
+  let close_menu = fn() {
+    state.hide_context_menu()
+    @lib.focus_container(state)
+  }
   div(style~, attrs=[("data-context-menu", @element.AttrString("1"))], [
     // 要素上でクリックした場合のみメニューを表示
     if menu.target_id is Some(id) {

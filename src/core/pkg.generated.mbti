@@ -2,8 +2,10 @@
 package "mizchi/moonlight/core"
 
 import {
+  "mizchi/moonlight/interaction",
   "mizchi/moonlight/model",
   "mizchi/signals",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -124,6 +126,7 @@ pub fn EditorState::get_viewport_center(Self) -> @model.Point
 pub fn EditorState::has_element_with_id(Self, String) -> Bool
 pub fn EditorState::hide_context_menu(Self) -> Unit
 pub fn EditorState::hit_test(Self, Double, Double) -> @model.Element?
+pub fn EditorState::insert_element_raw(Self, @model.Element, Int) -> Unit
 pub fn EditorState::is_box_selecting(Self) -> Bool
 pub fn EditorState::is_child_element(Self, String) -> Bool
 pub fn EditorState::is_dragging(Self) -> Bool
@@ -139,6 +142,7 @@ pub fn EditorState::new_with_mode(Int, Int, EditorMode) -> Self
 pub fn EditorState::pan(Self, Double, Double) -> Unit
 pub fn EditorState::pan_move(Self, Double, Double) -> Unit
 pub fn EditorState::register_plain_svg_ids(Self, Array[String]) -> Unit
+pub fn EditorState::removal_of(Self, @model.Element) -> @model.Command
 pub fn EditorState::remove_element(Self, String) -> Unit
 pub fn EditorState::remove_element_raw(Self, String) -> Unit
 pub fn EditorState::remove_from_selection(Self, String) -> Unit
@@ -165,6 +169,7 @@ pub fn EditorState::start_resize(Self, String, @model.HandlePosition, Double, Do
 pub fn EditorState::start_text_edit(Self, String, Double, Double) -> Unit
 pub fn EditorState::start_text_edit_existing(Self, String, String, Double, Double, String, Double?) -> Unit
 pub fn EditorState::sync_related_elements(Self, String) -> Unit
+pub fn EditorState::to_interaction_scene(Self) -> @interaction.Scene
 pub fn EditorState::toggle_grid(Self) -> Unit
 pub fn EditorState::update_box_select(Self, Double, Double) -> Unit
 pub fn EditorState::update_connected_lines(Self, String) -> Unit
@@ -219,11 +224,8 @@ pub(all) struct PlacementState {
 pub(all) enum ToolMode {
   Select
   FreeDraw
-}
-pub impl Eq for ToolMode
-pub impl Show for ToolMode
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
 // Traits
-

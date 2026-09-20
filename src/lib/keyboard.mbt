@@ -64,11 +64,6 @@ fn handle_key(
     // その他のキーはテキスト入力として扱う（ブラウザに処理させる）
     return false
   }
-  // モーダル表示中の Escape は選択解除ではなくモーダルを閉じる
-  if state.modal_open.get() && e.key == "Escape" {
-    state.modal_open.set(false)
-    return true
-  }
   // 矢印はキーバインド表を通さずここで捌く。Shift+矢印はリサイズという
   // 「同じキーで違う動作」なので、key と修飾キーの一対一表では書けない。
   match e.key {
@@ -124,8 +119,16 @@ fn execute_action(
       state.select_all()
       true
     }
+    // 内側にあるものから順に閉じる。ここが選択解除だけだった頃は、埋め込み側で
+    // Escape を押しても右クリックメニューが開いたまま残っていた。
     "escape" => {
-      if state.tool_mode.get() == @core.FreeDraw {
+      if state.is_placing() {
+        state.cancel_placement()
+      } else if state.context_menu.get() is Some(_) {
+        state.hide_context_menu()
+      } else if state.modal_open.get() {
+        state.modal_open.set(false)
+      } else if state.tool_mode.get() == @core.FreeDraw {
         state.tool_mode.set(@core.Select)
       } else {
         set_selected_id(state, None)
@@ -230,13 +233,14 @@ pub fn delete_selection(
   let before = state.elements.get()
   state.delete_selected()
   let remaining = state.elements.get().map(fn(el) { el.id })
-  // Batch は後ろから戻すので、ここでは後ろから積む。そうすると戻したときに
-  // 元の並び（＝重なり順）で戻る。
+  // Batch は後ろから戻すので、ここでは後ろから積む。そうすると戻すときは
+  // 位置の小さい順に差し込まれ、先に入れた要素が後の位置をずらさない。
+  // i は削除前の配列での位置、つまり元の重なり順そのもの。
   let removed : Array[@model.Command] = []
   for i = before.length() - 1; i >= 0; i = i - 1 {
     let el = before[i]
     if !remaining.contains(el.id) {
-      removed.push(@model.RemoveElement(el))
+      removed.push(@model.RemoveElement(el, i))
     }
   }
   // 何も消えていないなら履歴に段を作らない（Ctrl+Z が空振りする段になる）

@@ -336,7 +336,10 @@ test "Batch: まとめて消したものは Undo 一回で全部戻る" {
   execute_command(
     history,
     state,
-    @model.Batch([@model.RemoveElement(child), @model.RemoveElement(parent)]),
+    @model.Batch([
+      @model.RemoveElement(child, 1),
+      @model.RemoveElement(parent, 0),
+    ]),
   )
   inspect(state.elements.get().length(), content="0")
   inspect(undo_command(history, state), content="true")
@@ -370,4 +373,42 @@ test "Batch: 入れ子でも順番どおりに適用・取り消しされる" {
   let back = state.elements.get()[0]
   inspect(back.x, content="0")
   inspect(back.y, content="0")
+}
+
+///|
+test "RemoveElement: Undo は元の重なり順の位置に戻す" {
+  // SVG は文書順がそのまま描画順なので、間から消した要素は間に戻らないと
+  // 書き出した絵が変わってしまう
+  let state = EditorState::new(800, 600)
+  let a = test_make_rect("a", 0.0, 0.0, 10.0, 10.0)
+  let b = test_make_rect("b", 20.0, 0.0, 10.0, 10.0)
+  let c = test_make_rect("c", 40.0, 0.0, 10.0, 10.0)
+  state.elements.set([a, b, c])
+  let history = @model.History::new()
+
+  // 真ん中の b を消す
+  execute_command(history, state, state.removal_of(b))
+  let after = state.elements.get()
+  inspect(after.length(), content="2")
+  inspect(after[0].id, content="a")
+  inspect(after[1].id, content="c")
+
+  // 末尾ではなく元の位置へ
+  inspect(undo_command(history, state), content="true")
+  let restored = state.elements.get()
+  inspect(restored.length(), content="3")
+  inspect(restored[0].id, content="a")
+  inspect(restored[1].id, content="b")
+  inspect(restored[2].id, content="c")
+}
+
+///|
+test "RemoveElement: 記録時より縮んでいても落とさずに戻す" {
+  // 記録した位置が今の長さを超えることがある（あとから他も消えた場合）
+  let state = EditorState::new(800, 600)
+  let a = test_make_rect("a", 0.0, 0.0, 10.0, 10.0)
+  state.elements.set([])
+  state.insert_element_raw(a, 99)
+  inspect(state.elements.get().length(), content="1")
+  inspect(state.elements.get()[0].id, content="a")
 }
