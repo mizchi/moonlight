@@ -236,7 +236,9 @@ pub fn ShapeType::is_valid(self : ShapeType, x : Double, y : Double) -> Bool {
       let dy = y2 - y
       dx * dx + dy * dy > 0.0
     }
-    Path(_, _, _, _, _) => false // Path は UI から直接生成不可
+    // 中身のある Path は有効。false を返していた頃は、Undo で戻そうとした
+    // Path を add_element_raw が黙って捨てていた（フリーハンドの線が消えた）。
+    Path(d, _, _, _, _) => d != ""
     Polyline(points) => points.length() >= 2
     Text(_, _) => true
   }

@@ -70,7 +70,7 @@ pub fn element_to_svg_string(@model.Element) -> String
 
 pub fn export_elements_to_svg(Array[@model.Element], Int, Int, String) -> String
 
-pub fn finish_free_draw(@mizchi/moonlight/core.EditorState, () -> String) -> Unit
+pub fn finish_free_draw(@mizchi/moonlight/core.EditorState, () -> String, history? : @model.History) -> Unit
 
 pub fn focus_container(@mizchi/moonlight/core.EditorState) -> Unit
 

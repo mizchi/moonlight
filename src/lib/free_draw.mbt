@@ -34,6 +34,7 @@ pub fn continue_free_draw(
 pub fn finish_free_draw(
   state : @core.EditorState,
   new_id : () -> String,
+  history? : @model.History,
 ) -> Unit {
   match state.free_draw_state.get() {
     Some(fds) => {
@@ -76,10 +77,15 @@ pub fn finish_free_draw(
         parent_id: None,
         connections: None,
       }
-      // 要素を追加
-      let elements = state.elements.get()
-      elements.push(path_element)
-      state.elements.set(elements)
+      // 要素を追加する。signal が持っている配列をそのまま push して同じ参照を
+      // set すると「変わっていない」と見なされて再描画されないので、
+      // 配列を作り直す add_element_raw を通す。
+      match history {
+        // 履歴があれば一段積む（描いた線も Ctrl+Z で取り消せる）
+        Some(h) =>
+          @core.execute_command(h, state, @model.AddElement(path_element))
+        None => state.add_element_raw(path_element)
+      }
       // 選択モードに戻り、作成した Path を選択
       state.tool_mode.set(@core.Select)
       state.selected_ids.set([el_id])
