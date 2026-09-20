@@ -65,6 +65,17 @@ const handles = (page: Page) => page.locator('svg [data-handle]');
 const canvas = (page: Page) => page.locator('svg[viewBox]').first();
 const everything = (page: Page) => page.locator('svg [data-id]');
 
+/** キャンバス上の要素を並び順に読む。SVG では文書順がそのまま描画順 */
+async function drawOrder(page: Page) {
+  // 選択中は選択枠が混ざるので、背景をクリックして外してから読む
+  const box = await canvas(page).boundingBox();
+  await page.mouse.click(box!.x + 6, box!.y + 6);
+  await page.waitForTimeout(150);
+  return page
+    .locator('svg [data-id]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-id')));
+}
+
 async function num(locator: Locator, name: string) {
   return parseFloat((await locator.getAttribute(name)) ?? '0');
 }
@@ -299,6 +310,49 @@ for (const mode of MODES) {
       await page.waitForTimeout(250);
 
       expect(await everything(page).count(), 'select all + delete should empty the canvas').toBe(0);
+    });
+
+    test('undo puts a deleted shape back where it was, not on top', async ({ page }) => {
+      // 消した要素が末尾に戻ると、その図形は他の図形より手前に描かれるようになる。
+      // 書き出した SVG の見た目が undo の前後で変わってしまう。
+      const before = await drawOrder(page);
+      expect(before.length, 'the scene should not be empty').toBeGreaterThan(2);
+
+      await select(page, shapes(page).nth(1));
+      await page.keyboard.press('Delete');
+      await page.waitForTimeout(200);
+      expect(await drawOrder(page), 'the delete should change the scene').not.toEqual(before);
+
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(250);
+      expect(await drawOrder(page), 'undo should restore the order, not append').toEqual(before);
+    });
+
+    test('Escape closes the context menu', async ({ page }) => {
+      await shapes(page).first().click({ button: 'right', force: true });
+      const menu = page.locator('[data-context-menu]');
+      await expect(menu).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(menu, 'Escape should close the menu, not just deselect').toHaveCount(0);
+    });
+
+    test('the keyboard still works right after using the context menu', async ({ page }) => {
+      // 項目のボタンは押すと DOM から消えるので、フォーカスが外に落ちやすい。
+      // 落ちると keydown がエディタまで上がってこず、以後キーが死ぬ。
+      const before = await everything(page).count();
+
+      await shapes(page).first().click({ button: 'right', force: true });
+      const remove = page.locator('[data-context-menu] button:has-text("Delete")').first();
+      await expect(remove).toBeVisible();
+      await remove.click();
+      await page.waitForTimeout(200);
+      expect(await everything(page).count()).toBeLessThan(before);
+
+      // キャンバスを触らずにそのまま Ctrl+Z
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(300);
+      expect(await everything(page).count(), 'undo should work without clicking the canvas first').toBe(before);
     });
 
     test('Ctrl+Shift+Z redoes what Ctrl+Z undid', async ({ page }) => {

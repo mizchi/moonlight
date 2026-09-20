@@ -6,8 +6,10 @@
 pub(all) enum Command {
   /// 要素を追加
   AddElement(Element)
-  /// 要素を削除
-  RemoveElement(Element)
+  /// 要素を削除 (element, 削除時の位置)
+  /// SVG では文書順がそのまま描画順なので、位置を覚えておかないと Undo で
+  /// 戻したときに重なり順が変わってしまう。
+  RemoveElement(Element, Int)
   /// 要素を移動 (id, from_x, from_y, to_x, to_y)
   MoveElement(String, Double, Double, Double, Double)
   /// 要素をリサイズ (id, old_shape, new_shape)

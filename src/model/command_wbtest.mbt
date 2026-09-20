@@ -51,8 +51,8 @@ test "Command - AddElement" {
 ///|
 test "Command - RemoveElement" {
   let element = Element::new("el-1", 100.0, 100.0, Circle(50.0))
-  let cmd = RemoveElement(element)
-  assert_true(cmd is RemoveElement(_))
+  let cmd = RemoveElement(element, 3)
+  assert_true(cmd is RemoveElement(_, 3))
 }
 
 ///|

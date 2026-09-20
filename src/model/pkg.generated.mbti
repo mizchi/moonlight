@@ -235,7 +235,7 @@ pub(all) struct ChildMoveResult {
 
 pub(all) enum Command {
   AddElement(Element)
-  RemoveElement(Element)
+  RemoveElement(Element, Int)
   MoveElement(String, Double, Double, Double, Double)
   ResizeElement(String, ShapeType, ShapeType)
   ReorderElement(String, Int, Int)

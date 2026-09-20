@@ -808,6 +808,47 @@ pub fn EditorState::add_element_raw(
 }
 
 ///|
+/// 要素を元の位置に差し戻す（履歴なし）
+/// Undo 専用。記録時より要素が減っていることがあるので、はみ出す位置は末尾に丸める。
+pub fn EditorState::insert_element_raw(
+  self : EditorState,
+  element : @model.Element,
+  index : Int,
+) -> Unit {
+  guard element.is_valid() else { return }
+  self.elements.update(fn(els) {
+    let at = if index < 0 {
+      0
+    } else if index > els.length() {
+      els.length()
+    } else {
+      index
+    }
+    let new_els : Array[@model.Element] = []
+    for i = 0; i < at; i = i + 1 {
+      new_els.push(els[i])
+    }
+    new_els.push(element)
+    for i = at; i < els.length(); i = i + 1 {
+      new_els.push(els[i])
+    }
+    new_els
+  })
+}
+
+///|
+/// 削除コマンドを組み立てる（今いる位置を覚えさせる）
+pub fn EditorState::removal_of(
+  self : EditorState,
+  element : @model.Element,
+) -> @model.Command {
+  let index = self
+    .get_element_index(element.id)
+    .unwrap_or(self.elements.get().length())
+  @model.RemoveElement(element, index)
+}
+
+///|
 /// 要素を削除（履歴なし、子要素も削除）
 pub fn EditorState::remove_element_raw(self : EditorState, id : String) -> Unit {
   // 要素とその子要素を削除
@@ -1531,7 +1572,7 @@ pub fn redo_command(history : @model.History, state : EditorState) -> Bool {
 fn apply_command(command : @model.Command, state : EditorState) -> Unit {
   match command {
     @model.AddElement(element) => state.add_element_raw(element)
-    @model.RemoveElement(element) => state.remove_element_raw(element.id)
+    @model.RemoveElement(element, _) => state.remove_element_raw(element.id)
     @model.MoveElement(id, _, _, to_x, to_y) => {
       // model 層の純粋関数でアトミックに更新
       let new_elements = @model.move_element_with_relations(
@@ -1571,7 +1612,8 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
 fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
   match command {
     @model.AddElement(element) => state.remove_element_raw(element.id)
-    @model.RemoveElement(element) => state.add_element_raw(element)
+    @model.RemoveElement(element, index) =>
+      state.insert_element_raw(element, index)
     @model.MoveElement(id, from_x, from_y, _, _) => {
       // model 層の純粋関数でアトミックに更新
       let new_elements = @model.move_element_with_relations(

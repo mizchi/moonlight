@@ -267,7 +267,12 @@ fn create_editor_handle_js(
   let deselect = fn() -> Unit { state.selected_ids.set([]) }
   let get_selected_ids = fn() -> Array[String] { state.selected_ids.get() }
   // フォーカス API
-  let focus = fn() -> Unit { state.has_focus.set(true) }
+  // フラグだけ立てても keydown はコンテナまで上がってこないので、DOM 側の
+  // フォーカスも一緒に移す
+  let focus = fn() -> Unit {
+    state.has_focus.set(true)
+    @lib.focus_container(state)
+  }
   let blur = fn() -> Unit { state.has_focus.set(false) }
   // 要素操作 API
   let get_elements = fn() -> Array[@model.Element] { state.elements.get() }
@@ -1143,7 +1148,7 @@ fn commit_text_edit(
     Some(text_id) =>
       if text_content == "" {
         if state.find_element(text_id) is Some(el) {
-          @core.execute_command(history, state, @model.RemoveElement(el))
+          @core.execute_command(history, state, state.removal_of(el))
         }
       } else if text_content != edit_state.initial_text {
         // UpdateText コマンドを使ってUndoスタックに記録
