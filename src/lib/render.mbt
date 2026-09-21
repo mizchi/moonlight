@@ -30,11 +30,6 @@ pub extern "js" fn set_inner_html(el : @js.Any, html : String) =
 pub extern "js" fn clear_svg_children(svg : @js.Any) =
   #| (svg) => { while (svg.firstChild) svg.removeChild(svg.firstChild); }
 
-///|
-/// JS値が null/undefined かチェック
-pub extern "js" fn is_js_null(obj : @js.Any) -> Bool =
-  #| (obj) => obj === null || obj === undefined
-
 // =============================================================================
 // 矢印マーカー定義
 // =============================================================================
@@ -126,16 +121,6 @@ pub fn add_marker_attrs(
 // =============================================================================
 // 要素レンダリング（共通ロジック）
 // =============================================================================
-
-///|
-/// 要素を SVG DOM 要素として描画
-/// is_selected: 選択状態（ハイライト用）
-pub fn render_element_to_svg(
-  el : @model.Element,
-  is_selected : Bool,
-) -> @js.Any {
-  render_element_to_svg_with_parent(el, is_selected, None)
-}
 
 ///|
 /// 要素を SVG DOM 要素として描画（親のストローク色を考慮）
@@ -290,183 +275,13 @@ pub fn render_element_to_svg_with_parent(
 // 選択枠・アンカーポイント描画
 // =============================================================================
 
-///|
-/// 選択枠を描画（低レベルヘルパー）
-pub fn create_selection_rect(
-  svg : @js.Any,
-  x : Double,
-  y : Double,
-  w : Double,
-  h : Double,
-) -> @js.Any {
-  let rect = create_svg_element_ns("rect")
-  set_svg_attr(rect, "class", "selection-rect")
-  set_svg_attr(rect, "x", @model.num_str(x - 2.0))
-  set_svg_attr(rect, "y", @model.num_str(y - 2.0))
-  set_svg_attr(rect, "width", @model.num_str(w + 4.0))
-  set_svg_attr(rect, "height", @model.num_str(h + 4.0))
-  set_svg_attr(rect, "fill", "none")
-  set_svg_attr(rect, "stroke", "#0066ff")
-  set_svg_attr(rect, "stroke-width", "2")
-  set_svg_attr(rect, "stroke-dasharray", "4,2")
-  set_svg_attr(rect, "pointer-events", "none")
-  append_child(svg, rect)
-  rect
-}
-
-///|
-/// アンカーポイントを描画
-pub fn render_anchor_point(
-  svg : @js.Any,
-  x : Double,
-  y : Double,
-  element_id : String,
-  anchor_type : String,
-) -> @js.Any {
-  let circle = create_svg_element_ns("circle")
-  set_svg_attr(circle, "class", "anchor-point")
-  set_svg_attr(circle, "cx", @model.num_str(x))
-  set_svg_attr(circle, "cy", @model.num_str(y))
-  set_svg_attr(circle, "r", "6")
-  set_svg_attr(circle, "fill", "#0066ff")
-  set_svg_attr(circle, "stroke", "#ffffff")
-  set_svg_attr(circle, "stroke-width", "2")
-  set_svg_attr(circle, "cursor", "crosshair")
-  set_svg_attr(circle, "data-anchor", anchor_type)
-  set_svg_attr(circle, "data-anchor-element", element_id)
-  append_child(svg, circle)
-  circle
-}
-
-///|
-/// リサイズハンドルを描画
-pub fn render_resize_handle(
-  svg : @js.Any,
-  x : Double,
-  y : Double,
-  handle_type : String,
-  element_id : String,
-  cursor : String,
-) -> @js.Any {
-  let rect = create_svg_element_ns("rect")
-  let size = 8.0
-  set_svg_attr(rect, "class", "resize-handle")
-  set_svg_attr(rect, "x", @model.num_str(x - size / 2.0))
-  set_svg_attr(rect, "y", @model.num_str(y - size / 2.0))
-  set_svg_attr(rect, "width", @model.num_str(size))
-  set_svg_attr(rect, "height", @model.num_str(size))
-  set_svg_attr(rect, "fill", "#0066ff")
-  set_svg_attr(rect, "stroke", "#ffffff")
-  set_svg_attr(rect, "stroke-width", "1")
-  set_svg_attr(rect, "cursor", cursor)
-  set_svg_attr(rect, "data-handle", handle_type)
-  set_svg_attr(rect, "data-element-id", element_id)
-  append_child(svg, rect)
-  rect
-}
-
-///|
-/// Lineのハンドルを描画（円形）
-pub fn render_line_handle(
-  svg : @js.Any,
-  x : Double,
-  y : Double,
-  handle_type : String,
-  element_id : String,
-) -> @js.Any {
-  let circle = create_svg_element_ns("circle")
-  set_svg_attr(circle, "class", "line-handle")
-  set_svg_attr(circle, "cx", @model.num_str(x))
-  set_svg_attr(circle, "cy", @model.num_str(y))
-  set_svg_attr(circle, "r", "5")
-  set_svg_attr(circle, "fill", "#0066ff")
-  set_svg_attr(circle, "stroke", "#ffffff")
-  set_svg_attr(circle, "stroke-width", "2")
-  set_svg_attr(circle, "cursor", "move")
-  set_svg_attr(circle, "data-handle", handle_type)
-  set_svg_attr(circle, "data-element-id", element_id)
-  append_child(svg, circle)
-  circle
-}
-
 // =============================================================================
 // 要素の境界計算
 // =============================================================================
 
-///|
-/// 要素の境界を取得 (x, y, width, height)
-pub fn get_element_bounds(
-  el : @model.Element,
-) -> (Double, Double, Double, Double) {
-  match el.shape {
-    @model.Rect(w, h, _, _) => (el.x, el.y, w, h)
-    @model.Circle(r) => (el.x - r, el.y - r, r * 2.0, r * 2.0)
-    @model.Ellipse(rx, ry) => (el.x - rx, el.y - ry, rx * 2.0, ry * 2.0)
-    @model.Line(x2, y2) => {
-      let min_x = if el.x < x2 { el.x } else { x2 }
-      let min_y = if el.y < y2 { el.y } else { y2 }
-      let max_x = if el.x > x2 { el.x } else { x2 }
-      let max_y = if el.y > y2 { el.y } else { y2 }
-      // 最小幅/高さを保証
-      let w = if max_x - min_x < 1.0 { 1.0 } else { max_x - min_x }
-      let h = if max_y - min_y < 1.0 { 1.0 } else { max_y - min_y }
-      (min_x, min_y, w, h)
-    }
-    @model.Text(_, font_size) => {
-      let size = font_size.unwrap_or(16.0)
-      (el.x - 50.0, el.y - size / 2.0, 100.0, size)
-    }
-    _ => (el.x, el.y, 50.0, 50.0)
-  }
-}
-
 // =============================================================================
 // アンカーポイント位置計算
 // =============================================================================
-
-///|
-/// 要素のアンカーポイントを取得
-pub fn get_element_anchor_points(
-  el : @model.Element,
-) -> Array[(Double, Double, @core.AnchorType)] {
-  match el.shape {
-    @model.Rect(w, h, _, _) => {
-      let cx = el.x + w / 2.0
-      let cy = el.y + h / 2.0
-      [
-        (cx, el.y, @core.Top),
-        (cx, el.y + h, @core.Bottom),
-        (el.x, cy, @core.Left),
-        (el.x + w, cy, @core.Right),
-        (cx, cy, @core.Center),
-      ]
-    }
-    @model.Circle(r) =>
-      [
-        (el.x, el.y - r, @core.Top),
-        (el.x, el.y + r, @core.Bottom),
-        (el.x - r, el.y, @core.Left),
-        (el.x + r, el.y, @core.Right),
-        (el.x, el.y, @core.Center),
-      ]
-    @model.Ellipse(rx, ry) =>
-      [
-        (el.x, el.y - ry, @core.Top),
-        (el.x, el.y + ry, @core.Bottom),
-        (el.x - rx, el.y, @core.Left),
-        (el.x + rx, el.y, @core.Right),
-        (el.x, el.y, @core.Center),
-      ]
-    @model.Line(x2, y2) =>
-      [
-        (el.x, el.y, @core.LineStart),
-        (x2, y2, @core.LineEnd),
-        ((el.x + x2) / 2.0, (el.y + y2) / 2.0, @core.Center),
-      ]
-    @model.Text(_, _) => [(el.x, el.y, @core.Center)]
-    _ => []
-  }
-}
 
 // =============================================================================
 // SVGエクスポート
@@ -512,109 +327,9 @@ pub fn element_to_svg_string(el : @model.Element) -> String {
   }
 }
 
-///|
-/// 要素配列を SVG 文字列にエクスポート
-pub fn export_elements_to_svg(
-  elements : Array[@model.Element],
-  width : Int,
-  height : Int,
-  bg_color : String,
-) -> String {
-  let mut svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 \{width} \{height}\" width=\"\{width}\" height=\"\{height}\">\n"
-  svg = svg + "  <rect width=\"100%\" height=\"100%\" fill=\"\{bg_color}\"/>\n"
-  for el in elements {
-    // 子テキスト要素の場合、親の stroke 色を取得
-    let parent_stroke = @model.get_parent_stroke(elements, el.parent_id)
-    svg = svg +
-      "  " +
-      element_to_svg_string_with_parent(el, parent_stroke) +
-      "\n"
-  }
-  svg = svg + "</svg>"
-  svg
-}
-
-///|
-/// 要素を SVG 文字列に変換（親の stroke 色を考慮）
-fn element_to_svg_string_with_parent(
-  el : @model.Element,
-  parent_stroke : String?,
-) -> String {
-  let style = el.style
-  let fill = style.fill.unwrap_or("none")
-  let stroke = style.stroke.unwrap_or("#000000")
-  let stroke_width = style.stroke_width.unwrap_or(1.0)
-  match el.shape {
-    @model.Rect(w, h, rx, ry) => {
-      let rx_attr = match rx {
-        Some(v) => " rx=\"\{@model.num_str(v)}\""
-        None => ""
-      }
-      let ry_attr = match ry {
-        Some(v) => " ry=\"\{@model.num_str(v)}\""
-        None => ""
-      }
-      "<rect x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" width=\"\{@model.num_str(w)}\" height=\"\{@model.num_str(h)}\"\{rx_attr}\{ry_attr} fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-    }
-    @model.Circle(r) =>
-      "<circle cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" r=\"\{@model.num_str(r)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-    @model.Ellipse(rx, ry) =>
-      "<ellipse cx=\"\{@model.num_str(el.x)}\" cy=\"\{@model.num_str(el.y)}\" rx=\"\{@model.num_str(rx)}\" ry=\"\{@model.num_str(ry)}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-    @model.Line(x2, y2) =>
-      "<line x1=\"\{@model.num_str(el.x)}\" y1=\"\{@model.num_str(el.y)}\" x2=\"\{@model.num_str(x2)}\" y2=\"\{@model.num_str(y2)}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-    @model.Text(content, font_size) => {
-      let fs = font_size.unwrap_or(16.0)
-      // 親要素がある場合、テキスト色は親の stroke に揃える（Excalidraw 仕様）
-      let text_fill = @model.get_text_fill_color(el.style, parent_stroke)
-      "<text x=\"\{@model.num_str(el.x)}\" y=\"\{@model.num_str(el.y)}\" fill=\"\{text_fill}\" font-size=\"\{@model.num_str(fs)}\" text-anchor=\"middle\" dominant-baseline=\"middle\">\{content}</text>"
-    }
-    @model.Polyline(points) => {
-      let points_str = points
-        .map(fn(p) { "\{@model.num_str(p.x)},\{@model.num_str(p.y)}" })
-        .join(" ")
-      "<polyline points=\"\{points_str}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-    }
-    @model.Path(d, _, _, _, _) =>
-      "<path d=\"\{d}\" fill=\"\{fill}\" stroke=\"\{stroke}\" stroke-width=\"\{@model.num_str(stroke_width)}\"/>"
-  }
-}
-
 // =============================================================================
 // プレビュー線描画（アンカードラッグ時）
 // =============================================================================
-
-///|
-/// プレビュー線を描画
-pub extern "js" fn draw_preview_line(
-  svg : @js.Any,
-  x1 : Double,
-  y1 : Double,
-  x2 : Double,
-  y2 : Double,
-) =
-  #| (svg, x1, y1, x2, y2) => {
-  #|   const existing = svg.querySelector('.preview-line');
-  #|   if (existing) existing.remove();
-  #|   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  #|   line.setAttribute('class', 'preview-line');
-  #|   line.setAttribute('x1', x1);
-  #|   line.setAttribute('y1', y1);
-  #|   line.setAttribute('x2', x2);
-  #|   line.setAttribute('y2', y2);
-  #|   line.setAttribute('stroke', '#0066ff');
-  #|   line.setAttribute('stroke-width', '2');
-  #|   line.setAttribute('stroke-dasharray', '4,2');
-  #|   line.setAttribute('pointer-events', 'none');
-  #|   svg.appendChild(line);
-  #| }
-
-///|
-/// プレビュー線を削除
-pub extern "js" fn remove_preview_line(svg : @js.Any) =
-  #| (svg) => {
-  #|   const existing = svg.querySelector('.preview-line');
-  #|   if (existing) existing.remove();
-  #| }
 
 ///|
 /// フリードロープレビューを描画
@@ -656,28 +371,4 @@ pub extern "js" fn remove_free_draw_preview(svg : @js.Any) =
   #| (svg) => {
   #|   const existing = svg.querySelector('.free-draw-preview');
   #|   if (existing) existing.remove();
-  #| }
-
-///|
-/// 選択枠を削除
-pub extern "js" fn remove_selection_rect(svg : @js.Any) =
-  #| (svg) => {
-  #|   const existing = svg.querySelector('.selection-rect');
-  #|   if (existing) existing.remove();
-  #| }
-
-///|
-/// アンカーポイントを削除
-pub extern "js" fn remove_anchor_points(svg : @js.Any) =
-  #| (svg) => {
-  #|   const existing = svg.querySelectorAll('.anchor-point');
-  #|   existing.forEach(el => el.remove());
-  #| }
-
-///|
-/// リサイズハンドルを削除
-pub extern "js" fn remove_resize_handles(svg : @js.Any) =
-  #| (svg) => {
-  #|   const existing = svg.querySelectorAll('.resize-handle, .line-handle');
-  #|   existing.forEach(el => el.remove());
   #| }

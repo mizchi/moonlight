@@ -480,3 +480,8 @@ extern "js" fn parse_key_event(e : @js.Any) -> KeyEvent =
   #|   meta_key: e.metaKey || false,
   #|   shift_key: e.shiftKey || false
   #| })
+
+///|
+/// preventDefault を呼ぶ
+extern "js" fn prevent_default_ffi(e : @js.Any) =
+  #| (e) => e.preventDefault()

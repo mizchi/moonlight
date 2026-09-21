@@ -106,50 +106,12 @@ pub fn EditorOptions::from_js(obj : @js.Any) -> EditorOptions {
 }
 
 ///|
-/// テーマ文字列を ThemeMode に変換
-pub fn parse_theme(theme : String?) -> @model.ThemeMode {
-  match theme {
-    Some("dark") => @model.Dark
-    _ => @model.Light
-  }
-}
-
-///|
 /// プレビューオプション
 pub(all) struct PreviewOptions {
   width : Int? // 幅
   height : Int? // 高さ
   click_to_edit : Bool // クリックでモーダルを開く
   modal_fullscreen : Bool // モーダルをフルスクリーンにする
-}
-
-///|
-/// アンカータイプを文字列から変換
-pub fn parse_anchor_type(s : String) -> @core.AnchorType? {
-  match s {
-    "top" => Some(@core.Top)
-    "bottom" => Some(@core.Bottom)
-    "left" => Some(@core.Left)
-    "right" => Some(@core.Right)
-    "center" => Some(@core.Center)
-    "line-start" => Some(@core.LineStart)
-    "line-end" => Some(@core.LineEnd)
-    _ => None
-  }
-}
-
-///|
-/// アンカータイプを文字列に変換
-pub fn anchor_type_to_string(anchor : @core.AnchorType) -> String {
-  match anchor {
-    @core.Top => "top"
-    @core.Bottom => "bottom"
-    @core.Left => "left"
-    @core.Right => "right"
-    @core.Center => "center"
-    @core.LineStart => "line-start"
-    @core.LineEnd => "line-end"
-  }
 }
 
 ///|
