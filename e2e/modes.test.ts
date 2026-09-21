@@ -286,6 +286,43 @@ for (const mode of MODES) {
       expect(await everything(page).count(), 'one undo should remove the whole copy').toBe(before);
     });
 
+    test('a freehand stroke draws, deletes, undoes and redoes', async ({ page }) => {
+      const strokes = page.locator('svg path[data-id]');
+      await expect(strokes, 'the sample scene has no paths').toHaveCount(0);
+
+      // フリードローへ。キーは三つの殻で共通
+      const box = await canvas(page).boundingBox();
+      await page.mouse.click(box!.x + 6, box!.y + 6);
+      await page.keyboard.press('p');
+      await page.waitForTimeout(200);
+
+      // 見えている範囲で描く（キャンバスが viewport より縦に長い殻がある）
+      const viewport = page.viewportSize()!;
+      const y = Math.min(box!.y + box!.height * 0.45, viewport.height - 140);
+      const x0 = box!.x + box!.width * 0.2;
+      await page.mouse.move(x0, y);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++) {
+        await page.mouse.move(x0 + i * 12, y - i * 2, { steps: 3 });
+      }
+      await page.mouse.up();
+      // 描いた線は、他を触らなくてもその場で出ること
+      await expect(strokes, 'the stroke should appear as soon as it is drawn').toHaveCount(1);
+
+      // 描いた直後は選択されているので、そのまま消せる
+      await page.keyboard.press('Delete');
+      await expect(strokes).toHaveCount(0);
+
+      await page.keyboard.press('Control+z');
+      await expect(strokes, 'undo should bring the stroke back').toHaveCount(1);
+
+      await page.keyboard.press('Control+z');
+      await expect(strokes, 'a second undo should take back the drawing itself').toHaveCount(0);
+
+      await page.keyboard.press('Control+Shift+z');
+      await expect(strokes, 'redo should draw it again').toHaveCount(1);
+    });
+
     test('Ctrl+C then Ctrl+V pastes a copy, and one undo removes it', async ({ page }) => {
       const before = await everything(page).count();
 

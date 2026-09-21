@@ -1379,7 +1379,7 @@ fn create_pointerup_handler(
         @lib.remove_free_draw_preview(svg)
       }
       // Path 要素を作成
-      @lib.finish_free_draw(state, new_id)
+      @lib.finish_free_draw(state, new_id, history~)
       return
     }
     if state.is_panning.get() {
