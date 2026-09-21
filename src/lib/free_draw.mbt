@@ -34,7 +34,7 @@ pub fn continue_free_draw(
 pub fn finish_free_draw(
   state : @core.EditorState,
   new_id : () -> String,
-  history? : @model.History,
+  history~ : @model.History,
 ) -> Unit {
   match state.free_draw_state.get() {
     Some(fds) => {
@@ -77,15 +77,11 @@ pub fn finish_free_draw(
         parent_id: None,
         connections: None,
       }
-      // 要素を追加する。signal が持っている配列をそのまま push して同じ参照を
-      // set すると「変わっていない」と見なされて再描画されないので、
-      // 配列を作り直す add_element_raw を通す。
-      match history {
-        // 履歴があれば一段積む（描いた線も Ctrl+Z で取り消せる）
-        Some(h) =>
-          @core.execute_command(h, state, @model.AddElement(path_element))
-        None => state.add_element_raw(path_element)
-      }
+      // 履歴に一段積む（描いた線も Ctrl+Z で取り消せる）。
+      // execute_command は配列を作り直すので、signal が持っている配列をその
+      // まま push して同じ参照を set した場合の「変わっていない」扱いによる
+      // 再描画漏れも起きない。
+      @core.execute_command(history, state, @model.AddElement(path_element))
       // 選択モードに戻り、作成した Path を選択
       state.tool_mode.set(@core.Select)
       state.selected_ids.set([el_id])
@@ -110,32 +106,9 @@ pub fn set_select_mode(state : @core.EditorState) -> Unit {
 }
 
 ///|
-/// フリードローモードに切り替え
-pub fn set_free_draw_mode(state : @core.EditorState) -> Unit {
-  state.tool_mode.set(@core.FreeDraw)
-}
-
-///|
 /// フリードロー中かどうか
 pub fn is_drawing(state : @core.EditorState) -> Bool {
   state.free_draw_state.get() is Some(_)
-}
-
-///|
-/// フリードローモードかどうか
-pub fn is_free_draw_mode(state : @core.EditorState) -> Bool {
-  state.tool_mode.get() == @core.FreeDraw
-}
-
-///|
-/// フリードローオプションを更新
-pub fn set_free_draw_options(
-  state : @core.EditorState,
-  resample_dist : Double,
-  epsilon : Double,
-  max_error : Double,
-) -> Unit {
-  state.free_draw_options.set({ resample_dist, epsilon, max_error, })
 }
 
 ///|

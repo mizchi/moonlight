@@ -30,13 +30,6 @@ pub extern "js" fn is_focus_within_ffi(
   #| (container, e) => container.contains(e.relatedTarget)
 
 ///|
-/// キーボードイベントを処理すべきかどうかを判定
-/// フォーカスがエディタ内にある場合のみ true を返す
-pub fn should_handle_keyboard(has_focus : @luna.Signal[Bool]) -> Bool {
-  has_focus.get()
-}
-
-///|
 /// 要素に実際に DOM フォーカスを当てる
 extern "js" fn focus_element_ffi(el : @js.Any) =
   #| (el) => {
@@ -86,19 +79,3 @@ pub fn setup_focus_management(
     }
   })
 }
-
-///|
-/// コンテナレベルでキーボードイベントを設定
-pub extern "js" fn add_keydown_listener_to_element(
-  el : @js.Any,
-  handler : (@js.Any) -> Unit,
-) =
-  #| (el, handler) => el.addEventListener('keydown', handler)
-
-///|
-/// コンテナレベルでキーボードイベントを設定
-pub extern "js" fn add_keyup_listener_to_element(
-  el : @js.Any,
-  handler : (@js.Any) -> Unit,
-) =
-  #| (el, handler) => el.addEventListener('keyup', handler)
