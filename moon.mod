@@ -1,6 +1,6 @@
 name = "mizchi/moonlight"
 
-version = "0.1.2"
+version = "0.1.3"
 
 import {
   "mizchi/luna@0.25.0",
