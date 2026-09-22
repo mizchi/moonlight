@@ -189,6 +189,14 @@ fn move_shape_with_relations(
 
 ///|
 /// Line 要素を移動（接続グラフを更新）
+///
+/// 掴んだ線は自由に動き、その端点が結合している先を連れて動く:
+///   - 図形なら同じ差分で平行移動する（子要素も一緒）
+///   - 線なら結合している端点だけを引き連れる（相手の線が伸縮する）
+///
+/// 連れて動いた要素にぶら下がる「別の」線は、最後に BFS で追随させる。
+/// これをしないと a — b — c の鎖で b — c 間の線を掴んだとき、
+/// b が動いても a — b 間の線が取り残されて接続が切れて見える。
 fn move_line_with_topology(
   elements : Array[Element],
   id : String,
@@ -202,46 +210,59 @@ fn move_line_with_topology(
   let line_updates = compute_line_move_topology(
     elements, id, new_x, new_y, dx, dy,
   )
-  // 接続されている非 Line 要素のIDを収集
+  // ここで座標が決まった線は、あとの BFS で上書きしない
+  let updated_line_ids = line_updates.map(fn(c) { c.id })
+  // 掴んだ線の移動後の端点
+  let moved_start : Point = { x: new_x, y: new_y, }
+  let moved_end : Point = match
+    line_updates.iter().find_first(fn(c) { c.id == id }) {
+    Some(c) => { x: c.x2, y: c.y2, }
+    None =>
+      match el.shape {
+        Line(x2, y2) => { x: x2 + dx, y: y2 + dy, }
+        _ => moved_start
+      }
+  }
+  // 平行移動する図形のID
   let connected_non_line_ids : Array[String] = []
-  match el.connections {
-    Some(conns) => {
-      match conns.start {
-        Some(conn) => {
-          let is_line = elements
-            .iter()
-            .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if !is_line && !connected_non_line_ids.contains(conn.element_id) {
-            connected_non_line_ids.push(conn.element_id)
-          }
-        }
-        None => ()
-      }
-      match conns.end {
-        Some(conn) => {
-          let is_line = elements
-            .iter()
-            .any(fn(e) { e.id == conn.element_id && e.shape is Line(_, _) })
-          if !is_line && !connected_non_line_ids.contains(conn.element_id) {
-            connected_non_line_ids.push(conn.element_id)
-          }
-        }
-        None => ()
-      }
+  // 端点だけを引き連れる線: (線ID, 相手側のアンカー, 合わせる座標)
+  let stretched_lines : Array[(String, Anchor, Point)] = []
+  // 掴んだ線の端点ごとに、結合先をどう動かすか振り分ける
+  let classify = fn(conn : Connection, our_end : Point) -> Unit {
+    guard elements.iter().find_first(fn(e) { e.id == conn.element_id })
+      is Some(target) else {
+      return
     }
-    None => ()
+    if target.shape is Line(_, _) {
+      // 線から線へのジョイント。相手の結合端点を掴んだ線の端点に合わせる。
+      // すでに compute_line_move_topology が動かした線には触らない。
+      if target.id != id && !updated_line_ids.contains(target.id) {
+        stretched_lines.push((target.id, conn.anchor, our_end))
+      }
+    } else if !connected_non_line_ids.contains(target.id) {
+      connected_non_line_ids.push(target.id)
+    }
+  }
+  if el.connections is Some(conns) {
+    if conns.start is Some(conn) {
+      classify(conn, moved_start)
+    }
+    if conns.end is Some(conn) {
+      classify(conn, moved_end)
+    }
   }
   // 子要素を収集
   let connected_children_ids : Array[String] = []
   for connected_id in connected_non_line_ids {
     for e in elements {
-      if e.parent_id == Some(connected_id) {
+      if e.parent_id == Some(connected_id) &&
+        !connected_children_ids.contains(e.id) {
         connected_children_ids.push(e.id)
       }
     }
   }
   // 全ての更新を適用
-  elements.map(fn(e) {
+  let moved = elements.map(fn(e) {
     // 更新対象の Line
     for coords in line_updates {
       if e.id == coords.id {
@@ -251,6 +272,16 @@ fn move_line_with_topology(
           y: coords.y,
           shape: Line(coords.x2, coords.y2),
         }
+      }
+    }
+    // 結合先の線: 掴んだ線に結合している端点だけを動かす
+    for stretched in stretched_lines {
+      let (line_id, anchor, point) = stretched
+      guard e.id == line_id && e.shape is Line(_, _) else { continue }
+      match anchor {
+        LineStart => return { ..e, x: point.x, y: point.y, }
+        LineEnd => return { ..e, shape: Line(point.x, point.y), }
+        _ => ()
       }
     }
     // 接続された非 Line 要素を移動
@@ -263,6 +294,20 @@ fn move_line_with_topology(
     }
     e
   })
+  // 連れて動いた要素にぶら下がる線を BFS で追随させる。
+  // 掴んだ線自身はドラッグの位置が正なので、更新対象から外す。
+  let starts : Array[String] = [id]
+  for connected_id in connected_non_line_ids {
+    starts.push(connected_id)
+  }
+  for child_id in connected_children_ids {
+    starts.push(child_id)
+  }
+  for stretched in stretched_lines {
+    let (line_id, _, _) = stretched
+    starts.push(line_id)
+  }
+  propagate_line_connections_bfs(moved, starts, except_ids=[id])
 }
 
 ///|

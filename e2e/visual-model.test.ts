@@ -175,6 +175,19 @@ async function expectEditorMatchesModel(
   );
 }
 
+/** エディタが書き出した SVG から、その線の端点を読む */
+async function editorLineEndpoints(page: Page, editorId: string) {
+  const svg: string = await page.evaluate(() => window.harness.editor.exportSvg());
+  const tag = svg.match(new RegExp(`<line[^>]*\\bdata-id="${editorId}"[^>]*>`))?.[0];
+  expect(tag, `the exported SVG should carry line ${editorId}`).toBeDefined();
+  const num = (name: string) => {
+    const found = tag!.match(new RegExp(`\\b${name}="([-\\d.]+)"`));
+    expect(found, `line ${editorId} should carry ${name}`).not.toBeNull();
+    return Number(found![1]);
+  };
+  return { x1: num('x1'), y1: num('y1'), x2: num('x2'), y2: num('y2') };
+}
+
 /** data-connection-* は取り込み後の ID で書かれるので、対応表で組み立てる */
 function connectionAttr(
   ids: Record<string, string>,
@@ -217,6 +230,29 @@ release
 const RESIZE_JOINTED = `${BRIDGE}
 press handle r1 se 180 150
 move 250 230
+release
+`;
+
+/** 三つの図形を二本の線でつないだ鎖 a — b — c */
+const CHAIN = `
+rect a 40 60 90 70
+circle b 290 95 45
+ellipse c 520 95 70 45
+line l1 130 95 245 95
+line l2 335 95 450 95
+join l1 start a right
+join l1 end b left
+join l2 start b right
+join l2 end c left
+`;
+
+/**
+ * 鎖の奥側（b — c 間）の線を下へ引く。
+ * 結合先の b と c は連れて動き、手前の a — b 間の線は a に残ったまま伸びる。
+ */
+const CHAIN_DRAG_MIDDLE_LINE = `${CHAIN}
+press body l2 390 95
+move 390 300
 release
 `;
 
@@ -290,6 +326,46 @@ test.describe('Visual model — semantic prediction vs. real interaction', () =>
     expect(predicted!.x).toBeGreaterThan(180);
   });
 
+  /**
+   * 線の胴体を掴むと結合先の図形も連れて動く。そのとき、連れて動いた図形に
+   * ぶら下がる「別の」線まで追随しないと、鎖の手前側が宙に浮いて接続が切れて見える。
+   */
+  test('dragging a line in a chain leaves no joint behind', async ({ page }) => {
+    const model = await runModel(page, CHAIN_DRAG_MIDDLE_LINE);
+    expect(model.violations, model.violations.join('\n')).toEqual([]);
+    expect(model.joints).toHaveLength(4);
+
+    const ids = await loadScene(page, CHAIN);
+    await dragScene(page, { x: 390, y: 95 }, { x: 390, y: 300 });
+
+    await expectEditorMatchesModel(page, model, ids);
+
+    // 四本のジョイントがどれも外れていない
+    const svg = await page.evaluate(() => window.harness.editor.exportSvg());
+    expect(svg).toContain(connectionAttr(ids, 'start', 'a', 'right'));
+    expect(svg).toContain(connectionAttr(ids, 'end', 'b', 'left'));
+    expect(svg).toContain(connectionAttr(ids, 'start', 'b', 'right'));
+    expect(svg).toContain(connectionAttr(ids, 'end', 'c', 'left'));
+
+    // a — b 間の線は、動いていない a に残ったまま b の新しいアンカーまで伸びる
+    const tolerance = 1.5;
+    const l1 = await editorLineEndpoints(page, ids['l1']);
+    const onA = model.joints.find((j) => j.target === 'a')!;
+    const onB = model.joints.find((j) => j.line === 'l1' && j.endpoint === 'end')!;
+    expect(Math.abs(l1.x1 - onA.x), `l1 start x — model says ${onA.x}`).toBeLessThanOrEqual(
+      tolerance,
+    );
+    expect(Math.abs(l1.y1 - onA.y), `l1 start y — model says ${onA.y}`).toBeLessThanOrEqual(
+      tolerance,
+    );
+    expect(Math.abs(l1.x2 - onB.x), `l1 end x — model says ${onB.x}`).toBeLessThanOrEqual(
+      tolerance,
+    );
+    expect(Math.abs(l1.y2 - onB.y), `l1 end y — model says ${onB.y}`).toBeLessThanOrEqual(
+      tolerance,
+    );
+  });
+
   test('the editor round-trips the scene the model describes', async ({ page }) => {
     const model = await runModel(page, BRIDGE);
     const ids = await loadScene(page, BRIDGE);
@@ -308,13 +384,11 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
   // 判定役が CLI のときは主張ごとにエージェントが立ち上がるので、既定の 30 秒では足りない
   test.setTimeout(positiveMs(process.env.VLMKIT_TEST_TIMEOUT_MS, 900_000));
 
-  test('the rendered scene matches every claim the model makes', async ({ page }) => {
-    await openHarness(page);
-    const model = await runModel(page, BRIDGE_DRAG_RECT);
-
-    await loadScene(page, BRIDGE);
-    await dragScene(page, { x: 130, y: 115 }, { x: 210, y: 245 });
-
+  /**
+   * モデルの主張をひとつずつレビュアーに見せ、絵が支持しないものを集める。
+   * シナリオごとに同じ手順を踏むので、判定の部分だけここにまとめる。
+   */
+  async function expectPictureSupportsModel(page: Page, model: ModelResult) {
     const stage = page.locator('#stage');
     const reviewer = createReviewer();
     const failures: string[] = [];
@@ -359,6 +433,30 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
     }
 
     expect(failures, `the rendering contradicts the model:\n${failures.join('\n')}`).toEqual([]);
+  }
+
+  test('the rendered scene matches every claim the model makes', async ({ page }) => {
+    await openHarness(page);
+    const model = await runModel(page, BRIDGE_DRAG_RECT);
+
+    await loadScene(page, BRIDGE);
+    await dragScene(page, { x: 130, y: 115 }, { x: 210, y: 245 });
+
+    await expectPictureSupportsModel(page, model);
+  });
+
+  /**
+   * 鎖の線を掴んだあとの絵。取り残された線は「端が図形に触れている」という
+   * 主張を絵として裏切るので、座標を見ずにここで捕まえられる。
+   */
+  test('no line is left dangling after a chain is dragged by its line', async ({ page }) => {
+    await openHarness(page);
+    const model = await runModel(page, CHAIN_DRAG_MIDDLE_LINE);
+
+    await loadScene(page, CHAIN);
+    await dragScene(page, { x: 390, y: 95 }, { x: 390, y: 300 });
+
+    await expectPictureSupportsModel(page, model);
   });
 
   /**

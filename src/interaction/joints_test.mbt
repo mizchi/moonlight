@@ -261,3 +261,154 @@ test "disconnect leaves the geometry alone" {
   assert_eq(after.joints().length(), 0)
   assert_true(after.find("l1").unwrap().connections is None)
 }
+
+// =============================================================================
+// 鎖（a — b — c）を掴む場所を変えても接続が残るか
+// =============================================================================
+
+///|
+/// 図形 a — 線 l1 — 図形 b — 線 l2 — 図形 c の鎖
+fn chain_scene() -> Scene {
+  Scene::of([
+    rect("a", 40.0, 40.0, 80.0, 60.0),
+    circle("b", 300.0, 70.0, 40.0),
+    ellipse("c", 520.0, 70.0, 60.0, 40.0),
+    line("l1", 0.0, 0.0, 0.0, 0.0),
+    line("l2", 0.0, 0.0, 0.0, 0.0),
+  ])
+  .connect("l1", Start, "a", @model.Right)
+  .connect("l1", End, "b", @model.Left)
+  .connect("l2", Start, "b", @model.Right)
+  .connect("l2", End, "c", @model.Left)
+}
+
+///|
+/// 端点が結合している図形は、線の胴体を掴むと一緒に動く
+test "dragging a line body carries the shapes it joins" {
+  let scene = chain_scene()
+  let after = scene.play([
+    Press(Body("l2"), { x: 400.0, y: 70.0, }),
+    MoveTo({ x: 400.0, y: 270.0, }),
+    Release,
+  ])
+  // l2 が繋いでいる b と c が同じ差分だけ動く
+  let b = after.find("b").unwrap()
+  let c = after.find("c").unwrap()
+  assert_eq(b.x, 300.0)
+  assert_eq(b.y, 270.0)
+  assert_eq(c.x, 520.0)
+  assert_eq(c.y, 270.0)
+  // a は掴んだ線と繋がっていないので動かない
+  let a = after.find("a").unwrap()
+  assert_eq(a.x, 40.0)
+  assert_eq(a.y, 40.0)
+}
+
+///|
+/// b — c 間の線を掴むと b も動く。このとき a — b 間の線が取り残されてはいけない。
+/// （連れて動いた図形にぶら下がる線へ伝播が漏れると、鎖の手前側が切れて見える）
+test "dragging the b-c line keeps the a-b line jointed" {
+  let scene = chain_scene()
+  let after = scene.play([
+    Press(Body("l2"), { x: 400.0, y: 70.0, }),
+    MoveTo({ x: 400.0, y: 270.0, }),
+    Release,
+  ])
+  let violations = after.joint_violations()
+  if violations.length() > 0 {
+    abort(violations[0].describe())
+  }
+  // a — b 間の線は a に残ったまま、b の新しいアンカーまで伸びる
+  let b_left = after.find("b").unwrap().get_anchor_point(@model.Left)
+  let l1_end = after.endpoint_point("l1", End).unwrap()
+  assert_eq(l1_end.x, b_left.x)
+  assert_eq(l1_end.y, b_left.y)
+  let a_right = after.find("a").unwrap().get_anchor_point(@model.Right)
+  let l1_start = after.endpoint_point("l1", Start).unwrap()
+  assert_eq(l1_start.x, a_right.x)
+  assert_eq(l1_start.y, a_right.y)
+  assert_eq(after.joints().length(), 4)
+}
+
+///|
+/// 鎖の手前側の線を掴んでも、奥側の線が取り残されない（向きを変えても同じ）
+test "dragging the a-b line keeps the b-c line jointed" {
+  let scene = chain_scene()
+  let after = scene.play([
+    Press(Body("l1"), { x: 190.0, y: 70.0, }),
+    MoveTo({ x: 190.0, y: 270.0, }),
+    Release,
+  ])
+  let violations = after.joint_violations()
+  if violations.length() > 0 {
+    abort(violations[0].describe())
+  }
+  // b が連れて動いたので、b — c 間の線の始点も追随する
+  let b_right = after.find("b").unwrap().get_anchor_point(@model.Right)
+  let l2_start = after.endpoint_point("l2", Start).unwrap()
+  assert_eq(l2_start.x, b_right.x)
+  assert_eq(l2_start.y, b_right.y)
+  // c は掴んだ線と繋がっていないので動かず、l2 が伸びる
+  let c = after.find("c").unwrap()
+  assert_eq(c.x, 520.0)
+  assert_eq(c.y, 70.0)
+  assert_eq(after.joints().length(), 4)
+}
+
+///|
+/// 鎖のどこを掴んでも、すべてのジョイントが満たされたままであること
+test "every grab point in the chain leaves the joints satisfied" {
+  for id in ["a", "b", "c", "l1", "l2"] {
+    let scene = chain_scene()
+    let grab = match scene.find(id) {
+      Some(el) => el.get_anchor_point(@model.Center)
+      None => abort("missing \{id}")
+    }
+    let after = scene.play([
+      Press(Body(id), grab),
+      MoveTo({ x: grab.x + 60.0, y: grab.y + 200.0, }),
+      Release,
+    ])
+    let violations = after.joint_violations()
+    if violations.length() > 0 {
+      abort("grabbing \{id}: \{violations[0].describe()}")
+    }
+    // 接続そのものが消えていないこと
+    assert_eq(after.joints().length(), 4)
+  }
+}
+
+///|
+/// 線から線へのジョイントでも、掴んだ線に結合先の端点が追随する。
+/// 相手の線はもう一方の端点を図形に預けたまま伸縮する。
+test "dragging a line carries the endpoint of the line it joins" {
+  let scene = Scene::of([
+      rect("a", 40.0, 40.0, 80.0, 60.0),
+      ellipse("c", 520.0, 70.0, 60.0, 40.0),
+      line("l1", 120.0, 70.0, 260.0, 70.0),
+      line("l2", 0.0, 0.0, 0.0, 0.0),
+    ])
+    .connect("l1", Start, "a", @model.Right)
+    .connect("l2", Start, "l1", @model.LineEnd)
+    .connect("l2", End, "c", @model.Left)
+  let after = scene.play([
+    Press(Body("l2"), { x: 330.0, y: 70.0, }),
+    MoveTo({ x: 330.0, y: 270.0, }),
+    Release,
+  ])
+  let violations = after.joint_violations()
+  if violations.length() > 0 {
+    abort(violations[0].describe())
+  }
+  // l1 の終点が l2 の始点についてくる
+  let l1_end = after.endpoint_point("l1", End).unwrap()
+  let l2_start = after.endpoint_point("l2", Start).unwrap()
+  assert_eq(l1_end.x, l2_start.x)
+  assert_eq(l1_end.y, l2_start.y)
+  // l1 の始点は動いていない a のアンカーに残る
+  let a_right = after.find("a").unwrap().get_anchor_point(@model.Right)
+  let l1_start = after.endpoint_point("l1", Start).unwrap()
+  assert_eq(l1_start.x, a_right.x)
+  assert_eq(l1_start.y, a_right.y)
+  assert_eq(after.joints().length(), 3)
+}
