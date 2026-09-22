@@ -40,6 +40,12 @@ fmt:
 build:
   pnpm build:all
 
+# Build the GitHub Pages site under the repository path
+build-pages:
+  pnpm moon:build:compat
+  pnpm exec vite build --base /moonlight/
+  pnpm exec rolldown -c rolldown.config.mjs
+
 # Dev server
 dev:
   pnpm dev

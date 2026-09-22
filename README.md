@@ -261,6 +261,13 @@ Embed the editor in any HTML page with just 2 lines:
 | `theme` | "light" | "light" or "dark" |
 | `readonly` | - | Add to disable editing |
 
+#### GitHub Pages
+
+The editor is available at https://mizchi.github.io/moonlight/.
+Pushes to `main` deploy the site automatically through GitHub Actions.
+Use `just build-pages` to build locally for the `/moonlight/` path, or run
+the **Deploy GitHub Pages** workflow manually to redeploy.
+
 #### Self-hosting with Cloudflare Workers
 
 ```bash
