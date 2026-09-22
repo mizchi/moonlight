@@ -9,6 +9,7 @@ import {
   "mizchi/js/core" @js,
   "mizchi/moonlight/components",
   "mizchi/moonlight/lib",
+  "mizchi/moonlight/render",
 }
 
 import {

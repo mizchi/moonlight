@@ -11,19 +11,11 @@ pub fn add_focusin_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Un
 
 pub fn add_focusout_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
-pub fn add_marker_attrs(Array[(String, String)], @model.Style) -> Unit
-
-pub fn add_style_attrs(Array[(String, String)], @model.Style) -> Unit
-
 pub fn append_child(@mizchi/js/core.Any, @mizchi/js/core.Any) -> Unit
-
-pub fn clear_svg_children(@mizchi/js/core.Any) -> Unit
 
 pub fn continue_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
 
 pub fn copy_selection(@mizchi/moonlight/core.EditorState) -> Unit
-
-pub fn create_arrow_defs() -> @mizchi/js/core.Any
 
 pub fn create_preview_handle(() -> Unit, () -> Unit, () -> Bool, () -> String, (String) -> Unit) -> @mizchi/js/core.Any
 
@@ -34,8 +26,6 @@ pub fn delete_selection(@mizchi/moonlight/core.EditorState, @model.History) -> U
 pub fn draw_free_draw_preview(@mizchi/js/core.Any, Array[@model.Point]) -> Unit
 
 pub fn duplicate_selection(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
-
-pub fn element_to_svg_string(@model.Element) -> String
 
 pub fn finish_free_draw(@mizchi/moonlight/core.EditorState, () -> String, history~ : @model.History) -> Unit
 
@@ -55,8 +45,6 @@ pub fn paste_clipboard(@mizchi/moonlight/core.EditorState, @model.History, () ->
 
 pub fn remove_free_draw_preview(@mizchi/js/core.Any) -> Unit
 
-pub fn render_element_to_svg_with_parent(@model.Element, Bool, String?) -> @mizchi/js/core.Any
-
 pub fn set_inner_html(@mizchi/js/core.Any, String) -> Unit
 
 pub fn set_select_mode(@mizchi/moonlight/core.EditorState) -> Unit
@@ -72,8 +60,6 @@ pub fn setup_focus_management(FocusState, @mizchi/js/core.Any) -> Unit
 pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
 
 pub fn start_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
-
-pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
 
 pub fn toggle_tool_mode(@mizchi/moonlight/core.EditorState) -> Unit
 

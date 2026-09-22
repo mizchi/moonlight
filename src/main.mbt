@@ -230,7 +230,12 @@ fn create_editor_handle_js(
       @model.Dark => "#1a1a2e"
       @model.Light => "#ffffff"
     }
-    elements_to_moonlight_svg(state.elements.get(), width, height, bg_color)
+    @render.elements_to_moonlight_svg(
+      state.elements.get(),
+      width,
+      height,
+      bg_color,
+    )
   }
   // 取り込めたかどうかを返す。読めない SVG や、対応していない図形しか入って
   // いない SVG を渡されたとき、黙って前のシーンを残したままにすると、埋め込み
@@ -537,7 +542,7 @@ fn save_state(state : @core.EditorState) -> Unit {
     @model.Dark => "#1a1a2e"
     @model.Light => "#ffffff"
   }
-  let svg = elements_to_moonlight_svg(
+  let svg = @render.elements_to_moonlight_svg(
     elements, canvas_width, canvas_height, bg_color,
   )
   save_to_indexeddb(db_name, store_name, scene_key, svg, fn() { () }, fn() {
@@ -1643,7 +1648,7 @@ fn setup_keyboard_shortcuts(
         if is_cmd {
           let _ = e._call("preventDefault", [])
           // Ctrl+S: SVGファイルをダウンロード
-          let svg_str = elements_to_moonlight_svg(
+          let svg_str = @render.elements_to_moonlight_svg(
             state.elements.get(),
             state.doc_width.get().to_int(),
             state.doc_height.get().to_int(),
@@ -1655,7 +1660,7 @@ fn setup_keyboard_shortcuts(
         // Ctrl+Shift+C: SVGテキストをクリップボードにコピー
         if is_cmd && shift_key {
           let _ = e._call("preventDefault", [])
-          let svg_str = elements_to_moonlight_svg(
+          let svg_str = @render.elements_to_moonlight_svg(
             state.elements.get(),
             state.doc_width.get().to_int(),
             state.doc_height.get().to_int(),
@@ -2502,7 +2507,7 @@ fn render_embedded_toolbar(
         None,
         "Download SVG (Ctrl+S)",
         fn() {
-          let svg_str = elements_to_moonlight_svg(
+          let svg_str = @render.elements_to_moonlight_svg(
             state.elements.get(),
             state.doc_width.get().to_int(),
             state.doc_height.get().to_int(),
@@ -2518,7 +2523,7 @@ fn render_embedded_toolbar(
         None,
         "Copy SVG (Ctrl+Shift+C)",
         fn() {
-          let svg_str = elements_to_moonlight_svg(
+          let svg_str = @render.elements_to_moonlight_svg(
             state.elements.get(),
             state.doc_width.get().to_int(),
             state.doc_height.get().to_int(),
