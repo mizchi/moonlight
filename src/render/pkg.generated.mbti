@@ -6,10 +6,6 @@ import {
 }
 
 // Values
-pub fn add_marker_attrs(Array[(String, String)], @model.Style) -> Unit
-
-pub fn add_style_attrs(Array[(String, String)], @model.Style) -> Unit
-
 pub fn element_to_moonlight_svg(@model.Element) -> String
 
 pub fn element_to_moonlight_svg_with_parent(@model.Element, String?) -> String
@@ -28,10 +24,6 @@ pub fn elements_to_svg_with_options(Array[@model.Element], Int, Int, String) -> 
 
 pub fn generate_arrow_defs() -> String
 
-pub fn sort_elements_for_render(Array[@model.Element]) -> Array[@model.Element]
-
-pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
-
 // Errors
 
 // Types and methods
@@ -39,4 +31,3 @@ pub fn style_to_attrs(@model.Style) -> Array[(String, String)]
 // Type aliases
 
 // Traits
-

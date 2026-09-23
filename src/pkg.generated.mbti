@@ -46,14 +46,6 @@ pub fn element_id_of_key(String) -> String
 
 pub fn element_key(@model.Element) -> String
 
-pub fn element_to_moonlight_svg(@model.Element) -> String
-
-pub fn element_to_svg_string(@model.Element) -> String
-
-pub fn elements_to_moonlight_svg(Array[@model.Element], Int, Int, String) -> String
-
-pub fn elements_to_svg(Array[@model.Element], Int, Int) -> String
-
 pub fn get_child_at_ffi(@mizchi/js/core.Any, Int) -> @mizchi/js/core.Any
 
 pub fn get_closest_data_id_ffi(@mizchi/js/core.Any) -> @mizchi/js/core.Any
