@@ -167,6 +167,25 @@ pub fn get_keybindings() -> Array[KeyBinding] {
       label: "Copy",
       category: category_edit,
     },
+    // Shift 付きは "C" で来ることも "c" のまま来ることもある（redo の z と同じ）
+    {
+      key: "C",
+      ctrl: true,
+      shift: true,
+      meta: false,
+      action: "copy_svg",
+      label: "Copy SVG",
+      category: category_edit,
+    },
+    {
+      key: "c",
+      ctrl: true,
+      shift: true,
+      meta: false,
+      action: "copy_svg",
+      label: "Copy SVG",
+      category: category_edit,
+    },
     {
       key: "v",
       ctrl: true,

@@ -204,7 +204,9 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   @lib.setup_focus_management(focus_state, container)
 
   // キーボードハンドラをセットアップ（コンテナ単位で受ける）
-  @lib.setup_keyboard_handler(state, history, new_id)
+  @lib.setup_keyboard_handler(state, history, new_id, copy_svg=fn() {
+    copy_svg_to_clipboard(state)
+  })
 
   // ハンドルを作成
   let handle = create_editor_handle_js(
@@ -647,7 +649,9 @@ pub fn create_embedded_app(container : @js.Any) -> @element.DomNode {
     container: @luna.signal(None),
   }
   @lib.setup_focus_management(focus_state, container)
-  @lib.setup_keyboard_handler(state, history, new_id)
+  @lib.setup_keyboard_handler(state, history, new_id, copy_svg=fn() {
+    copy_svg_to_clipboard(state)
+  })
   node
 }
 
@@ -1528,10 +1532,16 @@ fn setup_keyboard_shortcuts(
           let _ = e._call("preventDefault", [])
           state.select_all()
         }
-      "c" =>
+      // Ctrl+C は選択した要素を、Ctrl+Shift+C は SVG のテキストを写す。
+      // shift 付きの c は "C" で来ることも "c" のまま来ることもある（z と同じ）。
+      "c" | "C" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          @lib.copy_selection(state)
+          if shift_key {
+            copy_svg_to_clipboard(state)
+          } else {
+            @lib.copy_selection(state)
+          }
         }
       "v" =>
         if is_cmd {
@@ -1573,18 +1583,6 @@ fn setup_keyboard_shortcuts(
             state.get_theme().background,
           )
           download_file(svg_str, "moonlight.svg", "image/svg+xml")
-        }
-      "C" =>
-        // Ctrl+Shift+C: SVGテキストをクリップボードにコピー
-        if is_cmd && shift_key {
-          let _ = e._call("preventDefault", [])
-          let svg_str = elements_to_moonlight_svg(
-            state.elements.get(),
-            state.doc_width.get().to_int(),
-            state.doc_height.get().to_int(),
-            state.get_theme().background,
-          )
-          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
         }
       "V" =>
         // Ctrl+Shift+V: クリップボードからSVGをインポート
@@ -1673,6 +1671,8 @@ fn render_editor_ui_vnode(
       show(fn() { state.context_menu.get() is Some(_) }, fn() {
         render_context_menu(state, history, new_id)
       }),
+      // 短い知らせ（コピーした、など）
+      render_notice(state),
     ],
   )
 }
@@ -1808,6 +1808,7 @@ pub fn render_editor_modal(
     on=events().click(fn(_) { state.modal_open.set(false) }),
     [
       // モーダルウィンドウ（クリックイベントの伝播を止める）
+      // 高さや下のツールバーを変えるときは ui.mbt の notice_bottom_in_modal も合わせる
       div(
         style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
         on=events().click(fn(e) {
@@ -1939,6 +1940,8 @@ fn embedded_editor_app(
     show(fn() { state.modal_open.get() }, fn() {
       render_editor_modal(state, history, new_id)
     }),
+    // 短い知らせ。モーダルより手前に出るので、モーダルを開いていてもここ一つで足りる
+    render_notice(state),
   ])
 }
 
@@ -2144,6 +2147,28 @@ fn render_text_input_container(
 
 ///|
 // svg_icon, toolbar_button は @components から利用
+
+///|
+/// 図を SVG のテキストにしてクリップボードへ写し、写せたかどうかを知らせる。
+/// ツールバーのボタンと Ctrl+Shift+C（どの殻でも）がここを通る。
+fn copy_svg_to_clipboard(state : @core.EditorState) -> Unit {
+  let svg_str = elements_to_moonlight_svg(
+    state.elements.get(),
+    state.doc_width.get().to_int(),
+    state.doc_height.get().to_int(),
+    state.get_theme().background,
+  )
+  copy_text_to_clipboard(
+    svg_str,
+    fn() { state.notify("Copied SVG to the clipboard") },
+    fn() {
+      state.notify(
+        "Could not copy: the browser blocked clipboard access",
+        is_error=true,
+      )
+    },
+  )
+}
 
 ///|
 /// 埋め込みツールバー（SVGアイコン + キーバインド表示）
@@ -2440,15 +2465,7 @@ fn render_embedded_toolbar(
         @components.svg_icon(@components.icon_copy, 16),
         None,
         "Copy SVG (Ctrl+Shift+C)",
-        fn() {
-          let svg_str = elements_to_moonlight_svg(
-            state.elements.get(),
-            state.doc_width.get().to_int(),
-            state.doc_height.get().to_int(),
-            state.get_theme().background,
-          )
-          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
-        },
+        fn() { copy_svg_to_clipboard(state) },
         theme~,
       ),
       // インポート

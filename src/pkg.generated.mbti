@@ -142,6 +142,8 @@ pub fn render_inline_panel(@mizchi/moonlight/core.EditorState, @model.History) -
 
 pub fn render_layer_operations(@mizchi/moonlight/core.EditorState, @model.History, String, () -> Unit) -> @dom.DomNode
 
+pub fn render_notice(@mizchi/moonlight/core.EditorState) -> @dom.DomNode
+
 pub fn render_resize_handles(@model.Element) -> Array[@mizchi/js/core.Any]
 
 pub fn render_resize_handles_nodes(@model.Element) -> Array[@dom.DomNode]
@@ -171,6 +173,8 @@ pub fn schedule_focus_with_value_ffi(String, String) -> Int
 pub fn schedule_textarea_focus_ffi(String, String) -> Int
 
 pub fn set_multiline_text_ffi(@mizchi/js/core.Any, String, Double, Double) -> Unit
+
+pub fn set_timeout_ffi(Int, () -> Unit) -> Unit
 
 pub fn show_popover_at_button(String, @mizchi/js/core.Any) -> Unit
 

@@ -412,3 +412,29 @@ test "RemoveElement: 記録時より縮んでいても落とさずに戻す" {
   inspect(state.elements.get().length(), content="1")
   inspect(state.elements.get()[0].id, content="a")
 }
+
+// ============================================================
+// notify テスト
+// ============================================================
+
+///|
+test "notify: 出すたびに新しい番号が付き、同じ文言でも前の知らせと区別できる" {
+  let state = @core.EditorState::new(800, 600)
+  inspect(state.notice.get() is None, content="true")
+  state.notify("Copied SVG to the clipboard")
+  guard state.notice.get() is Some(first) else { fail("no notice") }
+  inspect(first.message, content="Copied SVG to the clipboard")
+  inspect(first.is_error, content="false")
+  state.notify("Copied SVG to the clipboard")
+  guard state.notice.get() is Some(second) else { fail("no notice") }
+  // 表示側は番号で「自分が消すべき知らせか」を見分ける
+  inspect(second.serial > first.serial, content="true")
+}
+
+///|
+test "notify: 失敗の知らせは is_error で見分けられる" {
+  let state = @core.EditorState::new(800, 600)
+  state.notify("Could not copy", is_error=true)
+  guard state.notice.get() is Some(n) else { fail("no notice") }
+  inspect(n.is_error, content="true")
+}

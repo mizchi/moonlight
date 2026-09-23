@@ -29,9 +29,19 @@ fn collect_selection(state : @core.EditorState) -> Array[@model.Element] {
 }
 
 ///|
-/// 選択中の要素（と子要素）をクリップボードに取る
+/// 選択中の要素（と子要素）をクリップボードに取り、何を取ったかを知らせる。
+/// エディタ内のクリップボードは目に見えないので、知らせないと効いたか分からない。
 pub fn copy_selection(state : @core.EditorState) -> Unit {
   clipboard.val = collect_selection(state)
+  let count = state.selected_ids
+    .get()
+    .filter(fn(id) { state.find_element(id) is Some(_) })
+    .length()
+  if count == 1 {
+    state.notify("Copied 1 element")
+  } else if count > 1 {
+    state.notify("Copied \{count} elements")
+  }
 }
 
 ///|

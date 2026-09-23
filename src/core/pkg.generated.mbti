@@ -90,6 +90,7 @@ pub struct EditorState {
   validation_result : @signals.Signal[@model.ValidationResult?]
   plain_svg_ids : @signals.Signal[Array[String]]
   gesture_origin : @ref.Ref[Array[@model.Element]?]
+  notice : @signals.Signal[Notice?]
 }
 pub fn EditorState::add_element(Self, @model.Element) -> Unit
 pub fn EditorState::add_element_raw(Self, @model.Element) -> Unit
@@ -145,6 +146,7 @@ pub fn EditorState::move_element(Self, String, Double, Double) -> Unit
 pub fn EditorState::multi_drag_move(Self, Double, Double) -> Unit
 pub fn EditorState::new(Int, Int) -> Self
 pub fn EditorState::new_with_mode(Int, Int, EditorMode) -> Self
+pub fn EditorState::notify(Self, String, is_error? : Bool) -> Unit
 pub fn EditorState::pan(Self, Double, Double) -> Unit
 pub fn EditorState::pan_move(Self, Double, Double) -> Unit
 pub fn EditorState::register_plain_svg_ids(Self, Array[String]) -> Unit
@@ -200,6 +202,12 @@ pub(all) struct FreeDrawOptions {
 
 pub(all) struct FreeDrawState {
   points : Array[@model.Point]
+}
+
+pub(all) struct Notice {
+  message : String
+  is_error : Bool
+  serial : Int
 }
 
 pub(all) struct PendingConnection {

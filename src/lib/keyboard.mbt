@@ -19,10 +19,14 @@ pub struct KeyEvent {
 
 ///|
 /// キーボードハンドラをセットアップ
+///
+/// copy_svg は Ctrl+Shift+C で呼ぶ。SVG への書き出しはこのパッケージの外に
+/// あるので、殻から渡してもらう（渡されなければ Ctrl+Shift+C は素通しする）。
 pub fn setup_keyboard_handler(
   state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
+  copy_svg? : () -> Unit,
 ) -> Unit {
   let container = state.container_el.get()
   if is_container_null(container) {
@@ -39,7 +43,7 @@ pub fn setup_keyboard_handler(
       return
     }
     let key_event = parse_key_event(e)
-    let handled = handle_key(state, history, key_event, new_id)
+    let handled = handle_key(state, history, key_event, new_id, copy_svg)
     if handled {
       prevent_default_ffi(e)
     }
@@ -53,6 +57,7 @@ fn handle_key(
   history : @model.History,
   e : KeyEvent,
   new_id : () -> String,
+  copy_svg : (() -> Unit)?,
 ) -> Bool {
   // テキスト編集中はショートカットキーを無視（Escapeのみ例外）
   if state.text_edit.get() is Some(_) {
@@ -75,7 +80,7 @@ fn handle_key(
   }
   // keybindings から一致するアクションを検索
   match @model.match_keybinding(e.key, e.ctrl_key, e.shift_key, e.meta_key) {
-    Some(kb) => execute_action(state, history, kb.action, new_id)
+    Some(kb) => execute_action(state, history, kb.action, new_id, copy_svg)
     None => false
   }
 }
@@ -87,6 +92,7 @@ fn execute_action(
   history : @model.History,
   action : String,
   new_id : () -> String,
+  copy_svg : (() -> Unit)?,
 ) -> Bool {
   let pos = get_placement_position(state)
   match action {
@@ -111,6 +117,14 @@ fn execute_action(
       copy_selection(state)
       true
     }
+    "copy_svg" =>
+      match copy_svg {
+        Some(f) => {
+          f()
+          true
+        }
+        None => false
+      }
     "paste" => {
       paste_clipboard(state, history, new_id)
       true

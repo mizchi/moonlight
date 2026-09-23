@@ -85,6 +85,7 @@ pnpm build
 | `Delete` / `Backspace` | Delete selected element |
 | `Ctrl+D` / `Cmd+D` | Duplicate selected element |
 | `Ctrl+C` / `Ctrl+V` | Copy / paste elements |
+| `Ctrl+Shift+C` | Copy the drawing as SVG text to the clipboard |
 | `Ctrl+A` | Select all |
 | `Escape` | Deselect / cancel / close the fullscreen modal |
 
@@ -107,7 +108,6 @@ pnpm build
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+S` | Download the drawing as SVG |
-| `Ctrl+Shift+C` | Copy the SVG text to the clipboard |
 | `Ctrl+Shift+V` | Import SVG from the clipboard |
 
 ### Mouse Operations

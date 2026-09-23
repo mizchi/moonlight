@@ -1566,3 +1566,79 @@ fn render_insert_menu(
     ]),
   ])
 }
+
+///|
+/// 知らせを出しておく時間（ミリ秒）
+let notice_duration_ms : Int = 2200
+
+///|
+/// モーダル（render_editor_modal）を開いているときの知らせの下端。
+/// モーダルは高さ 85vh で上下中央にあり（下に 7.5vh 空く）、その下端に高さ
+/// 約 57px のツールバーがある。ボタンのツールチップはボタンの下に出るので、
+/// 画面の下端に出すとコピーのボタンのツールチップに隠れる。ツールバーの上に出す。
+let notice_bottom_in_modal : String = "calc(7.5vh + 72px)"
+
+///|
+/// 短い知らせ（コピーした、など）を画面の下中央に出し、少したつと消す。
+///
+/// 読み上げ環境にも伝わるよう role="status" の領域は常に置いておき、その中に
+/// 知らせを出し入れする（領域ごと出し入れすると読まれない）。知らせが無いとき
+/// 領域は大きさを持たないので、キャンバスの上に見えない板が残ることもない。
+pub fn render_notice(state : @core.EditorState) -> @element.DomNode {
+  // 知らせが出るたびに、その知らせだけを消すタイマーを掛ける。後から出た知らせは消さない。
+  let _ = @luna.effect(fn() {
+    guard state.notice.get() is Some(shown) else { return }
+    set_timeout_ffi(notice_duration_ms, fn() {
+      if state.notice.get() is Some(current) && current.serial == shown.serial {
+        state.notice.set(None)
+      }
+    })
+  })
+  @element.create_element(
+    "div",
+    [
+      ("role", @element.Static("status")),
+      ("aria-live", @element.Static("polite")),
+      ("data-notice", @element.Static("")),
+      (
+        "style",
+        @element.Dynamic(fn() {
+          let bottom = if state.modal_open.get() {
+            notice_bottom_in_modal
+          } else {
+            "24px"
+          }
+          "position: fixed; left: 16px; right: 16px; bottom: \{bottom}; display: flex; justify-content: center; z-index: 1100; pointer-events: none;"
+        }),
+      ),
+    ],
+    [
+      show(fn() { state.notice.get() is Some(_) }, fn() {
+        @element.create_element(
+          "div",
+          [
+            (
+              "style",
+              @element.Dynamic(fn() {
+                // 暗い地に白い文字。ダークテーマの暗いキャンバスでも縁が見えるよう薄い枠を付ける
+                let background = match state.notice.get() {
+                  Some(n) if n.is_error => "#b91c1c"
+                  _ => "#1f2937"
+                }
+                "max-width: 100%; box-sizing: border-box; padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: \{background}; color: #fff; font: 13px/1.4 system-ui, -apple-system, sans-serif; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.25);"
+              }),
+            ),
+          ],
+          [
+            text_dyn(fn() {
+              match state.notice.get() {
+                Some(n) => n.message
+                None => ""
+              }
+            }),
+          ],
+        )
+      }),
+    ],
+  )
+}

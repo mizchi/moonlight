@@ -142,7 +142,22 @@ pub struct EditorState {
   plain_svg_ids : @luna.Signal[Array[String]] // プレーンSVGとしてインポートされた要素
   // ポインタ操作を始めたときの要素一式（Undo の記録と、複数ドラッグの再計算に使う）
   gesture_origin : Ref[Array[@model.Element]?]
+  // 画面に少しのあいだ出す短い知らせ（コピーした、など）
+  notice : @luna.Signal[Notice?]
 }
+
+///|
+/// 画面に少しのあいだ出す短い知らせ
+pub(all) struct Notice {
+  message : String
+  is_error : Bool
+  /// 出すたびに増える番号。表示側はこれを見て、後から出た知らせを消さずに済む
+  serial : Int
+}
+
+///|
+/// Notice.serial の払い出し元（知らせが消えても番号は戻さない）
+let notice_serial : Ref[Int] = { val: 0, }
 
 ///|
 /// ピンチズーム状態
@@ -222,6 +237,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     validation_result: @luna.signal(None),
     plain_svg_ids: @luna.signal([]),
     gesture_origin: { val: None, },
+    notice: @luna.signal(None),
   }
 }
 
@@ -1544,6 +1560,17 @@ pub fn execute_command(
   history.undo_stack.push(command)
   // Redo スタックをクリア（新しい操作後は Redo できない）
   history.redo_stack.clear()
+}
+
+///|
+/// 短い知らせを出す。消すのは表示側（一定時間たつと消える）。
+pub fn EditorState::notify(
+  self : EditorState,
+  message : String,
+  is_error? : Bool = false,
+) -> Unit {
+  notice_serial.val = notice_serial.val + 1
+  self.notice.set(Some({ message, is_error, serial: notice_serial.val, }))
 }
 
 ///|
