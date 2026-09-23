@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
+import { DEMO } from './demo-scene';
 
 /**
  * 同じ操作を、エディタの三つの殻すべてに当てる。
@@ -65,11 +66,20 @@ const handles = (page: Page) => page.locator('svg [data-handle]');
 const canvas = (page: Page) => page.locator('svg[viewBox]').first();
 const everything = (page: Page) => page.locator('svg [data-id]');
 
+/** キャンバスの見えている部分の左上（何も置かれていない背景）をクリックする */
+async function clickBackground(page: Page) {
+  // キャンバスが viewport より縦に長い殻では、下の方の図形を触るとページが
+  // スクロールし、キャンバスの左上が画面の外へ出る。そこをクリックすると
+  // ページの外を押したことになり、フォーカスがエディタから外れて以後のキーが
+  // 届かなくなる。
+  const box = (await canvas(page).boundingBox())!;
+  await page.mouse.click(Math.max(box.x, 0) + 6, Math.max(box.y, 0) + 6);
+}
+
 /** キャンバス上の要素を並び順に読む。SVG では文書順がそのまま描画順 */
 async function drawOrder(page: Page) {
   // 選択中は選択枠が混ざるので、背景をクリックして外してから読む
-  const box = await canvas(page).boundingBox();
-  await page.mouse.click(box!.x + 6, box!.y + 6);
+  await clickBackground(page);
   await page.waitForTimeout(150);
   return page
     .locator('svg [data-id]')
@@ -117,9 +127,10 @@ for (const mode of MODES) {
     test('opens with the same starting scene', async ({ page }) => {
       // 全モードが同じサンプルを載せていること。ここがずれると、以降の
       // 比較がモードの違いではなく初期状態の違いになってしまう。
-      await expect(shapes(page)).toHaveCount(4);
-      await expect(page.locator('svg circle[data-id]')).toHaveCount(1);
-      await expect(page.locator('svg ellipse[data-id]')).toHaveCount(1);
+      await expect(shapes(page)).toHaveCount(DEMO.rects);
+      await expect(page.locator('svg circle[data-id]')).toHaveCount(DEMO.circles);
+      await expect(page.locator('svg ellipse[data-id]')).toHaveCount(DEMO.ellipses);
+      await expect(page.locator('svg path[data-id]')).toHaveCount(DEMO.paths);
     });
 
     test('a click selects, and the background deselects', async ({ page }) => {
@@ -144,7 +155,6 @@ for (const mode of MODES) {
 
     test('a shape can be resized from every corner', async ({ page }) => {
       for (const corner of ['se', 'nw', 'ne', 'sw']) {
-        await openEditor(page, mode);
         const rect = shapes(page).first();
         await select(page, rect);
 
@@ -157,6 +167,13 @@ for (const mode of MODES) {
 
         const [w1, h1] = [await num(rect, 'width'), await num(rect, 'height')];
         expect(w1 !== w0 || h1 !== h0, `${corner} should change the size`).toBe(true);
+
+        // 次の角は元の大きさから始める。開き直すのでは足りない。保存する殻
+        // （スタンドアロンと ?mode=embed）は前の角で広げた大きさのまま読み込むので、
+        // 画面の端にある図形は、広がるたびに取っ手が画面の外へ出ていく。
+        await page.keyboard.press('Control+z');
+        await page.waitForTimeout(200);
+        expect([await num(rect, 'width'), await num(rect, 'height')], `${corner}: undo should restore the size`).toEqual([w0, h0]);
       }
     });
 
@@ -288,11 +305,13 @@ for (const mode of MODES) {
 
     test('a freehand stroke draws, deletes, undoes and redoes', async ({ page }) => {
       const strokes = page.locator('svg path[data-id]');
-      await expect(strokes, 'the sample scene has no paths').toHaveCount(0);
+      // デモには手描きの ↻ が一本だけある
+      const before = DEMO.paths;
+      await expect(strokes, 'the demo has its own hand-drawn path').toHaveCount(before);
 
       // フリードローへ。キーは三つの殻で共通
       const box = await canvas(page).boundingBox();
-      await page.mouse.click(box!.x + 6, box!.y + 6);
+      await clickBackground(page);
       await page.keyboard.press('p');
       await page.waitForTimeout(200);
 
@@ -307,20 +326,20 @@ for (const mode of MODES) {
       }
       await page.mouse.up();
       // 描いた線は、他を触らなくてもその場で出ること
-      await expect(strokes, 'the stroke should appear as soon as it is drawn').toHaveCount(1);
+      await expect(strokes, 'the stroke should appear as soon as it is drawn').toHaveCount(before + 1);
 
       // 描いた直後は選択されているので、そのまま消せる
       await page.keyboard.press('Delete');
-      await expect(strokes).toHaveCount(0);
+      await expect(strokes).toHaveCount(before);
 
       await page.keyboard.press('Control+z');
-      await expect(strokes, 'undo should bring the stroke back').toHaveCount(1);
+      await expect(strokes, 'undo should bring the stroke back').toHaveCount(before + 1);
 
       await page.keyboard.press('Control+z');
-      await expect(strokes, 'a second undo should take back the drawing itself').toHaveCount(0);
+      await expect(strokes, 'a second undo should take back the drawing itself').toHaveCount(before);
 
       await page.keyboard.press('Control+Shift+z');
-      await expect(strokes, 'redo should draw it again').toHaveCount(1);
+      await expect(strokes, 'redo should draw it again').toHaveCount(before + 1);
     });
 
     test('Ctrl+C then Ctrl+V pastes a copy, and one undo removes it', async ({ page }) => {

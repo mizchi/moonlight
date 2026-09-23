@@ -674,8 +674,15 @@ fn editor_app() -> @element.DomNode {
   })
 
   // ウィンドウサイズを監視してモバイル判定を更新
+  let first_size : Ref[Bool] = { val: true, }
   observe_window_resize_ffi(fn(width, _height) {
     state.is_mobile.set(width < 768)
+    // 狭い画面では、パネル（ボトムシート）は閉じた状態で始める。開いていると
+    // キャンバスの大半を覆い、最初に出す図がほとんど見えない。
+    if first_size.val {
+      first_size.val = false
+      state.panel_visible.set(width >= 768)
+    }
   })
 
   // Space キーが押されているか
@@ -2335,7 +2342,7 @@ fn render_embedded_toolbar(
         @components.svg_icon(@components.icon_reset, 16),
         None,
         "Fit to Canvas",
-        fn() { state.reset_viewport() },
+        fn() { state.fit_to_canvas(right_inset=panel_inset(state)) },
         theme~,
       ),
       // セパレータ
@@ -2676,7 +2683,7 @@ fn render_svg_canvas_node(
               is_first_resize.val = false
               // Embedモードでモーダルが閉じている場合はビューポートを (0, 0, 1.0) に固定
               if state.mode is @core.Full || state.modal_open.get() {
-                state.fit_to_canvas()
+                state.fit_to_canvas(right_inset=panel_inset(state))
               }
             }
           }

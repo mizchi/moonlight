@@ -1,4 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { DEMO } from './demo-scene';
+
+/** 図形の中のラベルの <text>。並び順に頼らず、文言で探す */
+function label(page: Page, text: string) {
+  return page
+    .locator('g[data-element-type="text"]')
+    .filter({ has: page.locator('text', { hasText: new RegExp(`^${text}$`) }) })
+    .locator('text');
+}
 
 test.describe('Text Fill Color Inheritance', () => {
   test.beforeEach(async ({ page }) => {
@@ -7,37 +16,12 @@ test.describe('Text Fill Color Inheritance', () => {
     await page.waitForTimeout(200);
   });
 
-  test('text inside magenta circle should have magenta fill', async ({ page }) => {
-    // Moonbit text is inside the magenta circle (#c030c0 stroke)
-    const textGroups = page.locator('g[data-element-type="text"]');
-    const moonbitText = textGroups.first();
-    const textEl = moonbitText.locator('text');
-
-    const fill = await textEl.getAttribute('fill');
-    expect(fill).toBe('#c030c0');
-  });
-
-  test('text inside blue rect should have blue fill', async ({ page }) => {
-    // Luna text is inside the blue rectangle (#3355aa stroke)
-    const textGroups = page.locator('g[data-element-type="text"]');
-    // Second text element is Luna
-    const lunaText = textGroups.nth(1);
-    const textEl = lunaText.locator('text');
-
-    const fill = await textEl.getAttribute('fill');
-    expect(fill).toBe('#3355aa');
-  });
-
-  test('text inside yellow rect should have yellow fill', async ({ page }) => {
-    // JS text is inside the yellow rectangle (#ddcc00 stroke)
-    const textGroups = page.locator('g[data-element-type="text"]');
-    // Fourth text element is JS (after Moonbit, Luna, Excalidraw)
-    const jsText = textGroups.nth(3);
-    const textEl = jsText.locator('text');
-
-    const fill = await textEl.getAttribute('fill');
-    expect(fill).toBe('#ddcc00');
-  });
+  // ラベルの文字色は親図形の線の色（Excalidraw と同じ決まり）
+  for (const { text, fill } of Object.values(DEMO.labels)) {
+    test(`the label "${text}" is drawn in the stroke colour of its shape`, async ({ page }) => {
+      await expect(label(page, text)).toHaveAttribute('fill', fill);
+    });
+  }
 
   test('all text elements should have fill attribute set', async ({ page }) => {
     const textGroups = page.locator('g[data-element-type="text"]');
@@ -54,21 +38,18 @@ test.describe('Text Fill Color Inheritance', () => {
   });
 
   test('text fill should remain correct after moving parent element', async ({ page }) => {
-    // Get initial fill
-    const textGroups = page.locator('g[data-element-type="text"]');
-    const moonbitText = textGroups.first();
-    const textEl = moonbitText.locator('text');
-    const initialFill = await textEl.getAttribute('fill');
-    expect(initialFill).toBe('#c030c0');
+    const { text, fill } = DEMO.labels.draw;
+    const textEl = label(page, text);
+    await expect(textEl).toHaveAttribute('fill', fill);
 
-    // Move the parent circle by dragging
-    const circle = page.locator('circle[data-id]').first();
-    const circleBox = await circle.boundingBox();
-    expect(circleBox).not.toBeNull();
+    // Move the parent ellipse by dragging
+    const ellipse = page.locator('ellipse[data-id]').first();
+    const box = await ellipse.boundingBox();
+    expect(box).not.toBeNull();
 
-    if (circleBox) {
-      const x = circleBox.x + circleBox.width / 2;
-      const y = circleBox.y + circleBox.height / 2;
+    if (box) {
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
 
       await page.mouse.move(x, y);
       await page.mouse.down();
@@ -80,8 +61,7 @@ test.describe('Text Fill Color Inheritance', () => {
     await page.waitForTimeout(100);
 
     // Fill should still be correct
-    const fillAfterMove = await textEl.getAttribute('fill');
-    expect(fillAfterMove).toBe('#c030c0');
+    await expect(textEl).toHaveAttribute('fill', fill);
   });
 });
 
@@ -90,11 +70,8 @@ test.describe('Text Fill in Main Editor', () => {
     await page.goto('/');
     await page.waitForSelector('g[data-element-type="text"]');
 
-    const textGroups = page.locator('g[data-element-type="text"]');
-    const moonbitText = textGroups.first();
-    const textEl = moonbitText.locator('text');
-
-    const fill = await textEl.getAttribute('fill');
-    expect(fill).toBe('#c030c0');
+    for (const { text, fill } of Object.values(DEMO.labels)) {
+      await expect(label(page, text), `the label "${text}"`).toHaveAttribute('fill', fill);
+    }
   });
 });

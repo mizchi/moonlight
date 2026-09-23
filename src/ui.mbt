@@ -21,6 +21,20 @@ fn to_hex_color(color : String, default : String) -> String {
 }
 
 ///|
+/// サイドパネルがキャンバスの右端を覆っている幅（覆っていなければ 0）。
+/// パネルを出すのはフルエディタだけで、モバイルでは下端のボトムシートになる。
+fn panel_inset(state : @core.EditorState) -> Double {
+  if state.mode is @core.Full &&
+    state.panel_visible.get() &&
+    !state.is_mobile.get() {
+    // パネルの幅 + 右端との余白 12 + 図との間 12
+    (sidebar_width + 24).to_double()
+  } else {
+    0.0
+  }
+}
+
+///|
 /// サイドバーをレンダリング（後方互換性のため残す）
 pub fn render_sidebar(
   state : @core.EditorState,
@@ -315,7 +329,9 @@ fn render_canvas_settings(state : @core.EditorState) -> @element.DomNode {
         // Fit to Canvas ボタン
         button(
           style="margin-top: 6px; width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 10px; background: #f8f8f8;",
-          on=events().click(fn(_) { state.fit_to_canvas() }),
+          on=events().click(fn(_) {
+            state.fit_to_canvas(right_inset=panel_inset(state))
+          }),
           [text("Fit to Canvas")],
         ),
       ]),

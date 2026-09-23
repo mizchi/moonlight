@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DEMO } from './demo-scene';
 
 // Undo/Redo with empty stack should not cause errors
 test('should handle undo/redo with empty stack', async ({ page }) => {
@@ -29,7 +30,7 @@ test('should duplicate shape with Ctrl+D', async ({ page }) => {
 
   // 初期図形が出そろう前に数えると基準値が 0 になり、複製後の数と比べても
   // 意味のない比較になる（クリックの方は要素が現れるまで待つので食い違う）
-  await expect(shapeRects).toHaveCount(4);
+  await expect(shapeRects).toHaveCount(DEMO.rects);
   const initialCount = await shapeRects.count();
 
   // Select first shape (use force:true because child text hit area may intercept clicks)

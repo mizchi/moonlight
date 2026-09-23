@@ -115,7 +115,7 @@ pub fn EditorState::end_resize(Self) -> Unit
 pub fn EditorState::end_text_edit(Self) -> Unit
 pub fn EditorState::find_element(Self, String) -> @model.Element?
 pub fn EditorState::find_nearest_connection_point(Self, @model.Point, Array[String], Double) -> (@model.Element, @model.Anchor, @model.Point)?
-pub fn EditorState::fit_to_canvas(Self) -> Unit
+pub fn EditorState::fit_to_canvas(Self, right_inset? : Double) -> Unit
 pub fn EditorState::get_arrow_style(Self) -> @model.Style
 pub fn EditorState::get_arrow_style_initial(Self) -> @model.Style
 pub fn EditorState::get_children(Self, String) -> Array[@model.Element]

@@ -106,9 +106,9 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
   });
 
   test('should select element on click', async ({ page }) => {
-    // Click on the circle element (force: true to bypass text overlay)
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    await circle.click({ force: true });
+    // Click on the ellipse (force: true to bypass text overlay)
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    await ellipse.click({ force: true });
 
     // Check that selection rect appears
     const selectionRect = page.locator('#editor svg .selection-overlay');
@@ -117,8 +117,8 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
 
   test('should deselect on background click', async ({ page }) => {
     // First, select an element
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    await circle.click({ force: true });
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    await ellipse.click({ force: true });
     await expect(page.locator('#editor svg .selection-overlay')).toBeVisible();
 
     // Click on background (top-left corner where there's no element)
@@ -133,19 +133,19 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
   });
 
   test('should drag element to new position', async ({ page }) => {
-    // Get initial circle position
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    const initialCx = await circle.getAttribute('cx');
-    const initialCy = await circle.getAttribute('cy');
+    // Get initial ellipse position
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    const initialCx = await ellipse.getAttribute('cx');
+    const initialCy = await ellipse.getAttribute('cy');
 
-    // Get circle bounding box directly for accurate positioning
-    const circleBox = await circle.boundingBox();
-    expect(circleBox).not.toBeNull();
+    // Get ellipse bounding box directly for accurate positioning
+    const ellipseBox = await ellipse.boundingBox();
+    expect(ellipseBox).not.toBeNull();
 
-    if (circleBox && initialCx && initialCy) {
+    if (ellipseBox && initialCx && initialCy) {
       // Use the element's bounding box center for accurate click position
-      const screenX = circleBox.x + circleBox.width / 2;
-      const screenY = circleBox.y + circleBox.height / 2;
+      const screenX = ellipseBox.x + ellipseBox.width / 2;
+      const screenY = ellipseBox.y + ellipseBox.height / 2;
 
       // Perform drag
       await page.mouse.move(screenX, screenY);
@@ -154,8 +154,8 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
       await page.mouse.up();
 
       // Check that position changed
-      const newCx = await circle.getAttribute('cx');
-      const newCy = await circle.getAttribute('cy');
+      const newCx = await ellipse.getAttribute('cx');
+      const newCy = await ellipse.getAttribute('cy');
 
       expect(parseFloat(newCx!)).not.toBe(parseFloat(initialCx));
       expect(parseFloat(newCy!)).not.toBe(parseFloat(initialCy));
@@ -194,13 +194,13 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
 
   test('should show selection rect during drag', async ({ page }) => {
     // Click to select
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    const circleBox = await circle.boundingBox();
-    expect(circleBox).not.toBeNull();
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    const ellipseBox = await ellipse.boundingBox();
+    expect(ellipseBox).not.toBeNull();
 
-    if (circleBox) {
-      const screenX = circleBox.x + circleBox.width / 2;
-      const screenY = circleBox.y + circleBox.height / 2;
+    if (ellipseBox) {
+      const screenX = ellipseBox.x + ellipseBox.width / 2;
+      const screenY = ellipseBox.y + ellipseBox.height / 2;
 
       // Start drag
       await page.mouse.move(screenX, screenY);
@@ -220,22 +220,22 @@ test.describe('Moonlight Embed Mode - Drag and Drop', () => {
 
   test('drag should move element in scene coordinates', async ({ page }) => {
     // This test verifies that drag moves the element
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    const initialCx = await circle.getAttribute('cx');
-    const initialCy = await circle.getAttribute('cy');
-    const circleBox = await circle.boundingBox();
-    expect(circleBox).not.toBeNull();
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    const initialCx = await ellipse.getAttribute('cx');
+    const initialCy = await ellipse.getAttribute('cy');
+    const ellipseBox = await ellipse.boundingBox();
+    expect(ellipseBox).not.toBeNull();
 
-    if (circleBox && initialCx && initialCy) {
-      const screenX = circleBox.x + circleBox.width / 2;
-      const screenY = circleBox.y + circleBox.height / 2;
+    if (ellipseBox && initialCx && initialCy) {
+      const screenX = ellipseBox.x + ellipseBox.width / 2;
+      const screenY = ellipseBox.y + ellipseBox.height / 2;
 
       await page.mouse.move(screenX, screenY);
       await page.mouse.down();
       await page.mouse.move(screenX + 60, screenY, { steps: 5 });
       await page.mouse.up();
 
-      const newCx = await circle.getAttribute('cx');
+      const newCx = await ellipse.getAttribute('cx');
       const actualDx = parseFloat(newCx!) - parseFloat(initialCx);
 
       // Element should have moved (direction depends on viewBox scaling)
@@ -255,19 +255,19 @@ test.describe('Moonlight Embed Mode - Anchor Points', () => {
     const anchorsBefore = await page.locator('#editor svg .anchor-point').count();
     expect(anchorsBefore).toBe(0);
 
-    // Select the circle
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    await circle.click({ force: true });
+    // Select the ellipse
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    await ellipse.click({ force: true });
 
-    // Anchor points should appear (4 for circle: top, bottom, left, right - center is skipped)
+    // Anchor points should appear (4 for an ellipse: top, bottom, left, right - center is skipped)
     const anchorsAfter = await page.locator('#editor svg .anchor-point').count();
     expect(anchorsAfter).toBe(4);
   });
 
   test('should hide anchor points when deselected', async ({ page }) => {
-    // Select the circle
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    await circle.click({ force: true });
+    // Select the ellipse
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    await ellipse.click({ force: true });
 
     // Anchor points should be visible
     await expect(page.locator('#editor svg .anchor-point').first()).toBeVisible();
@@ -305,9 +305,9 @@ test.describe('Moonlight Embed Mode - Anchor Drag', () => {
     // Count initial elements
     const initialCount = await page.locator('#editor svg [data-id]').count();
 
-    // Select the circle to show anchor points
-    const circle = page.locator('#editor svg circle[data-id]').first();
-    await circle.click({ force: true });
+    // Select the ellipse to show anchor points
+    const ellipse = page.locator('#editor svg ellipse[data-id]').first();
+    await ellipse.click({ force: true });
 
     // Wait for anchor points
     await expect(page.locator('#editor svg .anchor-point').first()).toBeVisible();
@@ -381,28 +381,28 @@ test.describe('Moonlight Embed Mode - Edit Modal', () => {
     // Wait for modal to open
     await expect(page.locator('button[aria-label="Close"]')).toBeVisible();
 
-    // Select circle element in the modal (use the modal's SVG canvas)
+    // Select the ellipse in the modal (use the modal's SVG canvas)
     const modalSvg = page.locator('div[style*="position: fixed"] svg[width="100%"]');
-    const circle = modalSvg.locator('circle[data-id]').first();
-    await circle.click({ force: true });
+    const ellipse = modalSvg.locator('ellipse[data-id]').first();
+    await ellipse.click({ force: true });
 
     // Wait for selection
     await expect(modalSvg.locator('.selection-overlay')).toBeVisible();
 
     // Get initial position
-    const initialCx = await circle.getAttribute('cx');
-    const initialCy = await circle.getAttribute('cy');
+    const initialCx = await ellipse.getAttribute('cx');
+    const initialCy = await ellipse.getAttribute('cy');
 
     // Press arrow right
     await page.keyboard.press('ArrowRight');
 
     // Position should change
-    const newCx = await circle.getAttribute('cx');
+    const newCx = await ellipse.getAttribute('cx');
     expect(parseFloat(newCx!)).toBeGreaterThan(parseFloat(initialCx!));
 
     // Press arrow down
     await page.keyboard.press('ArrowDown');
-    const newCy = await circle.getAttribute('cy');
+    const newCy = await ellipse.getAttribute('cy');
     expect(parseFloat(newCy!)).toBeGreaterThan(parseFloat(initialCy!));
   });
 });

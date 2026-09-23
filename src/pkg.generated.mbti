@@ -162,6 +162,8 @@ pub fn render_svg_container_with_viewport(Int, Int, @model.Viewport, (@mizchi/js
 
 pub fn render_text_input(@mizchi/moonlight/core.EditorState, (String) -> Unit, () -> Unit) -> @dom.DomNode
 
+pub fn sample_elements(() -> String) -> Array[@model.Element]
+
 pub fn save_to_indexeddb(String, String, String, String, () -> Unit, () -> Unit) -> Unit
 
 pub fn schedule_focus_with_value_ffi(String, String) -> Int

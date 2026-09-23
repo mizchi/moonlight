@@ -1,278 +1,224 @@
+// 起動時のサンプル（デモ）
+//
+// 最初に開いた人が、何ができるエディタなのかを一目でつかめる図にする。
+// 図そのものが Moonlight の使い方を表している:
+//
+//   Draw ──▶ Plain SVG
+//     ▲          │
+//     └ ─ ─ Embed anywhere     （破線の矢印: 書き出した SVG をまた開いて直せる。
+//                                中央の手描きの ↻ と「Round trip」がその往復を表す）
+//
+// 同時に、ひとつひとつの要素が機能の実例になっている:
+//   - 楕円・角丸矩形・矩形と、その中のラベル（ダブルクリックで編集できる）
+//   - アンカーに結合した矢印（図形を動かしても付いてくる）と、破線のスタイル
+//   - 手描きの線をベジェ曲線に直したパス（中央の ↻）
+//   - 画面の下に操作のヒント
+//
+// ラベルの文字色は親図形の線の色になる（get_text_fill_color）。塗りは淡く、線は
+// 濃くして、ラベルが塗りの上で読めるようにする。塗りは固定色なのでダークモード
+// でも読める。矢印とヒントは CSS 変数でテーマに追随する。
+
+///|
+/// サンプルの図形ひとつの配色（塗りは淡く、線とラベルは濃く）
+priv struct SampleTint {
+  fill : String
+  stroke : String
+}
+
+///|
+/// 紫: Draw
+let tint_draw : SampleTint = { fill: "#f5f3ff", stroke: "#6d28d9", }
+
+///|
+/// 琥珀: Plain SVG
+let tint_svg : SampleTint = { fill: "#fffbeb", stroke: "#b45309", }
+
+///|
+/// 緑: Embed anywhere
+let tint_embed : SampleTint = { fill: "#ecfdf5", stroke: "#047857", }
+
+///|
+fn sample_node_style(tint : SampleTint) -> @model.Style {
+  {
+    fill: Some(tint.fill),
+    stroke: Some(tint.stroke),
+    stroke_width: Some(2.0),
+    opacity: None,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+    font_family: None,
+  }
+}
+
+///|
+fn sample_arrow_style(dashed : Bool) -> @model.Style {
+  {
+    fill: None,
+    stroke: Some(@model.css_var_stroke),
+    stroke_width: Some(1.5),
+    opacity: None,
+    stroke_dasharray: if dashed {
+      Some("6,4")
+    } else {
+      None
+    },
+    marker_start: None,
+    marker_end: Some(@model.Arrow),
+    font_family: None,
+  }
+}
+
+///|
+/// 図形の中のラベル・図の外のヒントに使う文字のスタイル
+fn sample_text_style(opacity : Double?) -> @model.Style {
+  {
+    fill: Some(@model.css_var_text),
+    stroke: None,
+    stroke_width: None,
+    opacity,
+    stroke_dasharray: None,
+    marker_start: None,
+    marker_end: None,
+    font_family: None,
+  }
+}
+
+///|
+/// サンプル（デモ）の要素を作る（純粋関数）
+///
+/// ドキュメントの既定の大きさ（400 × 300）に収まるように置いてある。
+/// 上端はデスクトップでツールバーが少し重なるので、20 ほど空けてある。
+pub fn sample_elements(new_id : () -> String) -> Array[@model.Element] {
+  let elements : Array[@model.Element] = []
+  // 図形と、その中央に置くラベル
+  let node = fn(
+    shape : @model.ShapeType,
+    x : Double,
+    y : Double,
+    tint : SampleTint,
+    label : String,
+    size : Double,
+  ) -> String {
+    let id = new_id()
+    let el = @model.Element::new(id, x, y, shape).with_style(
+      sample_node_style(tint),
+    )
+    elements.push(el)
+    let bbox = el.bounding_box()
+    let label_el = @model.Element::new(
+        new_id(),
+        bbox.x + bbox.width / 2.0,
+        bbox.y + bbox.height / 2.0,
+        @model.Text(label, Some(size)),
+      )
+      .with_style(sample_text_style(None))
+      .with_parent(id)
+    elements.push(label_el)
+    id
+  }
+  let draw = node(
+    @model.Ellipse(56.0, 30.0),
+    90.0,
+    78.0,
+    tint_draw,
+    "Draw",
+    16.0,
+  )
+  let svg = node(
+    @model.Rect(116.0, 56.0, Some(10.0), Some(10.0)),
+    252.0,
+    50.0,
+    tint_svg,
+    "Plain SVG",
+    15.0,
+  )
+  let embed = node(
+    @model.Rect(130.0, 52.0, None, None),
+    135.0,
+    178.0,
+    tint_embed,
+    "Embed anywhere",
+    15.0,
+  )
+  // 手描きの ↻（ベジェ曲線に直したフリーハンドの線）。一周して戻ってくる流れを表す。
+  // 矢じりも手描きの一部として同じパスに描く（キャンバスはパスにマーカーを付けない）。
+  // 端点は描き始めと描き終わり（Path の bounding box は端点から決まる）。
+  let loop_d = "M 178 125 C 177.5 112 188 101.5 201 102 C 214 102.5 223.5 113 223 125.5 C 222.5 138 212 147.5 199.5 147 M 207.5 140.5 L 199 147 L 208 153.5"
+  elements.push(
+    @model.Element::new(
+      new_id(),
+      178.0,
+      125.0,
+      @model.Path(loop_d, 178.0, 125.0, 208.0, 153.5),
+    ).with_style({
+      ..sample_arrow_style(false),
+      stroke_width: Some(2.0),
+      marker_end: None,
+    }),
+  )
+  elements.push(
+    @model.Element::new(
+      new_id(),
+      200.0,
+      165.0,
+      @model.Text("Round trip", Some(12.0)),
+    ).with_style(sample_text_style(Some(0.7))),
+  )
+  // 操作のヒント（図の下）
+  elements.push(
+    @model.Element::new(
+      new_id(),
+      200.0,
+      258.0,
+      @model.Text("Drag a shape: its arrows stay attached", Some(13.0)),
+    ).with_style(sample_text_style(Some(0.7))),
+  )
+  elements.push(
+    @model.Element::new(
+      new_id(),
+      200.0,
+      280.0,
+      @model.Text(
+        "Double-click to edit  ·  Ctrl+Shift+C copies SVG",
+        Some(13.0),
+      ),
+    ).with_style(sample_text_style(Some(0.7))),
+  )
+  // 矢印は最後に置いて最前面に描く。端点はアンカーに結合し、座標もそこに合わせる。
+  let arrow = fn(from : String, from_anchor, to : String, to_anchor, dashed) {
+    let anchor_of = fn(id : String, anchor : @model.Anchor) -> @model.Point {
+      match elements.iter().find_first(fn(e) { e.id == id }) {
+        Some(e) => e.get_anchor_point(anchor)
+        None => { x: 0.0, y: 0.0, }
+      }
+    }
+    let p = anchor_of(from, from_anchor)
+    let q = anchor_of(to, to_anchor)
+    elements.push({
+      ..@model.Element::new(new_id(), p.x, p.y, @model.Line(q.x, q.y)).with_style(
+        sample_arrow_style(dashed),
+      ),
+      connections: Some({
+        start: Some({ element_id: from, anchor: from_anchor, }),
+        end: Some({ element_id: to, anchor: to_anchor, }),
+      }),
+    })
+  }
+  arrow(draw, @model.Right, svg, @model.Left, false)
+  arrow(svg, @model.Bottom, embed, @model.Right, false)
+  // 書き出した SVG をまた開いて直す（往復）
+  arrow(embed, @model.Left, draw, @model.Bottom, true)
+  elements
+}
+
 ///|
 /// サンプル図形を追加
 pub fn add_sample_shapes(
   state : @core.EditorState,
   new_id : () -> String,
 ) -> Unit {
-  let text_style = state.get_text_style()
-  let arrow_style = state.get_arrow_style()
-
-  // カスタムスタイル
-  let magenta_fill : @model.Style = {
-    fill: Some("#e040e0"),
-    stroke: Some("#c030c0"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
+  for el in sample_elements(new_id) {
+    state.add_element_raw(el)
   }
-  let blue_stroke : @model.Style = {
-    fill: Some("transparent"),
-    stroke: Some("#3355aa"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
-  }
-  let yellow_fill : @model.Style = {
-    fill: Some("#ffee44"),
-    stroke: Some(@model.css_var_stroke),
-    stroke_width: Some(1.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
-  }
-  let yellow_stroke : @model.Style = {
-    fill: Some("transparent"),
-    stroke: Some("#ddcc00"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
-  }
-  let brown_fill : @model.Style = {
-    fill: Some("#8b7080"),
-    stroke: Some("#6b5060"),
-    stroke_width: Some(2.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
-  }
-  let default_rect : @model.Style = {
-    fill: Some("transparent"),
-    stroke: Some(@model.css_var_stroke),
-    stroke_width: Some(1.0),
-    opacity: None,
-    stroke_dasharray: None,
-    marker_start: None,
-    marker_end: None,
-    font_family: None,
-  }
-
-  // 行1: Moonbit → Luna → JS
-  // Moonbit (マゼンタの円)
-  let moonbit_id = new_id()
-  let moonbit = @model.Element::new(moonbit_id, 55.0, 65.0, @model.Circle(35.0)).with_style(
-    magenta_fill,
-  )
-  let moonbit_text_id = new_id()
-  let moonbit_text = @model.Element::new(
-      moonbit_text_id,
-      55.0,
-      65.0,
-      @model.Text("Moonbit", Some(14.0)),
-    )
-    .with_style(text_style)
-    .with_parent(moonbit_id)
-
-  // Luna (青い枠の矩形)
-  let luna_id = new_id()
-  let luna = @model.Element::new(
-    luna_id,
-    130.0,
-    40.0,
-    @model.Rect(100.0, 50.0, None, None),
-  ).with_style(blue_stroke)
-  let luna_text_id = new_id()
-  let luna_text = @model.Element::new(
-      luna_text_id,
-      180.0,
-      65.0,
-      @model.Text("Luna", Some(16.0)),
-    )
-    .with_style(text_style)
-    .with_parent(luna_id)
-
-  // JS (黄色背景の矩形)
-  let js_id = new_id()
-  let js = @model.Element::new(
-    js_id,
-    280.0,
-    40.0,
-    @model.Rect(70.0, 50.0, None, None),
-  ).with_style(yellow_fill)
-  let js_text_id = new_id()
-  let js_text = @model.Element::new(
-      js_text_id,
-      315.0,
-      65.0,
-      @model.Text("JS", Some(18.0)),
-    )
-    .with_style(text_style)
-    .with_parent(js_id)
-
-  // 矢印: Moonbit → Luna
-  let arrow1_id = new_id()
-  let arrow1 = @model.Element::new(
-    arrow1_id,
-    90.0,
-    65.0,
-    @model.Line(130.0, 65.0),
-  ).with_style(arrow_style)
-  let arrow1_conn = {
-    ..arrow1,
-    connections: Some({
-      start: Some({ element_id: moonbit_id, anchor: @model.Right, }),
-      end: Some({ element_id: luna_id, anchor: @model.Left, }),
-    }),
-  }
-
-  // 矢印: Luna → JS
-  let arrow2_id = new_id()
-  let arrow2 = @model.Element::new(
-    arrow2_id,
-    230.0,
-    65.0,
-    @model.Line(280.0, 65.0),
-  ).with_style(arrow_style)
-  let arrow2_conn = {
-    ..arrow2,
-    connections: Some({
-      start: Some({ element_id: luna_id, anchor: @model.Right, }),
-      end: Some({ element_id: js_id, anchor: @model.Left, }),
-    }),
-  }
-
-  // 行2: Excalidraw → Moonlight → Svg
-  // Excalidraw (黄色い枠の楕円)
-  let excalidraw_id = new_id()
-  let excalidraw = @model.Element::new(
-    excalidraw_id,
-    55.0,
-    200.0,
-    @model.Ellipse(50.0, 28.0),
-  ).with_style(yellow_stroke)
-  let excalidraw_text_id = new_id()
-  let excalidraw_text = @model.Element::new(
-      excalidraw_text_id,
-      55.0,
-      200.0,
-      @model.Text("Excalidraw", Some(12.0)),
-    )
-    .with_style(text_style)
-    .with_parent(excalidraw_id)
-
-  // Moonlight (茶色の塗りつぶし矩形)
-  let moonlight_id = new_id()
-  let moonlight = @model.Element::new(
-    moonlight_id,
-    150.0,
-    160.0,
-    @model.Rect(100.0, 70.0, None, None),
-  ).with_style(brown_fill)
-  let moonlight_text_id = new_id()
-  let moonlight_text = @model.Element::new(
-      moonlight_text_id,
-      200.0,
-      195.0,
-      @model.Text("Moonlight", Some(14.0)),
-    )
-    .with_style(text_style)
-    .with_parent(moonlight_id)
-
-  // Svg (白い矩形)
-  let svg_id = new_id()
-  let svg = @model.Element::new(
-    svg_id,
-    300.0,
-    165.0,
-    @model.Rect(70.0, 60.0, None, None),
-  ).with_style(default_rect)
-  let svg_text_id = new_id()
-  let svg_text = @model.Element::new(
-      svg_text_id,
-      335.0,
-      195.0,
-      @model.Text("Svg", Some(16.0)),
-    )
-    .with_style(text_style)
-    .with_parent(svg_id)
-
-  // 矢印: Luna → Moonlight (下向き)
-  let arrow3_id = new_id()
-  let arrow3 = @model.Element::new(
-    arrow3_id,
-    180.0,
-    90.0,
-    @model.Line(200.0, 160.0),
-  ).with_style(arrow_style)
-  let arrow3_conn = {
-    ..arrow3,
-    connections: Some({
-      start: Some({ element_id: luna_id, anchor: @model.Bottom, }),
-      end: Some({ element_id: moonlight_id, anchor: @model.Top, }),
-    }),
-  }
-
-  // 矢印: Excalidraw → Moonlight
-  let arrow4_id = new_id()
-  let arrow4 = @model.Element::new(
-    arrow4_id,
-    105.0,
-    200.0,
-    @model.Line(150.0, 195.0),
-  ).with_style(arrow_style)
-  let arrow4_conn = {
-    ..arrow4,
-    connections: Some({
-      start: Some({ element_id: excalidraw_id, anchor: @model.Right, }),
-      end: Some({ element_id: moonlight_id, anchor: @model.Left, }),
-    }),
-  }
-
-  // 矢印: Moonlight → Svg
-  let arrow5_id = new_id()
-  let arrow5 = @model.Element::new(
-    arrow5_id,
-    250.0,
-    195.0,
-    @model.Line(300.0, 195.0),
-  ).with_style(arrow_style)
-  let arrow5_conn = {
-    ..arrow5,
-    connections: Some({
-      start: Some({ element_id: moonlight_id, anchor: @model.Right, }),
-      end: Some({ element_id: svg_id, anchor: @model.Left, }),
-    }),
-  }
-
-  // 要素を追加
-  state.add_element_raw(moonbit)
-  state.add_element_raw(moonbit_text)
-  state.add_element_raw(luna)
-  state.add_element_raw(luna_text)
-  state.add_element_raw(js)
-  state.add_element_raw(js_text)
-  state.add_element_raw(excalidraw)
-  state.add_element_raw(excalidraw_text)
-  state.add_element_raw(moonlight)
-  state.add_element_raw(moonlight_text)
-  state.add_element_raw(svg)
-  state.add_element_raw(svg_text)
-  // 矢印は最後に追加（最前面に表示）
-  state.add_element_raw(arrow1_conn)
-  state.add_element_raw(arrow2_conn)
-  state.add_element_raw(arrow3_conn)
-  state.add_element_raw(arrow4_conn)
-  state.add_element_raw(arrow5_conn)
 }

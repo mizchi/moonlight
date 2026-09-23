@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { DEMO } from './demo-scene';
 
 /**
  * SVG のラウンドトリップ。
@@ -190,7 +191,7 @@ test.describe('the exported file stands on its own', () => {
     // <svg style> にしか無いので、フォールバックが無いと、ファイルとして開いた
     // ときに stroke が初期値の none に落ちて線が丸ごと消える。
     await page.goto('/');
-    await expect(page.locator('svg rect[data-id][cursor="move"]')).toHaveCount(4);
+    await expect(page.locator('svg rect[data-id][cursor="move"]')).toHaveCount(DEMO.rects);
     await page.keyboard.press('Control+Shift+KeyC'); // SVG をクリップボードへ
     await page.waitForTimeout(300);
     const svg = await page.evaluate(() => navigator.clipboard.readText());

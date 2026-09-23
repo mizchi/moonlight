@@ -1195,20 +1195,31 @@ pub fn EditorState::reset_viewport(self : EditorState) -> Unit {
 
 ///|
 /// ドキュメント全体がキャンバスにフィットする zoom を計算してセット
-pub fn EditorState::fit_to_canvas(self : EditorState) -> Unit {
+///
+/// right_inset はキャンバスの右端を覆っているもの（サイドパネル）の幅。
+/// 覆われていない範囲に収めて、その中央に置く。覆われていない幅が半分を
+/// 切るほど狭いときは、覆われるのを承知でキャンバス全体を使う。
+pub fn EditorState::fit_to_canvas(
+  self : EditorState,
+  right_inset? : Double = 0.0,
+) -> Unit {
   let doc_w = self.doc_width.get()
   let doc_h = self.doc_height.get()
   let canvas_w = self.canvas_width.get().to_double()
   let canvas_h = self.canvas_height.get().to_double()
+  let visible_w = if canvas_w - right_inset >= canvas_w / 2.0 {
+    canvas_w - right_inset
+  } else {
+    canvas_w
+  }
   // 余白を含めてフィット
   let margin = 40.0
-  let zoom_x = canvas_w / (doc_w + margin * 2.0)
+  let zoom_x = visible_w / (doc_w + margin * 2.0)
   let zoom_y = canvas_h / (doc_h + margin * 2.0)
   let fit_zoom = if zoom_x < zoom_y { zoom_x } else { zoom_y }
-  // ドキュメントを中央に配置
-  let vb_width = canvas_w / fit_zoom
+  // ドキュメントを覆われていない範囲の中央に配置
+  let scroll_x = doc_w / 2.0 - visible_w / fit_zoom / 2.0
   let vb_height = canvas_h / fit_zoom
-  let scroll_x = -(vb_width - doc_w) / 2.0
   let scroll_y = -(vb_height - doc_h) / 2.0
   self.viewport.set({ scroll_x, scroll_y, zoom: fit_zoom, })
 }

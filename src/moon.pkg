@@ -17,6 +17,7 @@ import {
 
 import {
   "mizchi/moonlight/interaction",
+  "moonbitlang/core/math",
 } for "wbtest"
 
 supported_targets = "js"

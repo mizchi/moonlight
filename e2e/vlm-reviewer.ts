@@ -19,10 +19,12 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { nlAssert, NlAssertError } from '@mizchi/vlmkit/playwright';
 import type {
   NlAssertReviewRequest,
   NlAssertReviewResult,
   NlAssertReviewer,
+  ScreenshotTargetLike,
 } from '@mizchi/vlmkit/playwright';
 
 const execFileAsync = promisify(execFile);
@@ -352,4 +354,40 @@ export function createReviewer(env: NodeJS.ProcessEnv = process.env): NlAssertRe
         return askClaudeCli(provider, request);
     }
   };
+}
+
+/**
+ * 主張を一つずつ判定役に見せ、通らなかった主張を理由つきで返す（全部通れば空）。
+ *
+ * 判定役の揺れで一度だけ落ちることがあるので、落ちた主張はもう一度だけ聞く。
+ * 二度落ちたら絵の問題とみなす。
+ */
+export async function reviewClaims(
+  claims: string[],
+  target: ScreenshotTargetLike,
+  reviewer: NlAssertReviewer,
+): Promise<string[]> {
+  const ask = async (claim: string): Promise<string | null> => {
+    try {
+      const verdict = await nlAssert({ assertion: claim, target, reviewer });
+      console.log(`[vlmkit] PASS  ${claim}\n          ${verdict.reasoning}`);
+      return null;
+    } catch (error) {
+      if (!(error instanceof NlAssertError)) throw error;
+      console.log(`[vlmkit] FAIL  ${claim}\n          ${error.result.reasoning}`);
+      return error.result.reasoning ?? '(no reasoning given)';
+    }
+  };
+  const failures: string[] = [];
+  for (const claim of claims) {
+    const first = await ask(claim);
+    if (first === null) continue;
+    const second = await ask(claim);
+    if (second === null) {
+      console.log(`[vlmkit] WOBBLE ${claim}\n          1回目だけ落ちた: ${first}`);
+      continue;
+    }
+    failures.push(`${claim}\n    -> ${first}\n    -> ${second}`);
+  }
+  return failures;
 }
