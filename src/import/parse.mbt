@@ -525,53 +525,50 @@ fn parse_points(s : String) -> Array[@model.Point] {
 
 ///|
 /// 接続情報のIDを更新（古いID → 新しいID）
+///
+/// 取り込みでは ID を振り直すので、取り込んだ SVG の中に無い要素を指している
+/// 参照（削除済みの図形への接続など）は外す。古い ID のまま残すと、振り直した
+/// 別の要素がたまたまその ID になったとき、無関係な要素に繋がってしまう。
 fn update_connection_ids(
   elements : Array[@model.Element],
   id_map : Array[(String, String)],
 ) -> Unit {
-  // IDマップから新しいIDを検索
-  let find_new_id = fn(old_id : String) -> String {
+  // IDマップから新しいIDを検索（取り込んだ SVG に無ければ None）
+  let find_new_id = fn(old_id : String) -> String? {
     for mapping in id_map {
       let (o, n) = mapping
       if o == old_id {
-        return n
+        return Some(n)
       }
     }
-    old_id
+    None
+  }
+  let remap = fn(conn : @model.Connection?) -> @model.Connection? {
+    guard conn is Some(c) else { return None }
+    match find_new_id(c.element_id) {
+      Some(n) => Some({ element_id: n, anchor: c.anchor, })
+      None => None
+    }
   }
   // 各要素の接続情報とparent_idを更新
   for i = 0; i < elements.length(); i = i + 1 {
     let el = elements[i]
     // parent_id を更新
     let new_parent_id = match el.parent_id {
-      Some(pid) => Some(find_new_id(pid))
+      Some(pid) => find_new_id(pid)
       None => None
     }
     // connections を更新
     let new_connections = match el.connections {
       Some(conns) => {
-        let new_start : @model.Connection? = match conns.start {
-          Some(conn) => {
-            let c : @model.Connection = {
-              element_id: find_new_id(conn.element_id),
-              anchor: conn.anchor,
-            }
-            Some(c)
-          }
-          None => None
+        let start = remap(conns.start)
+        let end = remap(conns.end)
+        if start is None && end is None {
+          None
+        } else {
+          let lc : @model.LineConnections = { start, end, }
+          Some(lc)
         }
-        let new_end : @model.Connection? = match conns.end {
-          Some(conn) => {
-            let c : @model.Connection = {
-              element_id: find_new_id(conn.element_id),
-              anchor: conn.anchor,
-            }
-            Some(c)
-          }
-          None => None
-        }
-        let lc : @model.LineConnections = { start: new_start, end: new_end, }
-        Some(lc)
       }
       None => None
     }

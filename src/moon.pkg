@@ -16,4 +16,9 @@ import {
   "mizchi/js_browser/dom",
 } for "test"
 
+import {
+  "mizchi/moonlight/interaction",
+  "moonbitlang/core/math",
+} for "wbtest"
+
 supported_targets = "js"

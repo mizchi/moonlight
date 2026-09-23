@@ -70,10 +70,15 @@ fn serialize_element(
   } else {
     attrs.write_string(" fill=\"\{style.fill.unwrap_or("none")}\"")
   }
-  attrs.write_string(" stroke=\"\{style.stroke.unwrap_or("#000000")}\"")
-  attrs.write_string(
-    " stroke-width=\"\{@model.num_str(style.stroke_width.unwrap_or(1.0))}\"",
-  )
+  // 縁取り。文字は縁取りを指定したときだけ付ける。エディタで置く文字には
+  // 縁取りが無く、既定の黒い 1px を付けると太く滲み、色の付いたラベルは黒く
+  // 縁取られる（統合前のエディタ側の書き出しもこうしていた）
+  if !is_text || style.stroke is Some(_) {
+    attrs.write_string(" stroke=\"\{style.stroke.unwrap_or("#000000")}\"")
+    attrs.write_string(
+      " stroke-width=\"\{@model.num_str(style.stroke_width.unwrap_or(1.0))}\"",
+    )
+  }
   if style.opacity is Some(v) {
     attrs.write_string(" opacity=\"\{@model.num_str(v)}\"")
   }

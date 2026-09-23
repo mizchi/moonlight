@@ -204,7 +204,9 @@ pub fn create_js_editor(container : @js.Any, options : EmbedOptions) -> @js.Any 
   @lib.setup_focus_management(focus_state, container)
 
   // キーボードハンドラをセットアップ（コンテナ単位で受ける）
-  @lib.setup_keyboard_handler(state, history, new_id)
+  @lib.setup_keyboard_handler(state, history, new_id, copy_svg=fn() {
+    copy_svg_to_clipboard(state)
+  })
 
   // ハンドルを作成
   let handle = create_editor_handle_js(
@@ -652,7 +654,9 @@ pub fn create_embedded_app(container : @js.Any) -> @element.DomNode {
     container: @luna.signal(None),
   }
   @lib.setup_focus_management(focus_state, container)
-  @lib.setup_keyboard_handler(state, history, new_id)
+  @lib.setup_keyboard_handler(state, history, new_id, copy_svg=fn() {
+    copy_svg_to_clipboard(state)
+  })
   node
 }
 
@@ -679,8 +683,15 @@ fn editor_app() -> @element.DomNode {
   })
 
   // ウィンドウサイズを監視してモバイル判定を更新
+  let first_size : Ref[Bool] = { val: true, }
   observe_window_resize_ffi(fn(width, _height) {
     state.is_mobile.set(width < 768)
+    // 狭い画面では、パネル（ボトムシート）は閉じた状態で始める。開いていると
+    // キャンバスの大半を覆い、最初に出す図がほとんど見えない。
+    if first_size.val {
+      first_size.val = false
+      state.panel_visible.set(width >= 768)
+    }
   })
 
   // Space キーが押されているか
@@ -724,7 +735,7 @@ fn editor_app() -> @element.DomNode {
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,
@@ -1196,6 +1207,7 @@ fn commit_text_edit(
 /// pointermove ハンドラを作成
 fn create_pointermove_handler(
   state : @core.EditorState,
+  history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
   get_scene_coords : (@js.Any) -> (Double, Double),
   active_pointers : Ref[Map[Int, @model.Point]],
@@ -1213,6 +1225,8 @@ fn create_pointermove_handler(
       if state.multi_drag_state.get() is Some(_) {
         state.end_multi_drag()
       }
+      // 領域外で離された操作も、pointerup と同じく一段の履歴にする
+      state.commit_gesture(history)
     }
 
     // ポインター位置を更新
@@ -1268,98 +1282,6 @@ fn create_pointermove_handler(
 }
 
 ///|
-/// リサイズ終了時のコマンド記録
-fn record_resize_end(
-  state : @core.EditorState,
-  history : @model.History,
-  resize : @model.ResizeState,
-) -> Unit {
-  guard state.find_element(resize.element_id) is Some(el) else { return }
-  let changed = resize.start_shape != el.shape ||
-    resize.start_x != el.x ||
-    resize.start_y != el.y
-  guard changed else { return }
-  // 位置変更があれば記録
-  if resize.start_x != el.x || resize.start_y != el.y {
-    history.undo_stack.push(
-      @model.MoveElement(
-        resize.element_id,
-        resize.start_x,
-        resize.start_y,
-        el.x,
-        el.y,
-      ),
-    )
-  }
-  history.undo_stack.push(
-    @model.ResizeElement(resize.element_id, resize.start_shape, el.shape),
-  )
-  history.redo_stack.clear()
-}
-
-///|
-/// 複数要素ドラッグ終了時のコマンド記録
-fn record_multi_drag_end(
-  state : @core.EditorState,
-  history : @model.History,
-  multi_drag : @model.MultiDragState,
-) -> Unit {
-  for pos in multi_drag.start_positions {
-    let (id, start_x, start_y) = pos
-    guard state.find_element(id) is Some(el) else { continue }
-    guard start_x != el.x || start_y != el.y else { continue }
-    history.undo_stack.push(
-      @model.MoveElement(id, start_x, start_y, el.x, el.y),
-    )
-  }
-  history.redo_stack.clear()
-}
-
-///|
-/// Line ドラッグ時の接続要素移動を記録
-fn record_connected_moves(
-  state : @core.EditorState,
-  history : @model.History,
-  positions : Array[(String, Double, Double)],
-) -> Unit {
-  for pos in positions {
-    let (id, start_x, start_y) = pos
-    guard state.find_element(id) is Some(el) else { continue }
-    guard start_x != el.x || start_y != el.y else { continue }
-    history.undo_stack.push(
-      @model.MoveElement(id, start_x, start_y, el.x, el.y),
-    )
-  }
-}
-
-///|
-/// ドラッグ終了時のコマンド記録
-fn record_drag_end(
-  state : @core.EditorState,
-  history : @model.History,
-  drag : @model.DragState,
-) -> Unit {
-  guard state.find_element(drag.element_id) is Some(el) else { return }
-  guard drag.start_x != el.x || drag.start_y != el.y else { return }
-  // Line の場合は終点の変更もコマンドとして記録
-  match (drag.start_shape, el.shape) {
-    (Some(@model.Line(_, _) as old_shape), @model.Line(_, _) as new_shape) => {
-      record_connected_moves(state, history, drag.connected_start_positions)
-      if old_shape != new_shape {
-        history.undo_stack.push(
-          @model.ResizeElement(drag.element_id, old_shape, new_shape),
-        )
-      }
-    }
-    _ => ()
-  }
-  history.undo_stack.push(
-    @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y),
-  )
-  history.redo_stack.clear()
-}
-
-///|
 /// pointerup ハンドラを作成
 fn create_pointerup_handler(
   state : @core.EditorState,
@@ -1395,21 +1317,26 @@ fn create_pointerup_handler(
       state.end_box_select()
       return
     }
-    if state.resize_state.get() is Some(resize) {
-      record_resize_end(state, history, resize)
-      state.end_resize()
-      return
-    }
-    if state.multi_drag_state.get() is Some(multi_drag) {
-      record_multi_drag_end(state, history, multi_drag)
-      state.end_multi_drag()
-      return
-    }
-    if state.drag_state.get() is Some(drag) {
-      record_drag_end(state, history, drag)
-    }
+    finish_pointer_gesture(state, history)
+  }
+}
+
+///|
+/// ポインタ操作（リサイズ・複数ドラッグ・ドラッグ）を確定し、一段の履歴にする。
+/// 確定（丸め・接続の張り替え・潰れた線の破棄）が済んでから、開始時点との
+/// 差分を積む。
+fn finish_pointer_gesture(
+  state : @core.EditorState,
+  history : @model.History,
+) -> Unit {
+  if state.resize_state.get() is Some(_) {
+    state.end_resize()
+  } else if state.multi_drag_state.get() is Some(_) {
+    state.end_multi_drag()
+  } else {
     state.end_drag()
   }
+  state.commit_gesture(history)
 }
 
 ///|
@@ -1610,10 +1537,16 @@ fn setup_keyboard_shortcuts(
           let _ = e._call("preventDefault", [])
           state.select_all()
         }
-      "c" =>
+      // Ctrl+C は選択した要素を、Ctrl+Shift+C は SVG のテキストを写す。
+      // shift 付きの c は "C" で来ることも "c" のまま来ることもある（z と同じ）。
+      "c" | "C" =>
         if is_cmd {
           let _ = e._call("preventDefault", [])
-          @lib.copy_selection(state)
+          if shift_key {
+            copy_svg_to_clipboard(state)
+          } else {
+            @lib.copy_selection(state)
+          }
         }
       "v" =>
         if is_cmd {
@@ -1655,18 +1588,6 @@ fn setup_keyboard_shortcuts(
             state.get_theme().background,
           )
           download_file(svg_str, "moonlight.svg", "image/svg+xml")
-        }
-      "C" =>
-        // Ctrl+Shift+C: SVGテキストをクリップボードにコピー
-        if is_cmd && shift_key {
-          let _ = e._call("preventDefault", [])
-          let svg_str = @render.elements_to_moonlight_svg(
-            state.elements.get(),
-            state.doc_width.get().to_int(),
-            state.doc_height.get().to_int(),
-            state.get_theme().background,
-          )
-          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
         }
       "V" =>
         // Ctrl+Shift+V: クリップボードからSVGをインポート
@@ -1755,6 +1676,8 @@ fn render_editor_ui_vnode(
       show(fn() { state.context_menu.get() is Some(_) }, fn() {
         render_context_menu(state, history, new_id)
       }),
+      // 短い知らせ（コピーした、など）
+      render_notice(state),
     ],
   )
 }
@@ -1863,7 +1786,7 @@ pub fn render_editor_modal(
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,
@@ -1890,6 +1813,7 @@ pub fn render_editor_modal(
     on=events().click(fn(_) { state.modal_open.set(false) }),
     [
       // モーダルウィンドウ（クリックイベントの伝播を止める）
+      // 高さや下のツールバーを変えるときは ui.mbt の notice_bottom_in_modal も合わせる
       div(
         style="width: 90vw; max-width: 1200px; height: 85vh; background: white; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.3);",
         on=events().click(fn(e) {
@@ -1992,7 +1916,7 @@ fn embedded_editor_app(
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,
@@ -2021,6 +1945,8 @@ fn embedded_editor_app(
     show(fn() { state.modal_open.get() }, fn() {
       render_editor_modal(state, history, new_id)
     }),
+    // 短い知らせ。モーダルより手前に出るので、モーダルを開いていてもここ一つで足りる
+    render_notice(state),
   ])
 }
 
@@ -2228,6 +2154,28 @@ fn render_text_input_container(
 // svg_icon, toolbar_button は @components から利用
 
 ///|
+/// 図を SVG のテキストにしてクリップボードへ写し、写せたかどうかを知らせる。
+/// ツールバーのボタンと Ctrl+Shift+C（どの殻でも）がここを通る。
+fn copy_svg_to_clipboard(state : @core.EditorState) -> Unit {
+  let svg_str = @render.elements_to_moonlight_svg(
+    state.elements.get(),
+    state.doc_width.get().to_int(),
+    state.doc_height.get().to_int(),
+    state.get_theme().background,
+  )
+  copy_text_to_clipboard(
+    svg_str,
+    fn() { state.notify("Copied SVG to the clipboard") },
+    fn() {
+      state.notify(
+        "Could not copy: the browser blocked clipboard access",
+        is_error=true,
+      )
+    },
+  )
+}
+
+///|
 /// 埋め込みツールバー（SVGアイコン + キーバインド表示）
 fn render_embedded_toolbar(
   state : @core.EditorState,
@@ -2424,7 +2372,7 @@ fn render_embedded_toolbar(
         @components.svg_icon(@components.icon_reset, 16),
         None,
         "Fit to Canvas",
-        fn() { state.reset_viewport() },
+        fn() { state.fit_to_canvas(right_inset=panel_inset(state)) },
         theme~,
       ),
       // セパレータ
@@ -2522,15 +2470,7 @@ fn render_embedded_toolbar(
         @components.svg_icon(@components.icon_copy, 16),
         None,
         "Copy SVG (Ctrl+Shift+C)",
-        fn() {
-          let svg_str = @render.elements_to_moonlight_svg(
-            state.elements.get(),
-            state.doc_width.get().to_int(),
-            state.doc_height.get().to_int(),
-            state.get_theme().background,
-          )
-          copy_text_to_clipboard(svg_str, fn() { () }, fn() { () })
-        },
+        fn() { copy_svg_to_clipboard(state) },
         theme~,
       ),
       // インポート
@@ -2765,7 +2705,7 @@ fn render_svg_canvas_node(
               is_first_resize.val = false
               // Embedモードでモーダルが閉じている場合はビューポートを (0, 0, 1.0) に固定
               if state.mode is @core.Full || state.modal_open.get() {
-                state.fit_to_canvas()
+                state.fit_to_canvas(right_inset=panel_inset(state))
               }
             }
           }

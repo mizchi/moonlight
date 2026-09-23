@@ -412,3 +412,120 @@ test "dragging a line carries the endpoint of the line it joins" {
   assert_eq(l1_start.y, a_right.y)
   assert_eq(after.joints().length(), 3)
 }
+
+// =============================================================================
+// 網羅チェック（sweep_test.mbt）が見つけた断線の最小例
+// =============================================================================
+
+///|
+fn assert_no_violations(scene : Scene) -> Unit {
+  let violations = scene.joint_violations()
+  if violations.length() > 0 {
+    abort(violations[0].describe())
+  }
+}
+
+///|
+/// 線 l2 → 線 l0 → 線 l1 と結合が連なり、l0 は二つの経路（図形の中心と l2）から
+/// 動かされる。一度処理した線を処理し直さないと、l1 が古い座標に取り残される。
+test "a line moved along two paths passes its final position down the chain" {
+  let scene = Scene::of([
+      rect("s0", 60.0, 80.0, 91.0, 71.0),
+      line("l0", 0.0, 0.0, 0.0, 0.0),
+      line("l1", 0.0, 0.0, 260.0, 440.0),
+      line("l2", 0.0, 0.0, 410.0, 440.0),
+    ])
+    .connect("l2", Start, "s0", @model.Left)
+    .connect("l0", Start, "s0", @model.Center)
+    .connect("l0", End, "l2", @model.LineStart)
+    .connect("l1", Start, "l0", @model.LineEnd)
+  assert_no_violations(scene)
+  let after = scene.play([
+    Press(Body("s0"), { x: 61.0, y: 81.0, }),
+    MoveTo({ x: 98.0, y: 134.0, }),
+    Release,
+  ])
+  assert_no_violations(after)
+}
+
+///|
+/// 両端が同じ線の両端に結合した線を掴むと、相手の線も両端とも付いてくる
+test "dragging a line laid over another line carries both of its ends" {
+  let scene = Scene::of([
+      line("l0", 0.0, 0.0, 0.0, 0.0),
+      line("l1", 190.0, 380.0, 260.0, 440.0),
+    ])
+    .connect("l0", Start, "l1", @model.LineEnd)
+    .connect("l0", End, "l1", @model.LineStart)
+  let after = scene.play([
+    Press(Body("l0"), { x: 261.0, y: 441.0, }),
+    MoveTo({ x: 298.0, y: 494.0, }),
+    Release,
+  ])
+  assert_no_violations(after)
+  // l1 は l0 と一緒に平行移動している
+  let l1 = after.find("l1").unwrap()
+  assert_eq(l1.x, 227.0)
+  assert_eq(l1.y, 433.0)
+}
+
+///|
+/// 線の端点が線の端点に、その端点が図形に結合しているとき、線を掴むと
+/// 連鎖の根にある図形ごと動く（途中の線の端点が図形から剥がれない）
+test "dragging a line carries the shape at the root of a line-to-line chain" {
+  let scene = Scene::of([
+      rect("s0", 100.0, 100.0, 80.0, 60.0),
+      line("l1", 20.0, 20.0, 0.0, 0.0),
+      line("l0", 0.0, 0.0, 400.0, 300.0),
+    ])
+    .connect("l1", End, "s0", @model.Left)
+    .connect("l0", Start, "l1", @model.LineEnd)
+  assert_no_violations(scene)
+  let after = scene.play([
+    Press(Body("l0"), { x: 101.0, y: 131.0, }),
+    MoveTo({ x: 151.0, y: 171.0, }),
+    Release,
+  ])
+  assert_no_violations(after)
+  let s0 = after.find("s0").unwrap()
+  assert_eq(s0.x, 150.0)
+  assert_eq(s0.y, 140.0)
+}
+
+///|
+/// .5 の座標にあるアンカーに付いた端点は、確定時の丸めでアンカーから浮かない
+test "rounding on release keeps an endpoint on a half-pixel anchor" {
+  // 高さ 71 の矩形の右辺の中点は y = 115.5。そこから .5 ずつずれた先へ運ぶと、
+  // 丸めで端点だけが両軸 0.5 ずつ（約 0.71px）動いてしまう
+  let scene = Scene::of([
+    rect("s0", 60.0, 80.0, 91.0, 71.0),
+    line("l0", 0.0, 0.0, 400.0, 300.0),
+  ]).connect("l0", Start, "s0", @model.Right)
+  let after = scene.play([
+    Press(Body("l0"), { x: 152.0, y: 116.5, }),
+    MoveTo({ x: 189.5, y: 169.5, }),
+    Release,
+  ])
+  assert_no_violations(after)
+  // リサイズの確定で幅と高さが丸まると、右下のアンカーが動く
+  let corner = Scene::of([
+    rect("s0", 60.0, 80.0, 91.0, 71.0),
+    line("l0", 0.0, 0.0, 400.0, 300.0),
+  ]).connect("l0", Start, "s0", @model.BottomRight)
+  let resized = corner.play([
+    Press(Handle("s0", @model.SE), { x: 0.0, y: 0.0, }),
+    MoveTo({ x: -17.5, y: 12.5, }),
+    Release,
+  ])
+  assert_no_violations(resized)
+}
+
+///|
+/// 結合した端点のハンドルを掴んで離すだけなら、ジョイントは外れない
+test "pressing and releasing a jointed endpoint handle keeps the joint" {
+  let scene = jointed_scene(RectKind, @model.Right)
+  let p = scene.endpoint_point("l1", End).unwrap()
+  let after = scene.play([Press(Handle("l1", @model.LineEnd), p), Release])
+  assert_eq(after.joints().length(), 1)
+  assert_no_violations(after)
+}

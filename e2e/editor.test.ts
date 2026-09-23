@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { DEMO } from './demo-scene';
 
 test.describe('Moonlight SVG Editor', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     // 初期図形が出そろう前に数えると、テストが数える基準値がぶれる
-    await expect(page.locator('svg rect[data-id][cursor="move"]')).toHaveCount(4);
+    await expect(page.locator('svg rect[data-id][cursor="move"]')).toHaveCount(DEMO.rects);
   });
 
   test('should have Rectangle and Circle buttons', async ({ page }) => {
@@ -20,17 +21,21 @@ test.describe('Moonlight SVG Editor', () => {
     await expect(svg).toHaveAttribute('height', '100%');
   });
 
-  test('should have initial shapes (4 rects, 6 texts, 1 circle, 1 ellipse)', async ({ page }) => {
+  test('should open with the demo scene', async ({ page }) => {
     // Count shape rects (with cursor="move"), not text hit areas
     const shapeRects = page.locator('svg rect[data-id][cursor="move"]');
     const textElements = page.locator('svg g[data-element-type="text"]');
     const circles = page.locator('svg circle[data-id]');
     const ellipses = page.locator('svg ellipse[data-id]');
+    const lines = page.locator('svg g[data-element-type="line"]');
+    const paths = page.locator('svg path[data-id]');
 
-    await expect(shapeRects).toHaveCount(4);
-    await expect(textElements).toHaveCount(6);
-    await expect(circles).toHaveCount(1);
-    await expect(ellipses).toHaveCount(1);
+    await expect(shapeRects).toHaveCount(DEMO.rects);
+    await expect(textElements).toHaveCount(DEMO.texts);
+    await expect(circles).toHaveCount(DEMO.circles);
+    await expect(ellipses).toHaveCount(DEMO.ellipses);
+    await expect(lines).toHaveCount(DEMO.lines);
+    await expect(paths).toHaveCount(DEMO.paths);
   });
 
   test('should select a shape on click', async ({ page }) => {

@@ -19,10 +19,12 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { nlAssert, NlAssertError } from '@mizchi/vlmkit/playwright';
 import type {
   NlAssertReviewRequest,
   NlAssertReviewResult,
   NlAssertReviewer,
+  ScreenshotTargetLike,
 } from '@mizchi/vlmkit/playwright';
 
 const execFileAsync = promisify(execFile);
@@ -352,4 +354,66 @@ export function createReviewer(env: NodeJS.ProcessEnv = process.env): NlAssertRe
         return askClaudeCli(provider, request);
     }
   };
+}
+
+export type ClaimVerdict = {
+  claim: string;
+  pass: boolean;
+  /** 判定役の理由（落ちた主張は二回分） */
+  reasoning: string[];
+  /** 一回目だけ落ち、聞き直したら通った */
+  wobbled: boolean;
+};
+
+/**
+ * 主張を一つずつ判定役に見せ、主張ごとの判定を返す。
+ *
+ * 判定役の揺れで一度だけ落ちることがあるので、落ちた主張はもう一度だけ聞く。
+ * 二度落ちたら絵の問題とみなす。
+ */
+export async function reviewEachClaim(
+  claims: string[],
+  target: ScreenshotTargetLike,
+  reviewer: NlAssertReviewer,
+): Promise<ClaimVerdict[]> {
+  const ask = async (claim: string): Promise<{ pass: boolean; reasoning: string }> => {
+    try {
+      const verdict = await nlAssert({ assertion: claim, target, reviewer });
+      console.log(`[vlmkit] PASS  ${claim}\n          ${verdict.reasoning}`);
+      return { pass: true, reasoning: verdict.reasoning };
+    } catch (error) {
+      if (!(error instanceof NlAssertError)) throw error;
+      console.log(`[vlmkit] FAIL  ${claim}\n          ${error.result.reasoning}`);
+      return { pass: false, reasoning: error.result.reasoning ?? '(no reasoning given)' };
+    }
+  };
+  const verdicts: ClaimVerdict[] = [];
+  for (const claim of claims) {
+    const first = await ask(claim);
+    if (first.pass) {
+      verdicts.push({ claim, pass: true, reasoning: [first.reasoning], wobbled: false });
+      continue;
+    }
+    const second = await ask(claim);
+    if (second.pass) console.log(`[vlmkit] WOBBLE ${claim}\n          1回目だけ落ちた: ${first.reasoning}`);
+    verdicts.push({
+      claim,
+      pass: second.pass,
+      reasoning: [first.reasoning, second.reasoning],
+      wobbled: second.pass,
+    });
+  }
+  return verdicts;
+}
+
+/** 通らなかった主張を理由つきで返す（全部通れば空） */
+export async function reviewClaims(
+  claims: string[],
+  target: ScreenshotTargetLike,
+  reviewer: NlAssertReviewer,
+): Promise<string[]> {
+  const verdicts = await reviewEachClaim(claims, target, reviewer);
+  return verdicts
+    .filter((v) => !v.pass)
+    .map((v) => `${v.claim}\n${v.reasoning.map((r) => `    -> ${r}`).join('\n')}`);
 }

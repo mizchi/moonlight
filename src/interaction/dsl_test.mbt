@@ -184,3 +184,109 @@ test "visual claims describe what the picture must show" {
   assert_eq(claims.length(), 3)
   assert_true(claims.iter().any(fn(c) { c.contains("right edge") }))
 }
+
+///|
+fn parse_error_of(source : String) -> String {
+  match @interaction.parse_scenario(source) {
+    Ok(_) => abort("expected a parse error")
+    Err(e) => e.describe()
+  }
+}
+
+///|
+test "label centres a text in its shape and binds it there" {
+  let scene = scene_of(
+    (
+      #|rect box 100 100 80 60
+      #|label box Start here
+    ),
+  )
+  let label = scene.find("box-label").unwrap()
+  assert_eq(label.parent_id, Some("box"))
+  assert_eq(label.x, 140.0)
+  assert_eq(label.y, 130.0)
+  guard label.shape is @model.Text(content, _) else { abort("not a text") }
+  assert_eq(content, "Start here")
+  // 縁取りの無い文字（エディタで置く文字と同じ）
+  assert_eq(label.style.stroke, None)
+}
+
+///|
+test "a label goes where its shape goes" {
+  let scene = scene_of(
+    (
+      #|circle hub 200 200 40
+      #|label hub Hub
+      #|press body hub 200 200
+      #|move 260 245
+      #|release
+    ),
+  )
+  let label = scene.find("hub-label").unwrap()
+  assert_eq(label.x, 260.0)
+  assert_eq(label.y, 245.0)
+}
+
+///|
+test "a label needs a shape that exists, can hold one, and has none yet" {
+  inspect(
+    parse_error_of("label ghost Hi"),
+    content="line 1: no such shape 'ghost'",
+  )
+  inspect(
+    parse_error_of(
+      (
+        #|line l 0 0 10 10
+        #|label l Hi
+      ),
+    ),
+    content="line 2: 'l' is a line; only rect, circle and ellipse can carry a label",
+  )
+  inspect(
+    parse_error_of(
+      (
+        #|rect r 0 0 10 10
+        #|label r One
+        #|label r Two
+      ),
+    ),
+    content="line 3: 'r' already has a label ('r-label')",
+  )
+}
+
+///|
+test "arrow is a line with an arrowhead at its end, and joins like one" {
+  let scene = scene_of(
+    (
+      #|rect a 0 0 80 60
+      #|rect b 200 0 80 60
+      #|arrow go 80 30 200 30
+      #|join go start a right
+      #|join go end b left
+    ),
+  )
+  let go = scene.find("go").unwrap()
+  assert_eq(go.style.marker_end, Some(@model.Arrow))
+  assert_eq(scene.joints().length(), 2)
+  assert_true(scene.joints_are_consistent())
+  assert_true(
+    scene.describe().contains("- arrow go from (80, 30) to (200, 30)"),
+  )
+}
+
+///|
+test "a word where a number belongs is an error, not a zero" {
+  inspect(
+    parse_error_of("rect a 10 x 80 60"),
+    content="line 1: 'x' is not a number (rect argument 3)",
+  )
+  inspect(
+    parse_error_of(
+      (
+        #|rect a 0 0 10 10
+        #|press body a 5 five
+      ),
+    ),
+    content="line 2: 'five' is not a number (press argument 4)",
+  )
+}

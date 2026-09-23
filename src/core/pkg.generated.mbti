@@ -6,10 +6,13 @@ import {
   "mizchi/moonlight/model",
   "mizchi/signals",
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
 }
 
 // Values
 pub fn execute_command(@model.History, EditorState, @model.Command) -> Unit
+
+pub fn record_change(@model.History, Array[@model.Element], Array[@model.Element]) -> Unit
 
 pub fn redo_command(@model.History, EditorState) -> Bool
 
@@ -86,10 +89,13 @@ pub struct EditorState {
   pinch_state : @signals.Signal[PinchState?]
   validation_result : @signals.Signal[@model.ValidationResult?]
   plain_svg_ids : @signals.Signal[Array[String]]
+  gesture_origin : @ref.Ref[Array[@model.Element]?]
+  notice : @signals.Signal[Notice?]
 }
 pub fn EditorState::add_element(Self, @model.Element) -> Unit
 pub fn EditorState::add_element_raw(Self, @model.Element) -> Unit
 pub fn EditorState::add_to_selection(Self, String) -> Unit
+pub fn EditorState::begin_gesture(Self) -> Unit
 pub fn EditorState::bring_forward(Self, String) -> (Int, Int)?
 pub fn EditorState::bring_to_front(Self, String) -> (Int, Int)?
 pub fn EditorState::can_edit_element(Self, String) -> Bool
@@ -97,6 +103,7 @@ pub fn EditorState::can_resize_element(Self, String) -> Bool
 pub fn EditorState::cancel_placement(Self) -> Unit
 pub fn EditorState::center_child_elements(Self, String) -> Unit
 pub fn EditorState::clear_plain_svg_ids(Self) -> Unit
+pub fn EditorState::commit_gesture(Self, @model.History) -> Unit
 pub fn EditorState::delete_selected(Self) -> Unit
 pub fn EditorState::drag_move(Self, Double, Double) -> Unit
 pub fn EditorState::end_box_select(Self) -> Unit
@@ -109,7 +116,7 @@ pub fn EditorState::end_resize(Self) -> Unit
 pub fn EditorState::end_text_edit(Self) -> Unit
 pub fn EditorState::find_element(Self, String) -> @model.Element?
 pub fn EditorState::find_nearest_connection_point(Self, @model.Point, Array[String], Double) -> (@model.Element, @model.Anchor, @model.Point)?
-pub fn EditorState::fit_to_canvas(Self) -> Unit
+pub fn EditorState::fit_to_canvas(Self, right_inset? : Double) -> Unit
 pub fn EditorState::get_arrow_style(Self) -> @model.Style
 pub fn EditorState::get_arrow_style_initial(Self) -> @model.Style
 pub fn EditorState::get_children(Self, String) -> Array[@model.Element]
@@ -139,6 +146,7 @@ pub fn EditorState::move_element(Self, String, Double, Double) -> Unit
 pub fn EditorState::multi_drag_move(Self, Double, Double) -> Unit
 pub fn EditorState::new(Int, Int) -> Self
 pub fn EditorState::new_with_mode(Int, Int, EditorMode) -> Self
+pub fn EditorState::notify(Self, String, is_error? : Bool) -> Unit
 pub fn EditorState::pan(Self, Double, Double) -> Unit
 pub fn EditorState::pan_move(Self, Double, Double) -> Unit
 pub fn EditorState::register_plain_svg_ids(Self, Array[String]) -> Unit
@@ -149,6 +157,7 @@ pub fn EditorState::remove_from_selection(Self, String) -> Unit
 pub fn EditorState::rename_element_id(Self, String, String) -> Bool
 pub fn EditorState::rename_element_raw(Self, String, String) -> Unit
 pub fn EditorState::reorder_element_raw(Self, String, Int) -> Unit
+pub fn EditorState::replace_elements(Self, Array[@model.Element]) -> Unit
 pub fn EditorState::reset_viewport(Self) -> Unit
 pub fn EditorState::resize_move(Self, Double, Double) -> Unit
 pub fn EditorState::revalidate(Self) -> Unit
@@ -193,6 +202,12 @@ pub(all) struct FreeDrawOptions {
 
 pub(all) struct FreeDrawState {
   points : Array[@model.Point]
+}
+
+pub(all) struct Notice {
+  message : String
+  is_error : Bool
+  serial : Int
 }
 
 pub(all) struct PendingConnection {

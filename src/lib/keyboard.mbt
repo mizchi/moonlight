@@ -19,10 +19,14 @@ pub struct KeyEvent {
 
 ///|
 /// キーボードハンドラをセットアップ
+///
+/// copy_svg は Ctrl+Shift+C で呼ぶ。SVG への書き出しはこのパッケージの外に
+/// あるので、殻から渡してもらう（渡されなければ Ctrl+Shift+C は素通しする）。
 pub fn setup_keyboard_handler(
   state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
+  copy_svg? : () -> Unit,
 ) -> Unit {
   let container = state.container_el.get()
   if is_container_null(container) {
@@ -39,7 +43,7 @@ pub fn setup_keyboard_handler(
       return
     }
     let key_event = parse_key_event(e)
-    let handled = handle_key(state, history, key_event, new_id)
+    let handled = handle_key(state, history, key_event, new_id, copy_svg)
     if handled {
       prevent_default_ffi(e)
     }
@@ -53,6 +57,7 @@ fn handle_key(
   history : @model.History,
   e : KeyEvent,
   new_id : () -> String,
+  copy_svg : (() -> Unit)?,
 ) -> Bool {
   // テキスト編集中はショートカットキーを無視（Escapeのみ例外）
   if state.text_edit.get() is Some(_) {
@@ -75,7 +80,7 @@ fn handle_key(
   }
   // keybindings から一致するアクションを検索
   match @model.match_keybinding(e.key, e.ctrl_key, e.shift_key, e.meta_key) {
-    Some(kb) => execute_action(state, history, kb.action, new_id)
+    Some(kb) => execute_action(state, history, kb.action, new_id, copy_svg)
     None => false
   }
 }
@@ -87,6 +92,7 @@ fn execute_action(
   history : @model.History,
   action : String,
   new_id : () -> String,
+  copy_svg : (() -> Unit)?,
 ) -> Bool {
   let pos = get_placement_position(state)
   match action {
@@ -111,6 +117,14 @@ fn execute_action(
       copy_selection(state)
       true
     }
+    "copy_svg" =>
+      match copy_svg {
+        Some(f) => {
+          f()
+          true
+        }
+        None => false
+      }
     "paste" => {
       paste_clipboard(state, history, new_id)
       true
@@ -251,25 +265,15 @@ pub fn delete_selection(
 
 ///|
 /// 選択要素を複製して、複製したほうを選択する。両方のシェルから呼ぶ。
+///
+/// 貼り付けと同じく、子要素（ラベル）も一緒に写し、写した要素どうしの接続は
+/// 張り替え、写さなかった要素への接続は外す。クリップボードの中身は変えない。
 pub fn duplicate_selection(
   state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> Unit {
-  let added : Array[@model.Command] = []
-  let new_ids : Array[String] = []
-  for id in state.selected_ids.get() {
-    guard state.find_element(id) is Some(el) else { continue }
-    let dup_id = new_id()
-    let dup = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
-    state.add_element_raw(dup)
-    added.push(@model.AddElement(dup))
-    new_ids.push(dup_id)
-  }
-  guard added.length() > 0 else { return }
-  history.undo_stack.push(@model.Batch(added))
-  history.redo_stack.clear()
-  state.select_multiple(new_ids)
+  add_copies(state, history, new_id, collect_selection(state))
 }
 
 ///|

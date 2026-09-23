@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn add_copies(@mizchi/moonlight/core.EditorState, @model.History, () -> String, Array[@model.Element]) -> Unit
+
 pub fn add_focusin_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
 pub fn add_focusout_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
@@ -57,7 +59,7 @@ pub fn set_tabindex_ffi(@mizchi/js/core.Any, Int) -> Unit
 
 pub fn setup_focus_management(FocusState, @mizchi/js/core.Any) -> Unit
 
-pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, @model.History, () -> String) -> Unit
+pub fn setup_keyboard_handler(@mizchi/moonlight/core.EditorState, @model.History, () -> String, copy_svg? : () -> Unit) -> Unit
 
 pub fn start_free_draw(@mizchi/moonlight/core.EditorState, Double, Double) -> Unit
 

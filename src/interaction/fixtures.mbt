@@ -50,14 +50,56 @@ pub fn line(
 }
 
 ///|
-/// テキスト
+/// 矢印（終点に矢じりの付いた線）
+pub fn arrow(
+  id : String,
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+) -> @model.Element {
+  let el = line(id, x1, y1, x2, y2)
+  el.with_style({ ..el.style, marker_end: Some(@model.Arrow), })
+}
+
+///|
+/// 文字のスタイル。エディタで置く文字と同じく、縁取りはしない（縁取りがあると
+/// 太く滲んで見える）。色はテーマの文字色、ラベルなら親の線の色になる。
+let text_style : @model.Style = {
+  fill: Some(@model.css_var_text),
+  stroke: None,
+  stroke_width: None,
+  opacity: None,
+  stroke_dasharray: None,
+  marker_start: None,
+  marker_end: None,
+  font_family: None,
+}
+
+///|
+/// テキスト（x, y は文字の中心）
 pub fn text(
   id : String,
   x : Double,
   y : Double,
   content : String,
 ) -> @model.Element {
-  @model.Element::new(id, x, y, @model.Text(content, Some(16.0)))
+  @model.Element::new(id, x, y, @model.Text(content, Some(16.0))).with_style(
+    text_style,
+  )
+}
+
+///|
+/// 図形のラベル。図形の中央に置き、図形に結び付ける（図形を動かすと付いてくる）
+pub fn label(
+  id : String,
+  parent : @model.Element,
+  content : String,
+) -> @model.Element {
+  let b = parent.bounding_box()
+  text(id, b.x + b.width / 2.0, b.y + b.height / 2.0, content).with_parent(
+    parent.id,
+  )
 }
 
 ///|

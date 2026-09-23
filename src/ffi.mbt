@@ -318,10 +318,22 @@ pub extern "js" fn copy_text_to_clipboard(
   on_error : () -> Unit,
 ) =
   #| (text, onDone, onError) => {
-  #|   navigator.clipboard.writeText(text)
-  #|     .then(() => onDone())
-  #|     .catch(() => onError());
+  #|   // 安全でないページ（http の別ホストなど）では navigator.clipboard が無い。
+  #|   // 呼んだとたんに投げて onError まで届かないので、先に確かめる。
+  #|   if (!navigator.clipboard || !navigator.clipboard.writeText) { onError(); return; }
+  #|   try {
+  #|     navigator.clipboard.writeText(text)
+  #|       .then(() => onDone())
+  #|       .catch(() => onError());
+  #|   } catch (_) {
+  #|     onError();
+  #|   }
   #| }
+
+///|
+/// ms ミリ秒後に一度だけ呼ぶ
+pub extern "js" fn set_timeout_ffi(ms : Int, callback : () -> Unit) -> Unit =
+  #| (ms, callback) => { setTimeout(callback, ms); }
 
 ///|
 /// SVGをPNG画像としてクリップボードにコピー

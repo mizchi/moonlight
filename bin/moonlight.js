@@ -26,13 +26,19 @@ Usage:
 
 A scenario is the small text format the editor's model reads:
 
-  rect   <id> <x> <y> <width> <height>
-  circle <id> <cx> <cy> <r>
+  rect    <id> <x> <y> <width> <height>       # x y: the top-left corner
+  circle  <id> <cx> <cy> <r>
   ellipse <id> <cx> <cy> <rx> <ry>
-  line   <id> <x1> <y1> <x2> <y2>
-  text   <id> <x> <y> <content...>
-  join   <line> start|end <shape> <anchor>     # anchor: left right top bottom center
-  select <id...>
+  line    <id> <x1> <y1> <x2> <y2>
+  arrow   <id> <x1> <y1> <x2> <y2>            # a line with an arrowhead at x2 y2
+  text    <id> <x> <y> <content...>           # x y: the centre of the text
+  label   <shape> <content...>                # text centred in a shape and bound to it:
+                                              #   it moves with the shape (id: <shape>-label)
+  join    <line> start|end <shape> <anchor>   # anchor: left right top bottom center
+  select  <id...>
+  press body <id> <x> <y>                     # drag a shape the way a person would:
+  move <x> <y>                                #   joined lines and labels come along
+  release
 
 Pass "-" or nothing as the scenario to read it from stdin.
 Every command writes to stdout unless -o is given.`;

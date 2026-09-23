@@ -83,7 +83,9 @@ release
 
 | 命令 | 意味 |
 |---|---|
-| `rect / circle / ellipse / line / text` | 図形を置く |
+| `rect / circle / ellipse / line / text` | 図形を置く（`text` の座標は文字の中心） |
+| `arrow <id> <x1> <y1> <x2> <y2>` | 終点に矢じりの付いた線 |
+| `label <shape> <content...>` | 図形の中央に置き、図形に結び付けた文字（ID は `<shape>-label`） |
 | `join <line> start\|end <target> <anchor>` | ジョイントを張る |
 | `grid <size>` | グリッドスナップ（0 で無効） |
 | `select <id>...` | 選択状態 |

@@ -121,3 +121,35 @@ test "Moonlight 形式だけが再編集用メタデータを載せる" {
   assert_true(moonlight.contains("data-id=\"e1\""))
   assert_false(plain.contains("data-id"))
 }
+
+///|
+/// 出力のうち <text …> の行
+fn text_tag(svg : String) -> String {
+  match svg.split("\n").find_first(fn(line) { line.contains("<text") }) {
+    Some(line) => line.to_owned()
+    None => abort("no <text> in \{svg}")
+  }
+}
+
+///|
+test "縁取りを指定していない文字は縁取らない（両形式）" {
+  let plain_text : @model.Style = {
+    ..@model.Style::default(),
+    stroke: None,
+    stroke_width: None,
+  }
+  let (plain, moonlight) = both(
+    elem(@model.Text("hello", Some(16.0)), style=plain_text),
+  )
+  for svg in [plain, moonlight] {
+    assert_false(text_tag(svg).contains("stroke="))
+  }
+  // 指定した縁取りは残す
+  let outlined : @model.Style = { ..plain_text, stroke: Some("#ff0000"), }
+  let (plain, moonlight) = both(
+    elem(@model.Text("hello", Some(16.0)), style=outlined),
+  )
+  for svg in [plain, moonlight] {
+    assert_true(text_tag(svg).contains("stroke=\"#ff0000\""))
+  }
+}

@@ -9,6 +9,8 @@
 //   circle c1 300 200 40
 //   line l1 180 130 260 200
 //   join l1 end c1 left
+//   label r1 Start          # r1 の中央に置き、r1 に結び付けた文字
+//   arrow a1 300 240 300 320  # 終点に矢じりの付いた線
 //   grid 20
 //   press body r1 140 130
 //   move 200 180
@@ -67,6 +69,28 @@ pub fn parse_scenario_onto(
     }
     let head = words[0]
     let args = words[1:].to_owned()
+    // 位置や大きさとして読む引数の範囲 [from, to)。コマンドごとに決まっている
+    let numeric : (Int, Int) = match head {
+      "rect" | "ellipse" | "line" | "arrow" => (1, 5)
+      "circle" => (1, 4)
+      "text" => (1, 3)
+      "grid" => (0, 1)
+      "move" => (0, 2)
+      "press" =>
+        match args.get(0) {
+          Some("canvas") => (1, 3)
+          Some("body") => (2, 4)
+          Some("handle") => (3, 5)
+          _ => (0, 0)
+        }
+      _ => (0, 0)
+    }
+    for i in numeric.0..<numeric.1 {
+      guard args.get(i) is Some(word) else { break }
+      guard is_number(word) else {
+        return fail("'\{word}' is not a number (\{head} argument \{i + 1})")
+      }
+    }
     match head {
       "rect" => {
         guard args.length() >= 5 else {
@@ -105,6 +129,34 @@ pub fn parse_scenario_onto(
         scene = scene.add(
           line(args[0], num(args[1]), num(args[2]), num(args[3]), num(args[4])),
         )
+      }
+      "arrow" => {
+        guard args.length() >= 5 else {
+          return fail("arrow needs: id x1 y1 x2 y2")
+        }
+        scene = scene.add(
+          arrow(args[0], num(args[1]), num(args[2]), num(args[3]), num(args[4])),
+        )
+      }
+      "label" => {
+        guard args.length() >= 2 else {
+          return fail("label needs: shape-id content")
+        }
+        guard scene.find(args[0]) is Some(parent) else {
+          return fail("no such shape '\{args[0]}'")
+        }
+        guard parent.shape
+          is (@model.Rect(_, _, _, _) | @model.Circle(_) | @model.Ellipse(_, _)) else {
+          return fail(
+            "'\{args[0]}' is a \{@model.shape_name(parent.shape)}; only rect, circle and ellipse can carry a label",
+          )
+        }
+        let id = "\{args[0]}-label"
+        guard scene.find(id) is None else {
+          return fail("'\{args[0]}' already has a label ('\{id}')")
+        }
+        let content = args[1:].to_owned().join(" ")
+        scene = scene.add(label(id, parent, content))
       }
       "text" => {
         guard args.length() >= 4 else {
@@ -228,10 +280,16 @@ fn split_words(source : String) -> Array[String] {
 }
 
 ///|
-/// 数値として読む（読めなければ 0）
+/// 数値として読む（読めなければ 0。先に is_number で確かめてから呼ぶ）
 fn num(s : String) -> Double {
   let parsed = Some(@string.parse_double(s)) catch { _ => None }
   parsed.unwrap_or(0.0)
+}
+
+///|
+/// 数値として読めるか
+fn is_number(s : String) -> Bool {
+  (Some(@string.parse_double(s)) catch { _ => None }) is Some(_)
 }
 
 ///|

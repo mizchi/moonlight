@@ -29,6 +29,7 @@
   "include": [
     "*.ts",
     "e2e/**/*.ts",
+    "eval/**/*.ts",
     "types/**/*.d.ts"
   ]
 }

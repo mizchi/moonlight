@@ -15,12 +15,25 @@ pub fn describe_element(el : @model.Element) -> String {
       "circle \{el.id} centred at (\{@model.num_str(el.x)}, \{@model.num_str(el.y)}) radius \{@model.num_str(r)}"
     @model.Ellipse(rx, ry) =>
       "ellipse \{el.id} centred at (\{@model.num_str(el.x)}, \{@model.num_str(el.y)}) radii \{@model.num_str(rx)}x\{@model.num_str(ry)}"
-    @model.Line(x2, y2) =>
-      "line \{el.id} from (\{@model.num_str(el.x)}, \{@model.num_str(el.y)}) to (\{@model.num_str(x2)}, \{@model.num_str(y2)})"
+    @model.Line(x2, y2) => {
+      // 矢じりの有無は絵の意味を変えるので言葉にする
+      let kind = if el.style.marker_end is Some(@model.Arrow) ||
+        el.style.marker_start is Some(@model.Arrow) {
+        "arrow"
+      } else {
+        "line"
+      }
+      "\{kind} \{el.id} from (\{@model.num_str(el.x)}, \{@model.num_str(el.y)}) to (\{@model.num_str(x2)}, \{@model.num_str(y2)})"
+    }
     @model.Polyline(points) =>
       "polyline \{el.id} with \{points.length()} points"
     @model.Path(_, _, _, _, _) => "path \{el.id} \{where_}"
-    @model.Text(content, _) => "text \{el.id} \"\{content}\" \{where_}"
+    @model.Text(content, _) =>
+      match el.parent_id {
+        // 図形に結び付いた文字（図形を動かすと付いてくる）
+        Some(pid) => "label \{el.id} \"\{content}\" on \{pid} \{where_}"
+        None => "text \{el.id} \"\{content}\" \{where_}"
+      }
   }
 }
 

@@ -13,6 +13,12 @@ pub fn anchor_side_phrase(@model.Anchor) -> String
 
 pub let anchor_snap_threshold : Double
 
+pub fn arrow(String, Double, Double, Double, Double) -> @model.Element
+
+pub fn build_topology(Int, Int, Int, width? : Double, height? : Double) -> Scene
+
+pub fn check_joints(Scene, Scene, released? : Array[(String, Endpoint)], tolerance? : Double) -> Array[JointProblem]
+
 pub fn circle(String, Double, Double, Double) -> @model.Element
 
 pub fn connectable_perimeter_anchors(@model.Element) -> Array[@model.Anchor]
@@ -21,7 +27,13 @@ pub fn describe_element(@model.Element) -> String
 
 pub fn ellipse(String, Double, Double, Double, Double) -> @model.Element
 
+pub fn endpoint_choice_count(Int, Int) -> Int
+
+pub fn endpoint_name(Endpoint) -> String
+
 pub fn endpoint_of_handle(@model.HandlePosition) -> Endpoint?
+
+pub fn label(String, @model.Element, String) -> @model.Element
 
 pub fn line(String, Double, Double, Double, Double) -> @model.Element
 
@@ -44,6 +56,8 @@ pub fn rect(String, Double, Double, Double, Double) -> @model.Element
 pub fn resize(Scene, ResizeGesture, @model.Point) -> ResizeOutcome?
 
 pub fn text(String, Double, Double, String) -> @model.Element
+
+pub fn topology_count(Int, Int) -> Int
 
 // Errors
 
@@ -90,6 +104,13 @@ pub(all) enum JointFault {
   MissingTarget
   NotALine
 } derive(Eq, @debug.Debug)
+
+pub(all) enum JointProblem {
+  Broken(JointViolation)
+  Lost(String)
+  Gained(String)
+} derive(Eq, @debug.Debug)
+pub fn JointProblem::describe(Self) -> String
 
 pub(all) struct JointViolation {
   joint : Joint
@@ -152,8 +173,10 @@ pub fn Scene::disconnect(Self, String, Endpoint) -> Self
 pub fn Scene::empty() -> Self
 pub fn Scene::endpoint_point(Self, String, Endpoint) -> @model.Point?
 pub fn Scene::find(Self, String) -> @model.Element?
+pub fn Scene::has_degenerate_line(Self) -> Bool
 pub fn Scene::hit(Self, @model.Point) -> @model.Element?
 pub fn Scene::joint_anchor_point(Self, Joint) -> @model.Point?
+pub fn Scene::joint_signature(Self) -> Array[String]
 pub fn Scene::joint_violations(Self, tolerance? : Double) -> Array[JointViolation]
 pub fn Scene::joints(Self) -> Array[Joint]
 pub fn Scene::joints_are_consistent(Self, tolerance? : Double) -> Bool

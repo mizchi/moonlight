@@ -85,6 +85,7 @@ pnpm build
 | `Delete` / `Backspace` | Delete selected element |
 | `Ctrl+D` / `Cmd+D` | Duplicate selected element |
 | `Ctrl+C` / `Ctrl+V` | Copy / paste elements |
+| `Ctrl+Shift+C` | Copy the drawing as SVG text to the clipboard |
 | `Ctrl+A` | Select all |
 | `Escape` | Deselect / cancel / close the fullscreen modal |
 
@@ -107,7 +108,6 @@ pnpm build
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+S` | Download the drawing as SVG |
-| `Ctrl+Shift+C` | Copy the SVG text to the clipboard |
 | `Ctrl+Shift+V` | Import SVG from the clipboard |
 
 ### Mouse Operations
@@ -289,8 +289,9 @@ import { createScene } from '@mizchi/moonlight/headless';
 const scene = createScene({ width: 640, height: 420 });
 scene.apply(`
   rect box 80 80 120 80
+  label box Start
   circle dot 400 200 40
-  line link 200 120 360 200
+  arrow link 200 120 360 200
   join link start box right
   join link end dot left
 `);
@@ -299,6 +300,11 @@ scene.toSvg();       // Moonlight SVG
 scene.describe();    // "the start of line link is attached to the right anchor of rect box"
 scene.violations();  // connections that no longer hold — empty means consistent
 ```
+
+`label` binds the text to its shape and `join` binds the line ends, so the drawing keeps
+working when someone drags the shapes around in the editor.
+[eval/ai-draw](eval/ai-draw/README.md) measures how well an AI draws this way, with
+[vlmkit](https://github.com/mizchi/vlmkit) judging the pictures.
 
 There is a CLI too:
 

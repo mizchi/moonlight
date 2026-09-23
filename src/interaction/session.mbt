@@ -182,8 +182,13 @@ fn Session::release_resize(self : Session, g : ResizeGesture) -> Session {
   }
   let is_line = el.shape is @model.Line(_, _)
   let endpoint = endpoint_of_handle(g.handle)
+  // 掴んだだけで動かしていなければ、ジョイントはそのまま（吸着先の候補が
+  // 無いのを「引き離した」と取り違えると、クリックしただけで外れてしまう）
+  let moved = el.x != g.start_x ||
+    el.y != g.start_y ||
+    el.shape != g.start_shape
   // 線の端点を離した場合のみジョイントを更新する
-  let jointed = if is_line && endpoint is Some(ep) {
+  let jointed = if is_line && moved && endpoint is Some(ep) {
     match self.pending {
       Some(p) => self.scene.connect(g.element_id, ep, p.target_id, p.anchor)
       None => self.scene.disconnect(g.element_id, ep)
@@ -227,16 +232,11 @@ fn Session::cancel(self : Session) -> Session {
 // =============================================================================
 
 ///|
-/// 指定要素の座標だけ整数に丸める（SVG の可読性のため）
+/// 指定要素の座標を整数に丸める（SVG の可読性のため）。
+/// ジョイントはアンカーの上に保ったまま、周りの線も追随させる。
 fn round_one(
   elements : Array[@model.Element],
   id : String,
 ) -> Array[@model.Element] {
-  elements.map(fn(e) {
-    if e.id == id {
-      @model.round_element_coords(e)
-    } else {
-      e
-    }
-  })
+  @model.round_element_keeping_joints(elements, id)
 }

@@ -128,6 +128,8 @@ pub fn match_keybinding(String, Bool, Bool, Bool) -> KeyBinding?
 
 pub fn move_element_with_relations(Array[Element], String, Double, Double) -> Array[Element]
 
+pub fn move_selection(Array[Element], Array[String], Double, Double, snap? : (Double) -> Double) -> Array[Element]
+
 pub fn num_str(Double) -> String
 
 pub fn parse_anchor(String) -> Anchor?
@@ -146,6 +148,8 @@ pub fn propagate_line_connections_bfs(Array[Element], Array[String], except_ids?
 
 pub fn recalculate_on_partial_move(Array[MoveTarget], Array[Element]) -> RecalculationResult
 
+pub fn rename_element(Array[Element], String, String) -> Array[Element]
+
 pub fn[T] reorder_array(Array[T], Int, Int) -> Array[T]
 
 pub fn resize_element_with_relations(Array[Element], String, ShapeType) -> Array[Element]
@@ -153,6 +157,8 @@ pub fn resize_element_with_relations(Array[Element], String, ShapeType) -> Array
 pub fn round_coord(Double) -> Double
 
 pub fn round_element_coords(Element) -> Element
+
+pub fn round_element_keeping_joints(Array[Element], String) -> Array[Element]
 
 pub fn shape_name(ShapeType) -> String
 
@@ -243,6 +249,7 @@ pub(all) enum Command {
   RenameElement(String, String)
   UpdateText(String, String, String)
   Batch(Array[Command])
+  ReplaceElements(Array[Element], Array[Element])
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ConnectedLineUpdate {
