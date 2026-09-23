@@ -34,6 +34,8 @@
     "test:unit": "./scripts/moon-test.sh",
     "test:mbt": "./scripts/moon-test.sh",
     "test:visual-model": "playwright test e2e/visual-model.test.ts",
+    "eval:ai-draw": "playwright test -c playwright.eval.config.ts",
+    "eval:ai-draw:oracle": "AI_DRAW_DRIVER=oracle playwright test -c playwright.eval.config.ts",
     "vlm:integrity": "vlmkit check integrity http://localhost:5173/ --no-ledger",
     "vlm:snapshot": "vlmkit snapshot http://localhost:5173/ --output .vlmkit/snapshots",
     "test:headless": "node --test test/headless.test.js"
