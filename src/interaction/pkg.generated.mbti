@@ -13,6 +13,8 @@ pub fn anchor_side_phrase(@model.Anchor) -> String
 
 pub let anchor_snap_threshold : Double
 
+pub fn arrow(String, Double, Double, Double, Double) -> @model.Element
+
 pub fn build_topology(Int, Int, Int, width? : Double, height? : Double) -> Scene
 
 pub fn check_joints(Scene, Scene, released? : Array[(String, Endpoint)], tolerance? : Double) -> Array[JointProblem]
@@ -30,6 +32,8 @@ pub fn endpoint_choice_count(Int, Int) -> Int
 pub fn endpoint_name(Endpoint) -> String
 
 pub fn endpoint_of_handle(@model.HandlePosition) -> Endpoint?
+
+pub fn label(String, @model.Element, String) -> @model.Element
 
 pub fn line(String, Double, Double, Double, Double) -> @model.Element
 

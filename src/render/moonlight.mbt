@@ -42,6 +42,12 @@ fn generate_moonlight_arrow_defs() -> String {
 // =============================================================================
 
 ///|
+/// 文字の揃え。モデル（bounding_box）もエディタも (x, y) を文字の中心として扱う。
+/// これが無いと、ブラウザは (x, y) を左下（ベースライン）として描き、同じ SVG が
+/// ブラウザとエディタで違う位置に見える。エディタ側の書き出し（src/render.mbt）と同じ。
+let text_anchor_attrs : String = " text-anchor=\"middle\" dominant-baseline=\"middle\""
+
+///|
 /// 要素を Moonlight SVG 文字列に変換（メタデータ付き）
 pub fn element_to_moonlight_svg(el : @model.Element) -> String {
   element_to_moonlight_svg_with_parent(el, None)
@@ -144,10 +150,10 @@ pub fn element_to_moonlight_svg_with_parent(
           tspans.push("<tspan x=\"\{x_val}\" dy=\"\{dy}\">\{escaped}</tspan>")
         }
         let tspan_str = tspans.join("")
-        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{attrs_str}>\{tspan_str}</text>"
+        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{text_anchor_attrs}\{attrs_str}>\{tspan_str}</text>"
       } else {
         let escaped = @model.escape_xml(content)
-        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{attrs_str}>\{escaped}</text>"
+        "<text x=\"\{el.x}\" y=\"\{el.y}\"\{fs_attr}\{text_anchor_attrs}\{attrs_str}>\{escaped}</text>"
       }
     }
   }

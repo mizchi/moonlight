@@ -112,3 +112,34 @@ test('the line number in an error points into the text you just wrote', () => {
   // 積み上げたシナリオ全体ではなく、いま渡した 2 行目であること
   assert.throws(() => scene.apply('circle ok 300 300 20\nrect'), /line 2/);
 });
+
+test('text is written centred on its point, the way the model and the editor place it', () => {
+  const svg = createScene().apply('rect box 80 80 120 80\ntext t 140 120 Box').toSvg();
+  const text = svg.split('\n').find((line) => line.includes('data-id="t"'));
+  // 揃えが無いと、ブラウザは (x, y) を左下として描き、エディタで開いたときとずれる
+  assert.match(text, /text-anchor="middle"/);
+  assert.match(text, /dominant-baseline="middle"/);
+  // エディタで置く文字と同じく縁取りしない（縁取りがあると太く滲む）
+  assert.doesNotMatch(text, /stroke=/);
+});
+
+test('a label is bound to its shape and survives a round-trip', async () => {
+  const scene = createScene().apply('rect box 80 80 120 80\nlabel box Start');
+  const svg = scene.toSvg();
+  assert.match(svg, /data-id="box-label" data-parent-id="box"/);
+
+  const reloaded = await loadSvg(svg);
+  const [box] = reloaded.elements().map((el) => el.id);
+  reloaded.apply(`press body ${box} 140 120\nmove 200 180\nrelease`);
+  const label = reloaded.elements().find((el) => el.shape === 'text');
+  // 図形と一緒に (60, 60) 動いている（ラベルの中心は図形の中心のまま）
+  assert.equal(label.x, 200);
+  assert.equal(label.y, 180);
+  assert.match(reloaded.describe(), /label el-\d+ "Start" on el-\d+/);
+});
+
+test('an arrow carries its arrowhead into the drawing', () => {
+  const svg = createScene().apply('arrow go 10 10 200 10').toSvg();
+  assert.match(svg, /data-id="go"[^>]*marker-end="url\(#arrow-end\)"/);
+  assert.match(createScene().apply('arrow go 10 10 200 10').describe(), /arrow go from/);
+});

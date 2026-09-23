@@ -16,8 +16,9 @@ import { createScene, loadSvg, toPng } from '@mizchi/moonlight/headless';
 const scene = createScene({ width: 640, height: 420 });
 scene.apply(`
   rect box 80 80 120 80
+  label box Start
   circle dot 400 200 40
-  line link 200 120 360 200
+  arrow link 200 120 360 200
   join link start box right
   join link end dot left
 `);
@@ -71,10 +72,24 @@ moonlight png out.svg -o out.png          # playwright が要る
 | `circle <id> <cx> <cy> <r>` | 円。`cx cy` は中心 |
 | `ellipse <id> <cx> <cy> <rx> <ry>` | 楕円 |
 | `line <id> <x1> <y1> <x2> <y2>` | 線分 |
-| `text <id> <x> <y> <content...>` | テキスト。`content` は行末まで |
+| `arrow <id> <x1> <y1> <x2> <y2>` | 矢印。`(x2, y2)` の側に矢じりが付く。`join` は線と同じ |
+| `text <id> <x> <y> <content...>` | テキスト。`x y` は文字の**中心**。`content` は行末まで |
 
 `<id>` は自分で決める名前で、あとから `join` や `press` で指すのに使う。書き出した
-SVG では `data-id` になる。
+SVG では `data-id` になる。数を書くところに数でないものを書くとエラーになる。
+
+### 図形にラベルを付ける
+
+```
+label <shape-id> <content...>
+```
+
+図形の中央に文字を置き、その図形に結び付ける。エディタで図形をダブルクリックして
+書く文字と同じもので、図形を動かすと付いてくる。文字の色は図形の線の色になる。
+ID は `<shape-id>-label`。
+
+図形の上に `text` を置いただけでは結び付かないので、図形を動かすと文字が取り残される。
+箱や丸の名前は `label` で書く。
 
 ### 線を図形につなぐ
 
@@ -112,8 +127,9 @@ release
 ```
 Shapes:
 - rectangle box at (80, 80) size 120x80
+- label box-label "Start" on box at (124, 110.4) size 32x19.2
 - circle dot centred at (400, 200) radius 40
-- line link from (200, 120) to (360, 200)
+- arrow link from (200, 120) to (360, 200)
 Connections:
 - the start of line link is attached to the right anchor of rect box
 - the end of line link is attached to the left anchor of circle dot
