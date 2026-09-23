@@ -92,6 +92,10 @@ fn resize_shape_by_arrow(
 
 ///|
 /// 矢印キーで選択要素をリサイズ
+///
+/// 線は端点がひとつ動く。その端点が結合していれば結合は外す（マウスで端点を
+/// 引き離したときと同じ）。動いたのに繋がったままだと、線は結合先から浮いた
+/// まま残り、結合先を動かしたとたんにそこへ飛び戻る。
 fn resize_selected_by_arrow(
   state : @core.EditorState,
   history : @model.History,
@@ -99,9 +103,9 @@ fn resize_selected_by_arrow(
   key : String,
   step : Double,
 ) -> Unit {
+  let before = state.elements.get()
   for id in selected_ids {
     guard state.find_element(id) is Some(el) else { continue }
-    let old_shape = el.shape
     let (new_shape, new_x, new_y) = resize_shape_by_arrow(
       el.shape,
       el.x,
@@ -109,40 +113,58 @@ fn resize_selected_by_arrow(
       key,
       step,
     )
-    // 子要素の現在位置を記録（履歴用）
-    let children = state.get_children(id)
-    let child_old_positions : Array[(String, Double, Double)] = []
-    for child in children {
-      child_old_positions.push((child.id, child.x, child.y))
-    }
+    let connections = release_moved_endpoints(el, new_shape, new_x, new_y)
     // 要素をリサイズ
     state.update_element(id, fn(e) {
-      { ..e, shape: new_shape, x: new_x, y: new_y, }
+      { ..e, shape: new_shape, x: new_x, y: new_y, connections, }
     })
-    // 位置も変わった場合は移動も記録
-    if new_x != el.x || new_y != el.y {
-      history.undo_stack.push(@model.MoveElement(id, el.x, el.y, new_x, new_y))
-    }
-    history.undo_stack.push(@model.ResizeElement(id, old_shape, new_shape))
     // 関連要素（子テキスト、接続ライン）を同期更新
     state.sync_related_elements(id)
-    // 子要素の移動を履歴に記録
-    for pos in child_old_positions {
-      let (child_id, old_cx, old_cy) = pos
-      if state.find_element(child_id) is Some(child) {
-        if child.x != old_cx || child.y != old_cy {
-          history.undo_stack.push(
-            @model.MoveElement(child_id, old_cx, old_cy, child.x, child.y),
-          )
-        }
-      }
-    }
   }
-  history.redo_stack.clear()
+  // 子要素・接続ラインの追随まで含めて一段の履歴にする
+  @core.record_change(history, before, state.elements.get())
+}
+
+///|
+/// 線の端点が動いたなら、その端点の結合を外した接続情報を返す
+fn release_moved_endpoints(
+  el : @model.Element,
+  new_shape : @model.ShapeType,
+  new_x : Double,
+  new_y : Double,
+) -> @model.LineConnections? {
+  guard el.shape is @model.Line(x2, y2) else { return el.connections }
+  guard el.connections is Some(conns) else { return None }
+  let start_moved = new_x != el.x || new_y != el.y
+  let end_moved = match new_shape {
+    @model.Line(nx2, ny2) => nx2 != x2 || ny2 != y2
+    _ => false
+  }
+  let next : @model.LineConnections = {
+    start: if start_moved {
+      None
+    } else {
+      conns.start
+    },
+    end: if end_moved {
+      None
+    } else {
+      conns.end
+    },
+  }
+  if next.start is None && next.end is None {
+    None
+  } else {
+    Some(next)
+  }
 }
 
 ///|
 /// 矢印キーで選択要素を移動
+///
+/// 一つだけ選んでいるときはマウスで掴んで動かしたときと同じ（線なら結合先を
+/// 連れて動く）。複数なら複数選択のドラッグと同じ。要素ごとに x, y をずらす
+/// だけだと、線は始点しか動かず（終点は絶対座標）、結合した線から外れる。
 fn move_selected_by_arrow(
   state : @core.EditorState,
   history : @model.History,
@@ -157,23 +179,18 @@ fn move_selected_by_arrow(
     "ArrowRight" => (step, 0.0)
     _ => (0.0, 0.0)
   }
-  for id in selected_ids {
-    guard state.find_element(id) is Some(el) else { continue }
-    let (old_x, old_y) = (el.x, el.y)
-    let (new_x, new_y) = (old_x + dx, old_y + dy)
-    state.update_element(id, fn(e) { { ..e, x: new_x, y: new_y, } })
-    // 子要素（テキストなど）も一緒に移動
-    for child in state.get_children(id) {
-      let (cx, cy) = (child.x, child.y)
-      state.update_element(child.id, fn(c) { { ..c, x: cx + dx, y: cy + dy, } })
-      history.undo_stack.push(
-        @model.MoveElement(child.id, cx, cy, cx + dx, cy + dy),
-      )
-    }
-    state.update_connected_lines(id)
-    history.undo_stack.push(@model.MoveElement(id, old_x, old_y, new_x, new_y))
+  let before = state.elements.get()
+  let after = match selected_ids {
+    [id] =>
+      match state.find_element(id) {
+        Some(el) =>
+          @model.move_element_with_relations(before, id, el.x + dx, el.y + dy)
+        None => before
+      }
+    _ => @model.move_selection(before, selected_ids, dx, dy)
   }
-  history.redo_stack.clear()
+  state.elements.set(after)
+  @core.record_change(history, before, after)
 }
 
 ///|

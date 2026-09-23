@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn add_copies(@mizchi/moonlight/core.EditorState, @model.History, () -> String, Array[@model.Element]) -> Unit
+
 pub fn add_focusin_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit
 
 pub fn add_focusout_listener_ffi(@mizchi/js/core.Any, (@mizchi/js/core.Any) -> Unit) -> Unit

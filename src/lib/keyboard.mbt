@@ -251,25 +251,15 @@ pub fn delete_selection(
 
 ///|
 /// 選択要素を複製して、複製したほうを選択する。両方のシェルから呼ぶ。
+///
+/// 貼り付けと同じく、子要素（ラベル）も一緒に写し、写した要素どうしの接続は
+/// 張り替え、写さなかった要素への接続は外す。クリップボードの中身は変えない。
 pub fn duplicate_selection(
   state : @core.EditorState,
   history : @model.History,
   new_id : () -> String,
 ) -> Unit {
-  let added : Array[@model.Command] = []
-  let new_ids : Array[String] = []
-  for id in state.selected_ids.get() {
-    guard state.find_element(id) is Some(el) else { continue }
-    let dup_id = new_id()
-    let dup = { ..el, id: dup_id, x: el.x + 20.0, y: el.y + 20.0, }
-    state.add_element_raw(dup)
-    added.push(@model.AddElement(dup))
-    new_ids.push(dup_id)
-  }
-  guard added.length() > 0 else { return }
-  history.undo_stack.push(@model.Batch(added))
-  history.redo_stack.clear()
-  state.select_multiple(new_ids)
+  add_copies(state, history, new_id, collect_selection(state))
 }
 
 ///|

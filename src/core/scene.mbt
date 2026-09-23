@@ -140,6 +140,8 @@ pub struct EditorState {
   validation_result : @luna.Signal[@model.ValidationResult?] // 検証結果
   // プレーンSVG要素のID（移動のみ可能）
   plain_svg_ids : @luna.Signal[Array[String]] // プレーンSVGとしてインポートされた要素
+  // ポインタ操作を始めたときの要素一式（Undo の記録と、複数ドラッグの再計算に使う）
+  gesture_origin : Ref[Array[@model.Element]?]
 }
 
 ///|
@@ -219,6 +221,7 @@ pub fn EditorState::new(width : Int, height : Int) -> EditorState {
     // バリデーション
     validation_result: @luna.signal(None),
     plain_svg_ids: @luna.signal([]),
+    gesture_origin: { val: None, },
   }
 }
 
@@ -443,10 +446,8 @@ pub fn EditorState::rename_element_id(
   if self.has_element_with_id(new_id) {
     return false
   }
-  // IDを更新
-  self.elements.update(fn(els) {
-    els.map(fn(el) { if el.id == old_id { { ..el, id: new_id, } } else { el } })
-  })
+  // IDを更新（線の接続先・子要素の親も一緒に付け替える）
+  self.elements.update(fn(els) { @model.rename_element(els, old_id, new_id) })
   // 選択状態も更新
   self.selected_ids.update(fn(ids) {
     ids.map(fn(id) { if id == old_id { new_id } else { id } })
@@ -625,6 +626,7 @@ pub fn EditorState::start_drag(
 ) -> Unit {
   // 要素が見つからない場合は何もしない（無効な要素は add_element_raw でスキップされる）
   guard self.find_element(element_id) is Some(el) else { return }
+  self.begin_gesture()
   // Line の場合は終点と接続情報、接続要素の位置も保存
   let (start_shape, start_connections, connected_positions) : (
     @model.ShapeType?,
@@ -685,6 +687,7 @@ pub fn EditorState::drag_move(
   mouse_y : Double,
 ) -> Unit {
   guard self.drag_state.get() is Some(state) else { return }
+  self.remember_gesture_origin()
   let pos = @model.calc_drag_position(
     state.offset_x,
     state.offset_y,
@@ -698,16 +701,11 @@ pub fn EditorState::drag_move(
 ///|
 /// ドラッグ終了
 pub fn EditorState::end_drag(self : EditorState) -> Unit {
-  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）
+  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）。
+  // ジョイントはアンカーの上に保ったまま丸める。
   if self.drag_state.get() is Some(state) {
     self.elements.update(fn(els) {
-      els.map(fn(el) {
-        if el.id == state.element_id {
-          @model.round_element_coords(el)
-        } else {
-          el
-        }
-      })
+      @model.round_element_keeping_joints(els, state.element_id)
     })
   }
   self.drag_state.set(None)
@@ -944,10 +942,8 @@ pub fn EditorState::rename_element_raw(
   old_id : String,
   new_id : String,
 ) -> Unit {
-  // IDを更新
-  self.elements.update(fn(els) {
-    els.map(fn(el) { if el.id == old_id { { ..el, id: new_id, } } else { el } })
-  })
+  // IDを更新（線の接続先・子要素の親も一緒に付け替える）
+  self.elements.update(fn(els) { @model.rename_element(els, old_id, new_id) })
   // 選択状態も更新
   self.selected_ids.update(fn(ids) {
     ids.map(fn(id) { if id == old_id { new_id } else { id } })
@@ -1326,6 +1322,7 @@ pub fn EditorState::start_resize(
 ) -> Unit {
   // 要素が見つからない場合は何もしない（無効な要素は add_element_raw でスキップされる）
   guard self.find_element(element_id) is Some(el) else { return }
+  self.begin_gesture()
   self.resize_state.set(
     Some({
       element_id,
@@ -1367,6 +1364,7 @@ pub fn EditorState::resize_move(
   mouse_y : Double,
 ) -> Unit {
   guard self.resize_state.get() is Some(state) else { return }
+  self.remember_gesture_origin()
   let gesture : @interaction.ResizeGesture = {
     element_id: state.element_id,
     handle: state.handle,
@@ -1430,7 +1428,13 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
     return
   }
   let is_line = el.shape is @model.Line(_, _)
+  // 掴んだだけで動かしていなければ、ジョイントはそのまま（吸着先の候補が
+  // 無いのを「引き離した」と取り違えると、クリックしただけで外れてしまう）
+  let moved = el.x != resize.start_x ||
+    el.y != resize.start_y ||
+    el.shape != resize.start_shape
   match (is_line, @interaction.endpoint_of_handle(resize.handle)) {
+    (true, Some(_)) if !moved => ()
     (true, Some(endpoint)) => {
       let scene = self.to_interaction_scene()
       let jointed = match self.pending_connection.get() {
@@ -1459,15 +1463,9 @@ pub fn EditorState::end_resize(self : EditorState) -> Unit {
       return
     }
   }
-  // 座標を整数に丸める（SVG の可読性向上）
+  // 座標を整数に丸める（SVG の可読性向上）。ジョイントはアンカーの上に保つ。
   self.elements.update(fn(els) {
-    els.map(fn(e) {
-      if e.id == resize.element_id {
-        @model.round_element_coords(e)
-      } else {
-        e
-      }
-    })
+    @model.round_element_keeping_joints(els, resize.element_id)
   })
   // ハンドルを出しておきたいので選択状態にする
   self.select(Some(resize.element_id))
@@ -1538,6 +1536,59 @@ pub fn execute_command(
 }
 
 ///|
+/// 操作の前後の要素一式を一段の履歴として積む（何も変わっていなければ積まない）
+pub fn record_change(
+  history : @model.History,
+  before : Array[@model.Element],
+  after : Array[@model.Element],
+) -> Unit {
+  guard before != after else { return }
+  history.undo_stack.push(@model.ReplaceElements(before, after))
+  history.redo_stack.clear()
+}
+
+///|
+/// 要素一式を差し替える（Undo / Redo 用）。消えた要素は選択からも外す。
+pub fn EditorState::replace_elements(
+  self : EditorState,
+  elements : Array[@model.Element],
+) -> Unit {
+  self.elements.set(elements)
+  self.selected_ids.update(fn(ids) {
+    ids.filter(fn(id) { elements.iter().any(fn(e) { e.id == id }) })
+  })
+}
+
+///|
+/// ポインタ操作を始める（前の操作の開始時点は捨てる）
+pub fn EditorState::begin_gesture(self : EditorState) -> Unit {
+  self.gesture_origin.val = None
+}
+
+///|
+/// ポインタ操作で最初に要素を動かす直前の状態を覚えておく（二度目以降は何もしない）
+///
+/// 押した時点ではなく最初に動かす直前に覚えるのは、押した直後に入力欄の blur で
+/// テキスト編集が確定する（別の一段として積まれる）ことがあるため。押した時点で
+/// 覚えると、その変更までこの操作の一段に紛れ込む。
+fn EditorState::remember_gesture_origin(self : EditorState) -> Unit {
+  if self.gesture_origin.val is None {
+    self.gesture_origin.val = Some(self.elements.get())
+  }
+}
+
+///|
+/// ポインタ操作を締めくくり、開始時点からの変化を一段の履歴として積む
+pub fn EditorState::commit_gesture(
+  self : EditorState,
+  history : @model.History,
+) -> Unit {
+  guard self.gesture_origin.val is Some(before) else { return }
+  self.gesture_origin.val = None
+  record_change(history, before, self.elements.get())
+}
+
+///|
 /// Undo（取り消し）
 pub fn undo_command(history : @model.History, state : EditorState) -> Bool {
   match history.undo_stack.pop() {
@@ -1604,6 +1655,7 @@ fn apply_command(command : @model.Command, state : EditorState) -> Unit {
       for cmd in commands {
         apply_command(cmd, state)
       }
+    @model.ReplaceElements(_, after) => state.replace_elements(after)
   }
 }
 
@@ -1646,6 +1698,7 @@ fn unapply_command(command : @model.Command, state : EditorState) -> Unit {
       for i = commands.length() - 1; i >= 0; i = i - 1 {
         unapply_command(commands[i], state)
       }
+    @model.ReplaceElements(before, _) => state.replace_elements(before)
   }
 }
 
@@ -1712,6 +1765,7 @@ pub fn EditorState::start_multi_drag(
   if ids.length() == 0 {
     return
   }
+  self.begin_gesture()
   // 各要素の開始位置を記録
   let start_positions : Array[(String, Double, Double)] = []
   let line_endpoints : Array[(String, Double, Double)] = []
@@ -1737,118 +1791,44 @@ pub fn EditorState::start_multi_drag(
 
 ///|
 /// 複数要素のドラッグ中の移動
+///
+/// 毎回ドラッグ開始時の配置から計算し直す。選択の組をまとめて動かし、結合は
+/// あとから一度にアンカーへ合わせるので、選択した順番や途中の丸めに左右されない。
 pub fn EditorState::multi_drag_move(
   self : EditorState,
   mouse_x : Double,
   mouse_y : Double,
 ) -> Unit {
   guard self.multi_drag_state.get() is Some(state) else { return }
+  self.remember_gesture_origin()
   let dx = mouse_x - state.mouse_start_x
   let dy = mouse_y - state.mouse_start_y
-  let selected_ids = state.element_ids
-  // Line の初期終点を検索するヘルパー
-  let find_initial_endpoint = fn(id : String) -> (Double, Double)? {
-    for ep in state.line_endpoints {
-      let (ep_id, x2, y2) = ep
-      if ep_id == id {
-        return Some((x2, y2))
-      }
-    }
-    None
+  let origin = match self.gesture_origin.val {
+    Some(elements) => elements
+    None => self.elements.get()
   }
-  // 各要素を移動
-  for pos in state.start_positions {
-    let (id, start_x, start_y) = pos
-    guard self.find_element(id) is Some(el) else { continue }
-    // Line の場合は接続を考慮
-    match el.shape {
-      @model.Line(_, _) => {
-        // 接続情報を確認
-        let conns = el.connections.unwrap_or(@model.LineConnections::none())
-        // 始点が選択外の要素に接続されているか
-        let start_connected_outside = match conns.start {
-          Some(conn) => !selected_ids.contains(conn.element_id)
-          None => false
-        }
-        // 終点が選択外の要素に接続されているか
-        let end_connected_outside = match conns.end {
-          Some(conn) => !selected_ids.contains(conn.element_id)
-          None => false
-        }
-        if start_connected_outside && end_connected_outside {
-          // 両端が選択外に接続 → 移動しない
-          continue
-        } else if start_connected_outside {
-          // 始点が選択外に接続 → 終点だけ移動（初期値から計算）
-          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else {
-            continue
-          }
-          let new_x2 = init_x2 + dx
-          let new_y2 = init_y2 + dy
-          self.elements.update(fn(els) {
-            els.map(fn(e) {
-              if e.id == id {
-                { ..e, shape: @model.Line(new_x2, new_y2), }
-              } else {
-                e
-              }
-            })
-          })
-        } else if end_connected_outside {
-          // 終点が選択外に接続 → 始点だけ移動（x2, y2 は絶対座標なのでそのまま）
-          guard find_initial_endpoint(id) is Some((init_x2, init_y2)) else {
-            continue
-          }
-          let new_x = start_x + dx
-          let new_y = start_y + dy
-          let (snapped_x, snapped_y) = self.snap_to_grid(new_x, new_y)
-          self.elements.update(fn(els) {
-            els.map(fn(e) {
-              if e.id == id {
-                {
-                  ..e,
-                  x: snapped_x,
-                  y: snapped_y,
-                  shape: @model.Line(init_x2, init_y2),
-                }
-              } else {
-                e
-              }
-            })
-          })
-        } else {
-          // 両端とも選択外に接続していない → 通常移動
-          let new_x = start_x + dx
-          let new_y = start_y + dy
-          let (snapped_x, snapped_y) = self.snap_to_grid(new_x, new_y)
-          self.move_element(id, snapped_x, snapped_y)
-        }
-      }
-      _ => {
-        // Line 以外は通常移動
-        let new_x = start_x + dx
-        let new_y = start_y + dy
-        let (snapped_x, snapped_y) = self.snap_to_grid(new_x, new_y)
-        self.move_element(id, snapped_x, snapped_y)
-      }
-    }
+  // 移動先は要素ごとにグリッドへ合わせ、整数に丸める（単独ドラッグと同じ）
+  let snap = fn(v : Double) -> Double {
+    let (snapped, _) = self.snap_to_grid(v, 0.0)
+    @model.round_coord(snapped)
   }
+  self.elements.set(
+    @model.move_selection(origin, state.element_ids, dx, dy, snap~),
+  )
 }
 
 ///|
 /// 複数要素のドラッグを終了
 pub fn EditorState::end_multi_drag(self : EditorState) -> Unit {
-  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）
+  // ドラッグ終了時、座標を整数に丸める（SVG の可読性向上）。
+  // ジョイントはアンカーの上に保ったまま丸める。
   if self.multi_drag_state.get() is Some(state) {
-    let ids = state.element_ids
     self.elements.update(fn(els) {
-      els.map(fn(el) {
-        if ids.contains(el.id) {
-          @model.round_element_coords(el)
-        } else {
-          el
-        }
-      })
+      let mut out = els
+      for id in state.element_ids {
+        out = @model.round_element_keeping_joints(out, id)
+      }
+      out
     })
   }
   self.multi_drag_state.set(None)

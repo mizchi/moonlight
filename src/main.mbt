@@ -719,7 +719,7 @@ fn editor_app() -> @element.DomNode {
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,
@@ -1191,6 +1191,7 @@ fn commit_text_edit(
 /// pointermove ハンドラを作成
 fn create_pointermove_handler(
   state : @core.EditorState,
+  history : @model.History,
   get_screen_coords : (@js.Any) -> (Double, Double),
   get_scene_coords : (@js.Any) -> (Double, Double),
   active_pointers : Ref[Map[Int, @model.Point]],
@@ -1208,6 +1209,8 @@ fn create_pointermove_handler(
       if state.multi_drag_state.get() is Some(_) {
         state.end_multi_drag()
       }
+      // 領域外で離された操作も、pointerup と同じく一段の履歴にする
+      state.commit_gesture(history)
     }
 
     // ポインター位置を更新
@@ -1263,98 +1266,6 @@ fn create_pointermove_handler(
 }
 
 ///|
-/// リサイズ終了時のコマンド記録
-fn record_resize_end(
-  state : @core.EditorState,
-  history : @model.History,
-  resize : @model.ResizeState,
-) -> Unit {
-  guard state.find_element(resize.element_id) is Some(el) else { return }
-  let changed = resize.start_shape != el.shape ||
-    resize.start_x != el.x ||
-    resize.start_y != el.y
-  guard changed else { return }
-  // 位置変更があれば記録
-  if resize.start_x != el.x || resize.start_y != el.y {
-    history.undo_stack.push(
-      @model.MoveElement(
-        resize.element_id,
-        resize.start_x,
-        resize.start_y,
-        el.x,
-        el.y,
-      ),
-    )
-  }
-  history.undo_stack.push(
-    @model.ResizeElement(resize.element_id, resize.start_shape, el.shape),
-  )
-  history.redo_stack.clear()
-}
-
-///|
-/// 複数要素ドラッグ終了時のコマンド記録
-fn record_multi_drag_end(
-  state : @core.EditorState,
-  history : @model.History,
-  multi_drag : @model.MultiDragState,
-) -> Unit {
-  for pos in multi_drag.start_positions {
-    let (id, start_x, start_y) = pos
-    guard state.find_element(id) is Some(el) else { continue }
-    guard start_x != el.x || start_y != el.y else { continue }
-    history.undo_stack.push(
-      @model.MoveElement(id, start_x, start_y, el.x, el.y),
-    )
-  }
-  history.redo_stack.clear()
-}
-
-///|
-/// Line ドラッグ時の接続要素移動を記録
-fn record_connected_moves(
-  state : @core.EditorState,
-  history : @model.History,
-  positions : Array[(String, Double, Double)],
-) -> Unit {
-  for pos in positions {
-    let (id, start_x, start_y) = pos
-    guard state.find_element(id) is Some(el) else { continue }
-    guard start_x != el.x || start_y != el.y else { continue }
-    history.undo_stack.push(
-      @model.MoveElement(id, start_x, start_y, el.x, el.y),
-    )
-  }
-}
-
-///|
-/// ドラッグ終了時のコマンド記録
-fn record_drag_end(
-  state : @core.EditorState,
-  history : @model.History,
-  drag : @model.DragState,
-) -> Unit {
-  guard state.find_element(drag.element_id) is Some(el) else { return }
-  guard drag.start_x != el.x || drag.start_y != el.y else { return }
-  // Line の場合は終点の変更もコマンドとして記録
-  match (drag.start_shape, el.shape) {
-    (Some(@model.Line(_, _) as old_shape), @model.Line(_, _) as new_shape) => {
-      record_connected_moves(state, history, drag.connected_start_positions)
-      if old_shape != new_shape {
-        history.undo_stack.push(
-          @model.ResizeElement(drag.element_id, old_shape, new_shape),
-        )
-      }
-    }
-    _ => ()
-  }
-  history.undo_stack.push(
-    @model.MoveElement(drag.element_id, drag.start_x, drag.start_y, el.x, el.y),
-  )
-  history.redo_stack.clear()
-}
-
-///|
 /// pointerup ハンドラを作成
 fn create_pointerup_handler(
   state : @core.EditorState,
@@ -1390,21 +1301,26 @@ fn create_pointerup_handler(
       state.end_box_select()
       return
     }
-    if state.resize_state.get() is Some(resize) {
-      record_resize_end(state, history, resize)
-      state.end_resize()
-      return
-    }
-    if state.multi_drag_state.get() is Some(multi_drag) {
-      record_multi_drag_end(state, history, multi_drag)
-      state.end_multi_drag()
-      return
-    }
-    if state.drag_state.get() is Some(drag) {
-      record_drag_end(state, history, drag)
-    }
+    finish_pointer_gesture(state, history)
+  }
+}
+
+///|
+/// ポインタ操作（リサイズ・複数ドラッグ・ドラッグ）を確定し、一段の履歴にする。
+/// 確定（丸め・接続の張り替え・潰れた線の破棄）が済んでから、開始時点との
+/// 差分を積む。
+fn finish_pointer_gesture(
+  state : @core.EditorState,
+  history : @model.History,
+) -> Unit {
+  if state.resize_state.get() is Some(_) {
+    state.end_resize()
+  } else if state.multi_drag_state.get() is Some(_) {
+    state.end_multi_drag()
+  } else {
     state.end_drag()
   }
+  state.commit_gesture(history)
 }
 
 ///|
@@ -1858,7 +1774,7 @@ pub fn render_editor_modal(
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,
@@ -1987,7 +1903,7 @@ fn embedded_editor_app(
     last_click_element, double_click_threshold, active_pointers,
   )
   let on_pointermove = create_pointermove_handler(
-    state, get_screen_coords, get_scene_coords, active_pointers,
+    state, history, get_screen_coords, get_scene_coords, active_pointers,
   )
   let on_pointerup = create_pointerup_handler(
     state,

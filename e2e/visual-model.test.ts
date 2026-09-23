@@ -188,6 +188,35 @@ async function editorLineEndpoints(page: Page, editorId: string) {
   return { x1: num('x1'), y1: num('y1'), x2: num('x2'), y2: num('y2') };
 }
 
+/** エディタが書き出した SVG から、要素の数値属性を読む */
+async function editorAttrs(page: Page, tag: string, editorId: string, names: string[]) {
+  const svg: string = await page.evaluate(() => window.harness.editor.exportSvg());
+  const found = svg.match(new RegExp(`<${tag}[^>]*\\bdata-id="${editorId}"[^>]*>`))?.[0];
+  expect(found, `the exported SVG should carry ${tag} ${editorId}`).toBeDefined();
+  return Object.fromEntries(
+    names.map((name) => {
+      const v = found!.match(new RegExp(`\\s${name}="([-\\d.]+)"`));
+      expect(v, `${tag} ${editorId} should carry ${name}`).not.toBeNull();
+      return [name, Number(v![1])];
+    }),
+  ) as Record<string, number>;
+}
+
+/** BRIDGE の線 l1 の両端が、r1 の右辺と c1 の左端に載っていること */
+async function expectLineOnAnchors(page: Page, ids: Record<string, string>, tolerance = 0.5) {
+  const l1 = await editorLineEndpoints(page, ids['l1']);
+  const r1 = await editorAttrs(page, 'rect', ids['r1'], ['x', 'y', 'width', 'height']);
+  const c1 = await editorAttrs(page, 'circle', ids['c1'], ['cx', 'cy', 'r']);
+  const right = { x: r1.x + r1.width, y: r1.y + r1.height / 2 };
+  const left = { x: c1.cx - c1.r, y: c1.cy };
+  expect(Math.hypot(l1.x1 - right.x, l1.y1 - right.y), 'l1 start should sit on r1.right').toBeLessThanOrEqual(
+    tolerance,
+  );
+  expect(Math.hypot(l1.x2 - left.x, l1.y2 - left.y), 'l1 end should sit on c1.left').toBeLessThanOrEqual(
+    tolerance,
+  );
+}
+
 /** data-connection-* は取り込み後の ID で書かれるので、対応表で組み立てる */
 function connectionAttr(
   ids: Record<string, string>,
@@ -366,6 +395,79 @@ test.describe('Visual model — semantic prediction vs. real interaction', () =>
     );
   });
 
+  /**
+   * 以下は網羅チェック（src/joint_sweep_wbtest.mbt）が見つけた断線のうち、
+   * ブラウザの配線（キー入力・保存と読み込み）を通さないと確かめられないもの。
+   * 端点がアンカーの上にあるかは、書き出した SVG の座標から計算して確かめる。
+   */
+  test('an arrow key nudges a jointed line without detaching it', async ({ page }) => {
+    const ids = await loadScene(page, BRIDGE);
+    // 線の胴体をクリックして選ぶ（キー入力もこのエディタに届くようになる）
+    const mid = await toScreen(page, 275, 157.5);
+    await page.mouse.click(mid.x, mid.y);
+    await page.waitForTimeout(80);
+    expect(await page.evaluate(() => window.harness.editor.getSelectedIds())).toEqual([ids['l1']]);
+
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(80);
+
+    await expectLineOnAnchors(page, ids);
+  });
+
+  test('undo after pulling an endpoint away brings the joint back', async ({ page }) => {
+    const ids = await loadScene(page, BRIDGE);
+    await page.evaluate(() => window.harness.editor.select(window.harness.mapId('l1')));
+    await page.waitForTimeout(80);
+    await dragHandleTo(page, 'line-end', { x: 560, y: 380 });
+    let svg = await page.evaluate(() => window.harness.editor.exportSvg());
+    expect(svg).not.toContain(connectionAttr(ids, 'end', 'c1', 'left'));
+
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(80);
+    svg = await page.evaluate(() => window.harness.editor.exportSvg());
+    expect(svg, 'undo should reconnect the line').toContain(connectionAttr(ids, 'end', 'c1', 'left'));
+    await expectLineOnAnchors(page, ids);
+
+    // 戻ったジョイントが生きていること: 円を動かすと線の端が付いてくる
+    await dragScene(page, { x: 420, y: 200 }, { x: 470, y: 300 });
+    await expectLineOnAnchors(page, ids);
+  });
+
+  test('a connection to a deleted shape does not reattach after a reload', async ({ page }) => {
+    await loadScene(page, BRIDGE);
+    // 円を消す。線の終点はどこにも繋がらなくなる
+    const circle = await toScreen(page, 420, 200);
+    await page.mouse.click(circle.x, circle.y);
+    await page.waitForTimeout(80);
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(80);
+    const saved = await page.evaluate(() => window.harness.editor.exportSvg());
+
+    // 読み込み直すと ID は 1 から振り直される。消えた円の古い ID のまま残った
+    // 参照は、振り直した別の要素（ここでは線そのもの）を指してしまう
+    await openHarness(page);
+    await page.evaluate((svg) => window.harness.editor.importSvg(svg), saved);
+    await page.waitForTimeout(80);
+    const reloaded = await page.evaluate(() => window.harness.editor.exportSvg());
+
+    const lineTag = reloaded.match(/<line[^>]*\bdata-id="([^"]+)"[^>]*>/);
+    expect(lineTag, 'the line should survive the reload').not.toBeNull();
+    const lineId = lineTag![1];
+    for (const m of reloaded.matchAll(/data-connection-(start|end)="([^":]+):/g)) {
+      const target = m[2];
+      expect(target, `the ${m[1]} of the line must not point at the line itself`).not.toBe(lineId);
+      expect(reloaded, `the ${m[1]} of the line points at ${target}, which should exist`).toContain(
+        `data-id="${target}"`,
+      );
+    }
+    expect(lineTag![0], 'the dangling end should come back unconnected').not.toContain(
+      'data-connection-end',
+    );
+    expect(lineTag![0], 'the end still attached to the rectangle stays').toContain(
+      'data-connection-start',
+    );
+  });
+
   test('the editor round-trips the scene the model describes', async ({ page }) => {
     const model = await runModel(page, BRIDGE);
     const ids = await loadScene(page, BRIDGE);
@@ -392,6 +494,15 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
     const stage = page.locator('#stage');
     const reviewer = createReviewer();
     const failures: string[] = [];
+    // 主張はどれも形と接続についてのもの。選択中の線に付くハンドルや
+    // 「Selected: ...」の一行があると、判定役が「ある線」を「選択中の線」と
+    // 読み違えることがある（その線について主張が偽だと答えてしまう）。
+    await page.evaluate(() => window.harness.editor.deselect());
+    await page.waitForTimeout(80);
+    const scene = model.description
+      .split('\n')
+      .filter((line) => !line.startsWith('Selected:'))
+      .join('\n');
 
     console.log(`[vlmkit] reviewer: ${reviewerName()}`);
     console.log(`[vlmkit] ${model.claims.length} claim(s) to check`);
@@ -402,7 +513,7 @@ test.describe('Visual model — what the picture must show (vlmkit)', () => {
         const verdict = await nlAssert({
           assertion: claim,
           target: stage,
-          metadata: { scene: model.description },
+          metadata: { scene },
           reviewer,
         });
         console.log(`[vlmkit] PASS  ${claim}\n          ${verdict.reasoning}`);
