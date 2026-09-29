@@ -319,19 +319,19 @@ fn create_editor_handle_js(
 
 ///|
 /// FFI でハンドルオブジェクトを作成
-extern "js" fn create_editor_handle_ffi(
+extern "js" fn create_editor_handle_ffi_fixed(
   export_svg : () -> String,
   import_svg : (String) -> Bool,
   clear : () -> Unit,
   has_focus : () -> Bool,
-  select : (Array[String]) -> Unit,
+  select : (FixedArray[String]) -> Unit,
   select_all : () -> Unit,
   deselect : () -> Unit,
-  get_selected_ids : () -> Array[String],
+  get_selected_ids : () -> FixedArray[String],
   focus : () -> Unit,
   blur : () -> Unit,
-  get_elements : () -> Array[@model.Element],
-  delete_elements : (Array[String]) -> Unit,
+  get_elements : () -> FixedArray[@model.Element],
+  delete_elements : (FixedArray[String]) -> Unit,
   set_mode : (String) -> Unit,
   get_mode : () -> String,
   set_readonly : (Bool) -> Unit,
@@ -423,6 +423,27 @@ extern "js" fn create_editor_handle_ffi(
   #|   _fireElementDelete: function(id) { this._elementDeleteCallbacks.forEach(cb => cb(id)); }
   #| });
   #| }
+
+fn create_editor_handle_ffi(
+  export_svg : () -> String,
+  import_svg : (String) -> Bool,
+  clear : () -> Unit,
+  has_focus : () -> Bool,
+  select : (Array[String]) -> Unit,
+  select_all : () -> Unit,
+  deselect : () -> Unit,
+  get_selected_ids : () -> Array[String],
+  focus : () -> Unit,
+  blur : () -> Unit,
+  get_elements : () -> Array[@model.Element],
+  delete_elements : (Array[String]) -> Unit,
+  set_mode : (String) -> Unit,
+  get_mode : () -> String,
+  set_readonly : (Bool) -> Unit,
+  is_readonly : () -> Bool,
+) -> @js.Any {
+  create_editor_handle_ffi_fixed(export_svg, import_svg, clear, has_focus, fn(__a1) { select(Array::from_fixed_array(__a1)) }, select_all, deselect, fn() { FixedArray::from_array(get_selected_ids()) }, focus, blur, fn() { FixedArray::from_array(get_elements()) }, fn(__a2) { delete_elements(Array::from_fixed_array(__a2)) }, set_mode, get_mode, set_readonly, is_readonly)
+}
 
 ///|
 /// ハンドルにイベントリスナーをセットアップ
